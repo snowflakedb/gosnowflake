@@ -470,14 +470,6 @@ func (sct *SCTest) mustQueryContext(ctx context.Context, query string, args []dr
 	return rows
 }
 
-func (sct *SCTest) mustExecContext(ctx context.Context, query string, args []driver.NamedValue) driver.Result {
-	result, err := sct.sc.ExecContext(ctx, query, args)
-	if err != nil {
-		sct.fail("ExecContext", query, err)
-	}
-	return result
-}
-
 type testConfig struct {
 	dsn string
 }
@@ -1035,9 +1027,9 @@ func TestDecfloat(t *testing.T) {
 			bfFromString, ok := new(big.Float).SetPrec(127).SetString("1234567890.1234567890123456789012345678")
 			assertTrueF(t, ok)
 			arrays := []any{
-				Array([]string{"123.45", "1234567890.1234567890123456789012345678"}, DataTypeDecfloat),
-				Array([]float64{123.45, 1234567890.1234567890123456789012345678}, DataTypeDecfloat),
-				Array([]*big.Float{
+				mustArray([]string{"123.45", "1234567890.1234567890123456789012345678"}, DataTypeDecfloat),
+				mustArray([]float64{123.45, 1234567890.1234567890123456789012345678}, DataTypeDecfloat),
+				mustArray([]*big.Float{
 					new(big.Float).SetFloat64(123.45),
 					bfFromString,
 				}, DataTypeDecfloat),
@@ -1738,7 +1730,7 @@ func testArray(t *testing.T, json bool) {
 }
 
 func TestLargeSetResult(t *testing.T) {
-	CustomJSONDecoderEnabled = false
+	customJSONDecoderEnabled = false
 	testLargeSetResult(t, 100000, false)
 }
 
@@ -2198,7 +2190,7 @@ func TestOpenWithConfig(t *testing.T) {
 
 func TestOpenWithConfigCancel(t *testing.T) {
 	wiremock.registerMappings(t,
-		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		wiremockMapping{filePath: "auth/password/successful_flow_with_telemetry.json", params: map[string]string{"%CLIENT_TELEMETRY_ENABLED%": "true"}},
 	)
 	driver := SnowflakeDriver{}
 	config := wiremock.connectionConfig()
@@ -2266,20 +2258,6 @@ func TestOpenWithTransport(t *testing.T) {
 	// Test that transport override also works in OCSP checks disabled.
 	countingTransport.reset()
 	config.DisableOCSPChecks = true
-	db, err = driver.OpenWithConfig(context.Background(), *config)
-	assertNilF(t, err, fmt.Sprintf("failed to open with config. config: %v", config))
-	conn = db.(*snowflakeConn)
-	if conn.rest.Client.Transport != transport {
-		t.Fatal("transport doesn't match")
-	}
-	db.Close()
-	if countingTransport.totalRequests() == 0 {
-		t.Fatal("transport did not receive any requests")
-	}
-
-	// Test that transport override also works in insecure mode
-	countingTransport.reset()
-	config.InsecureMode = true
 	db, err = driver.OpenWithConfig(context.Background(), *config)
 	assertNilF(t, err, fmt.Sprintf("failed to open with config. config: %v", config))
 	conn = db.(*snowflakeConn)

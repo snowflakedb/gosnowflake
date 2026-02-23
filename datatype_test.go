@@ -3,29 +3,30 @@ package gosnowflake
 import (
 	"database/sql/driver"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 	"testing"
 )
 
 func TestDataTypeMode(t *testing.T) {
 	var testcases = []struct {
 		tp    driver.Value
-		tmode snowflakeType
+		tmode types.SnowflakeType
 		err   error
 	}{
-		{tp: DataTypeTimestampLtz, tmode: timestampLtzType, err: nil},
-		{tp: DataTypeTimestampNtz, tmode: timestampNtzType, err: nil},
-		{tp: DataTypeTimestampTz, tmode: timestampTzType, err: nil},
-		{tp: DataTypeDate, tmode: dateType, err: nil},
-		{tp: DataTypeTime, tmode: timeType, err: nil},
-		{tp: DataTypeBinary, tmode: binaryType, err: nil},
-		{tp: DataTypeObject, tmode: objectType, err: nil},
-		{tp: DataTypeArray, tmode: arrayType, err: nil},
-		{tp: DataTypeVariant, tmode: variantType, err: nil},
-		{tp: DataTypeFixed, tmode: fixedType,
+		{tp: DataTypeTimestampLtz, tmode: types.TimestampLtzType, err: nil},
+		{tp: DataTypeTimestampNtz, tmode: types.TimestampNtzType, err: nil},
+		{tp: DataTypeTimestampTz, tmode: types.TimestampTzType, err: nil},
+		{tp: DataTypeDate, tmode: types.DateType, err: nil},
+		{tp: DataTypeTime, tmode: types.TimeType, err: nil},
+		{tp: DataTypeBinary, tmode: types.BinaryType, err: nil},
+		{tp: DataTypeObject, tmode: types.ObjectType, err: nil},
+		{tp: DataTypeArray, tmode: types.ArrayType, err: nil},
+		{tp: DataTypeVariant, tmode: types.VariantType, err: nil},
+		{tp: DataTypeFixed, tmode: types.FixedType,
 			err: fmt.Errorf(errMsgInvalidByteArray, DataTypeFixed)},
-		{tp: DataTypeReal, tmode: realType,
+		{tp: DataTypeReal, tmode: types.RealType,
 			err: fmt.Errorf(errMsgInvalidByteArray, DataTypeFixed)},
-		{tp: 123, tmode: nullType,
+		{tp: 123, tmode: types.NullType,
 			err: fmt.Errorf(errMsgInvalidByteArray, 123)},
 	}
 	for _, ts := range testcases {

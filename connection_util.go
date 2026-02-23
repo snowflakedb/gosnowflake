@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -111,9 +112,7 @@ func (sc *snowflakeConn) processFileTransfer(
 	query string,
 	isInternal bool) (
 	*execResponse, error) {
-	options := &SnowflakeFileTransferOptions{
-		RaisePutGetError: true,
-	}
+	options := &SnowflakeFileTransferOptions{}
 	sfa := snowflakeFileTransferAgent{
 		ctx:          ctx,
 		sc:           sc,
@@ -138,7 +137,7 @@ func (sc *snowflakeConn) processFileTransfer(
 	if sfa.options.MultiPartThreshold == 0 {
 		sfa.options.MultiPartThreshold = multiPartThreshold
 		// for streaming download, use a smaller default part size
-		if sfa.commandType == downloadCommand && sfa.options.GetFileToStream {
+		if sfa.commandType == downloadCommand && isFileGetStream(ctx) {
 			sfa.options.MultiPartThreshold = streamingMultiPartThreshold
 		}
 	}
@@ -149,7 +148,7 @@ func (sc *snowflakeConn) processFileTransfer(
 	if err != nil {
 		return nil, err
 	}
-	if sfa.options != nil && sfa.options.GetFileToStream {
+	if sfa.options != nil && isFileGetStream(ctx) {
 		if err := writeFileStream(ctx, sfa.streamBuffer); err != nil {
 			return nil, err
 		}
@@ -158,7 +157,7 @@ func (sc *snowflakeConn) processFileTransfer(
 }
 
 func getFileStream(ctx context.Context) (io.Reader, error) {
-	s := ctx.Value(fileStreamFile)
+	s := ctx.Value(filePutStream)
 	if s == nil {
 		return nil, nil
 	}
@@ -167,6 +166,11 @@ func getFileStream(ctx context.Context) (io.Reader, error) {
 		return nil, errors.New("incorrect io.Reader")
 	}
 	return r, nil
+}
+
+func isFileGetStream(ctx context.Context) bool {
+	v := ctx.Value(fileGetStream)
+	return v != nil
 }
 
 func getFileTransferOptions(ctx context.Context) *SnowflakeFileTransferOptions {
@@ -221,6 +225,19 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 		paramsMutex.Lock()
 		sc.cfg.Params[strings.ToLower(param.Name)] = &v
 		paramsMutex.Unlock()
+	}
+}
+
+func (sc *snowflakeConn) configureTelemetry() {
+	paramsMutex.Lock()
+	defer paramsMutex.Unlock()
+	telemetryEnabled, ok := sc.cfg.Params["client_telemetry_enabled"]
+	// In-band telemetry is enabled by default on the backend side.
+	if ok && telemetryEnabled != nil && *telemetryEnabled == "true" {
+		sc.telemetry.flushSize = defaultFlushSize
+		sc.telemetry.sr = sc.rest
+		sc.telemetry.mutex = &sync.Mutex{}
+		sc.telemetry.enabled = true
 	}
 }
 
@@ -319,20 +336,6 @@ func populateChunkDownloader(
 	ctx context.Context,
 	sc *snowflakeConn,
 	data execResponseData) chunkDownloader {
-	if useStreamDownloader(ctx) && resultFormat(data.QueryResultFormat) == jsonFormat {
-		// stream chunk downloading only works for row based data formats, i.e. json
-		fetcher := &httpStreamChunkFetcher{
-			ctx:           ctx,
-			client:        sc.rest.Client,
-			clientIP:      sc.cfg.ClientIP,
-			headers:       data.ChunkHeaders,
-			maxRetryCount: sc.rest.MaxRetryCount,
-			qrmk:          data.Qrmk,
-			timeout:       sc.rest.RequestTimeout,
-		}
-		return newStreamChunkDownloader(ctx, fetcher, data.Total, data.RowType,
-			data.RowSet, data.Chunks)
-	}
 
 	return &snowflakeChunkDownloader{
 		sc:                 sc,

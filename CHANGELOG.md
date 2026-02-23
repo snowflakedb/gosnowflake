@@ -1,5 +1,38 @@
 # Changelog
 
+## 2.0.0
+
+Breaking changes:
+
+- Removed `RaisePutGetError` from `SnowflakeFileTransferOptions` - current behaviour is aligned to always raise errors for PUT/GET operations (snowflakedb/gosnowflake#1690).
+- Removed `GetFileToStream` from `SnowflakeFileTransferOptions` - using `WithFileGetStream` automatically enables file streaming for GETs (snowflakedb/gosnowflake#1690).
+- Renamed `WithFileStream` to `WithFilePutStream` for consistency (snowflakedb/gosnowflake#1690). 
+- `Array` function now returns error for unsupported types (snowflakedb/gosnowflake#1693).
+- `WithMultiStatement` does not return error anymore (snowflakedb/gosnowflake#1693).
+- `WithOriginalTimestamp` is removed, use `WithArrowBatchesTimestampOption(UseOriginalTimestamp)` instead (snowflakedb/gosnowflake#1693).
+- `WithMapValuesNullable` and `WithArrayValuesNullable` combined into one option `WithEmbeddedValuesNullable` (snowflakedb/gosnowflake#1693).
+- Hid streaming chunk downloader. It will be removed completely in the future (snowflakedb/gosnowflake#1696).
+- Maximum number of chunk download goroutines is now configured with `CLIENT_PREFETCH_THREADS` session parameter (snowflakedb/gosnowflake#1696).
+- Fixed typo in `GOSNOWFLAKE_SKIP_REGISTRATION` env variable (snowflakedb/gosnowflake#1696).
+- Removed `ClientIP` field from `Config` struct. This field was never used and is not needed for any functionality (snowflakedb/gosnowflake#1692).
+- Unexported MfaToken and IdToken (snowflakedb/gosnowflake#1692).
+- Removed `InsecureMode` field from `Config` struct. Use `DisableOCSPChecks` instead (snowflakedb/gosnowflake#1692).
+- Renamed `KeepSessionAlive` field in `Config` struct to `ServerSessionKeepAlive` to adjust with the remaining drivers (snowflakedb/gosnowflake#1692).
+- Removed `DisableTelemetry` field from `Config` struct. Use `CLIENT_TELEMETRY_ENABLED` session parameter instead (snowflakedb/gosnowflake#1692).
+- Removed stream chunk downloader. Use a regular, default downloader instead. (snowflakedb/gosnowflake#1702).
+- Removed `SnowflakeTransport`. Use `Config.Transporter` or simply register your own TLS config with `RegisterTLSConfig` if you just need a custom root certificates set (snowflakedb/gosnowflake#1703).
+- Arrow batches changes (snowflakedb/gosnowflake#1706):
+  - Arrow batches have been extracted to a separate package. It should significantly drop the compilation size for those who don't need arrow batches (~34MB -> ~18MB).
+  - Removed `GetArrowBatches` from `SnowflakeRows` and `SnowflakeResult`. Use `arrowbatches.GetArrowBatches(rows.(SnowflakeRows))` instead.
+  - Migrated functions:
+    - `sf.WithArrowBatchesTimestampOption` -> `arrowbatches.WithTimstampOption`
+    - `sf.WithArrowBatchesUtf8Validation` -> `arrowbatches.WithUtf8Validation`
+    - `sf.ArrowSnowflakeTimestampToTime` -> `arrowbatches.ArrowSnowflakeTimestampToTime`
+
+Bug fixes:
+
+- The query `context.Context` is now propagated to cloud storage operations for PUT and GET queries, allowing for better cancellation handling (snowflakedb/gosnowflake#1690).
+
 ## Upcoming Release
 
 New features:

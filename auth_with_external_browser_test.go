@@ -117,7 +117,7 @@ func TestClientStoreCredentials(t *testing.T) {
 		rows.Close()
 	})
 
-	t.Run("Verify validation of IDToken if option disabled", func(t *testing.T) {
+	t.Run("Verify validation of idToken if option disabled", func(t *testing.T) {
 		cleanupBrowserProcesses(t)
 		cfg.ClientStoreTemporaryCredential = 0
 		db := getDbHandlerFromConfig(t, cfg)

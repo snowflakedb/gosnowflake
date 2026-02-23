@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -200,7 +201,7 @@ func TestUploadFileWithGcsUploadFailedError(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -266,7 +267,7 @@ func TestUploadFileWithGcsUploadFailedWithRetry(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -333,7 +334,7 @@ func TestUploadFileWithGcsUploadFailedWithTokenExpired(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -384,7 +385,7 @@ func TestDownloadOneFileFromGcsFailed(t *testing.T) {
 		},
 		resStatus: downloaded, // bypass file header request
 	}
-	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	err = new(remoteStorageUtil).downloadOneFile(context.Background(), &downloadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -435,7 +436,7 @@ func TestDownloadOneFileFromGcsFailedWithRetry(t *testing.T) {
 		},
 		resStatus: downloaded, // bypass file header request
 	}
-	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	err = new(remoteStorageUtil).downloadOneFile(context.Background(), &downloadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -494,7 +495,7 @@ func TestDownloadOneFileFromGcsFailedWithTokenExpired(t *testing.T) {
 		},
 		resStatus: downloaded, // bypass file header request
 	}
-	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	err = new(remoteStorageUtil).downloadOneFile(context.Background(), &downloadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -553,7 +554,7 @@ func TestDownloadOneFileFromGcsFailedWithFileNotFound(t *testing.T) {
 		},
 		resStatus: downloaded, // bypass file header request
 	}
-	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	err = new(remoteStorageUtil).downloadOneFile(context.Background(), &downloadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -591,7 +592,7 @@ func TestGetHeaderTokenExpiredError(t *testing.T) {
 			},
 		},
 	}
-	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(context.Background(), &meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != renewToken {
@@ -627,7 +628,7 @@ func TestGetHeaderFileNotFound(t *testing.T) {
 			},
 		},
 	}
-	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(context.Background(), &meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != notFoundFile {
@@ -653,7 +654,7 @@ func TestGetHeaderPresignedUrlReturns404(t *testing.T) {
 		stageInfo:    &info,
 		presignedURL: presignedURL,
 	}
-	header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt")
+	header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(context.Background(), &meta, "file.txt")
 	if header != nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
@@ -688,7 +689,7 @@ func TestGetHeaderReturnsError(t *testing.T) {
 			},
 		},
 	}
-	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(context.Background(), &meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 }
@@ -720,7 +721,7 @@ func TestGetHeaderBadRequest(t *testing.T) {
 			},
 		},
 	}
-	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(context.Background(), &meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 
@@ -757,7 +758,7 @@ func TestGetHeaderRetryableError(t *testing.T) {
 			},
 		},
 	}
-	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(context.Background(), &meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != needRetry {
@@ -807,7 +808,7 @@ func TestUploadStreamFailed(t *testing.T) {
 
 	uploadMeta.realSrcStream = uploadMeta.srcStream
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -866,7 +867,7 @@ func TestUploadFileWithBadRequest(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -910,7 +911,7 @@ func TestGetFileHeaderEncryptionData(t *testing.T) {
 			},
 		},
 	}
-	header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt")
+	header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(context.Background(), &meta, "file.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -961,7 +962,7 @@ func TestGetFileHeaderEncryptionDataInterfaceConversionError(t *testing.T) {
 			},
 		},
 	}
-	_, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt")
+	_, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(context.Background(), &meta, "file.txt")
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -1027,7 +1028,7 @@ func TestUploadFileToGcsNoStatus(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -1078,7 +1079,7 @@ func TestDownloadFileFromGcsError(t *testing.T) {
 		},
 		resStatus: downloaded, // bypass file header request
 	}
-	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	err = new(remoteStorageUtil).downloadOneFile(context.Background(), &downloadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -1129,7 +1130,7 @@ func TestDownloadFileWithBadRequest(t *testing.T) {
 		},
 		resStatus: downloaded, // bypass file header request
 	}
-	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	err = new(remoteStorageUtil).downloadOneFile(context.Background(), &downloadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -1152,7 +1153,7 @@ func Test_snowflakeGcsClient_uploadFile(t *testing.T) {
 		client:    1,
 		stageInfo: &info,
 	}
-	err := new(snowflakeGcsClient).uploadFile("somedata", &meta, 1, 1)
+	err := new(snowflakeGcsClient).uploadFile(context.Background(), "somedata", &meta, 1, 1)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -1170,7 +1171,7 @@ func Test_snowflakeGcsClient_nativeDownloadFile(t *testing.T) {
 		client:    1,
 		stageInfo: &info,
 	}
-	err := new(snowflakeGcsClient).nativeDownloadFile(&meta, "dummy data", 1, multiPartThreshold)
+	err := new(snowflakeGcsClient).nativeDownloadFile(context.Background(), &meta, "dummy data", 1, multiPartThreshold)
 	if err == nil {
 		t.Error("should have raised an error")
 	}

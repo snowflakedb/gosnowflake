@@ -11,25 +11,24 @@ import (
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
 
 	"database/sql/driver"
 )
 
-func TestArrowBatchHighPrecision(t *testing.T) {
+func TestArrowBatchDataProvider(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
-		ctx := WithArrowBatches(context.Background())
+		ctx := ia.EnableArrowBatches(context.Background())
 		query := "select '0.1':: DECIMAL(38, 19) as c"
 
 		var rows driver.Rows
 		var err error
 
-		// must use conn.Raw so we can get back driver rows (an interface)
-		// which can be cast to snowflakeRows which exposes GetArrowBatch
 		err = dbt.conn.Raw(func(x interface{}) error {
 			queryer, implementsQueryContext := x.(driver.QueryerContext)
 			assertTrueF(t, implementsQueryContext, "snowflake connection driver does not implement queryerContext")
 
-			rows, err = queryer.QueryContext(WithArrowBatches(ctx), query, nil)
+			rows, err = queryer.QueryContext(ctx, query, nil)
 			return err
 		})
 
@@ -38,19 +37,23 @@ func TestArrowBatchHighPrecision(t *testing.T) {
 		sfRows, isSfRows := rows.(SnowflakeRows)
 		assertTrueF(t, isSfRows, "rows should be snowflakeRows")
 
-		arrowBatches, err := sfRows.GetArrowBatches()
-		assertNilF(t, err, "error getting arrow batches")
-		assertNotEqualF(t, len(arrowBatches), 0, "should have at least one batch")
+		provider, isProvider := sfRows.(ia.BatchDataProvider)
+		assertTrueF(t, isProvider, "rows should implement BatchDataProvider")
 
-		c, err := arrowBatches[0].Fetch()
-		assertNilF(t, err, "error fetching first batch")
+		info, err := provider.GetArrowBatches()
+		assertNilF(t, err, "error getting arrow batch data")
+		assertNotEqualF(t, len(info.Batches), 0, "should have at least one batch")
 
-		chunk := *c
-		assertNotEqualF(t, len(chunk), 0, "should have at least one chunk")
+		// Verify raw records are available for the first batch
+		batch := info.Batches[0]
+		assertNotNilF(t, batch.Records, "first batch should have pre-decoded records")
 
-		strVal := chunk[0].Column(0).ValueStr(0)
-		expected := "0.1"
-		assertEqualF(t, strVal, expected, fmt.Sprintf("should have returned 0.1, but got: %s", strVal))
+		records := *batch.Records
+		assertNotEqualF(t, len(records), 0, "should have at least one record")
+
+		// Verify column 0 has data (raw decimal value)
+		strVal := records[0].Column(0).ValueStr(0)
+		assertTrueF(t, len(strVal) > 0, fmt.Sprintf("column should have a value, got: %s", strVal))
 	})
 }
 

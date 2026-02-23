@@ -5,155 +5,81 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"strings"
+	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 )
-
-type snowflakeType int
-
-const (
-	fixedType snowflakeType = iota
-	realType
-	decfloatType
-	textType
-	dateType
-	variantType
-	timestampLtzType
-	timestampNtzType
-	timestampTzType
-	objectType
-	arrayType
-	mapType
-	binaryType
-	timeType
-	booleanType
-	// the following are not snowflake types per se but internal types
-	nullType
-	sliceType
-	changeType
-	unSupportedType
-	nilObjectType
-	nilArrayType
-	nilMapType
-)
-
-var snowflakeToDriverType = map[string]snowflakeType{
-	"FIXED":         fixedType,
-	"REAL":          realType,
-	"DECFLOAT":      decfloatType,
-	"TEXT":          textType,
-	"DATE":          dateType,
-	"VARIANT":       variantType,
-	"TIMESTAMP_LTZ": timestampLtzType,
-	"TIMESTAMP_NTZ": timestampNtzType,
-	"TIMESTAMP_TZ":  timestampTzType,
-	"OBJECT":        objectType,
-	"ARRAY":         arrayType,
-	"MAP":           mapType,
-	"BINARY":        binaryType,
-	"TIME":          timeType,
-	"BOOLEAN":       booleanType,
-	"NULL":          nullType,
-	"SLICE":         sliceType,
-	"CHANGE_TYPE":   changeType,
-	"NOT_SUPPORTED": unSupportedType}
-
-var driverTypeToSnowflake = invertMap(snowflakeToDriverType)
-
-func invertMap(m map[string]snowflakeType) map[snowflakeType]string {
-	inv := make(map[snowflakeType]string)
-	for k, v := range m {
-		if _, ok := inv[v]; ok {
-			panic("failed to create driverTypeToSnowflake map due to duplicated values")
-		}
-		inv[v] = k
-	}
-	return inv
-}
-
-func (st snowflakeType) Byte() byte {
-	return byte(st)
-}
-
-func (st snowflakeType) String() string {
-	return driverTypeToSnowflake[st]
-}
-
-func getSnowflakeType(typ string) snowflakeType {
-	return snowflakeToDriverType[strings.ToUpper(typ)]
-}
 
 var (
 	// DataTypeFixed is a FIXED datatype.
-	DataTypeFixed = []byte{fixedType.Byte()}
+	DataTypeFixed = []byte{types.FixedType.Byte()}
 	// DataTypeReal is a REAL datatype.
-	DataTypeReal = []byte{realType.Byte()}
+	DataTypeReal = []byte{types.RealType.Byte()}
 	// DataTypeDecfloat is a DECFLOAT datatype.
-	DataTypeDecfloat = []byte{decfloatType.Byte()}
+	DataTypeDecfloat = []byte{types.DecfloatType.Byte()}
 	// DataTypeText is a TEXT datatype.
-	DataTypeText = []byte{textType.Byte()}
+	DataTypeText = []byte{types.TextType.Byte()}
 	// DataTypeDate is a Date datatype.
-	DataTypeDate = []byte{dateType.Byte()}
+	DataTypeDate = []byte{types.DateType.Byte()}
 	// DataTypeVariant is a TEXT datatype.
-	DataTypeVariant = []byte{variantType.Byte()}
+	DataTypeVariant = []byte{types.VariantType.Byte()}
 	// DataTypeTimestampLtz is a TIMESTAMP_LTZ datatype.
-	DataTypeTimestampLtz = []byte{timestampLtzType.Byte()}
+	DataTypeTimestampLtz = []byte{types.TimestampLtzType.Byte()}
 	// DataTypeTimestampNtz is a TIMESTAMP_NTZ datatype.
-	DataTypeTimestampNtz = []byte{timestampNtzType.Byte()}
+	DataTypeTimestampNtz = []byte{types.TimestampNtzType.Byte()}
 	// DataTypeTimestampTz is a TIMESTAMP_TZ datatype.
-	DataTypeTimestampTz = []byte{timestampTzType.Byte()}
+	DataTypeTimestampTz = []byte{types.TimestampTzType.Byte()}
 	// DataTypeObject is a OBJECT datatype.
-	DataTypeObject = []byte{objectType.Byte()}
+	DataTypeObject = []byte{types.ObjectType.Byte()}
 	// DataTypeArray is a ARRAY datatype.
-	DataTypeArray = []byte{arrayType.Byte()}
+	DataTypeArray = []byte{types.ArrayType.Byte()}
 	// DataTypeBinary is a BINARY datatype.
-	DataTypeBinary = []byte{binaryType.Byte()}
+	DataTypeBinary = []byte{types.BinaryType.Byte()}
 	// DataTypeTime is a TIME datatype.
-	DataTypeTime = []byte{timeType.Byte()}
+	DataTypeTime = []byte{types.TimeType.Byte()}
 	// DataTypeBoolean is a BOOLEAN datatype.
-	DataTypeBoolean = []byte{booleanType.Byte()}
+	DataTypeBoolean = []byte{types.BooleanType.Byte()}
 	// DataTypeNilObject represents a nil structured object.
-	DataTypeNilObject = []byte{nilObjectType.Byte()}
+	DataTypeNilObject = []byte{types.NilObjectType.Byte()}
 	// DataTypeNilArray represents a nil structured array.
-	DataTypeNilArray = []byte{nilArrayType.Byte()}
+	DataTypeNilArray = []byte{types.NilArrayType.Byte()}
 	// DataTypeNilMap represents a nil structured map.
-	DataTypeNilMap = []byte{nilMapType.Byte()}
+	DataTypeNilMap = []byte{types.NilMapType.Byte()}
 )
 
 // dataTypeMode returns the subsequent data type in a string representation.
-func dataTypeMode(v driver.Value) (tsmode snowflakeType, err error) {
+func dataTypeMode(v driver.Value) (tsmode types.SnowflakeType, err error) {
 	if bd, ok := v.([]byte); ok {
 		switch {
 		case bytes.Equal(bd, DataTypeDecfloat):
-			tsmode = decfloatType
+			tsmode = types.DecfloatType
 		case bytes.Equal(bd, DataTypeDate):
-			tsmode = dateType
+			tsmode = types.DateType
 		case bytes.Equal(bd, DataTypeTime):
-			tsmode = timeType
+			tsmode = types.TimeType
 		case bytes.Equal(bd, DataTypeTimestampLtz):
-			tsmode = timestampLtzType
+			tsmode = types.TimestampLtzType
 		case bytes.Equal(bd, DataTypeTimestampNtz):
-			tsmode = timestampNtzType
+			tsmode = types.TimestampNtzType
 		case bytes.Equal(bd, DataTypeTimestampTz):
-			tsmode = timestampTzType
+			tsmode = types.TimestampTzType
 		case bytes.Equal(bd, DataTypeBinary):
-			tsmode = binaryType
+			tsmode = types.BinaryType
 		case bytes.Equal(bd, DataTypeObject):
-			tsmode = objectType
+			tsmode = types.ObjectType
 		case bytes.Equal(bd, DataTypeArray):
-			tsmode = arrayType
+			tsmode = types.ArrayType
 		case bytes.Equal(bd, DataTypeVariant):
-			tsmode = variantType
+			tsmode = types.VariantType
 		case bytes.Equal(bd, DataTypeNilObject):
-			tsmode = nilObjectType
+			tsmode = types.NilObjectType
 		case bytes.Equal(bd, DataTypeNilArray):
-			tsmode = nilArrayType
+			tsmode = types.NilArrayType
 		case bytes.Equal(bd, DataTypeNilMap):
-			tsmode = nilMapType
+			tsmode = types.NilMapType
 		default:
-			return nullType, fmt.Errorf(errMsgInvalidByteArray, v)
+			return types.NullType, fmt.Errorf(errMsgInvalidByteArray, v)
 		}
 	} else {
-		return nullType, fmt.Errorf(errMsgInvalidByteArray, v)
+		return types.NullType, fmt.Errorf(errMsgInvalidByteArray, v)
 	}
 	return tsmode, nil
 }

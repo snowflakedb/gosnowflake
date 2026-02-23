@@ -18,7 +18,6 @@ const (
 type SnowflakeResult interface {
 	GetQueryID() string
 	GetStatus() QueryStatus
-	GetArrowBatches() ([]*ArrowBatch, error)
 }
 
 type snowflakeResult struct {
@@ -50,13 +49,6 @@ func (res *snowflakeResult) GetQueryID() string {
 
 func (res *snowflakeResult) GetStatus() QueryStatus {
 	return res.status
-}
-
-func (res *snowflakeResult) GetArrowBatches() ([]*ArrowBatch, error) {
-	return nil, &SnowflakeError{
-		Number:  ErrNotImplemented,
-		Message: errMsgNotImplemented,
-	}
 }
 
 func (res *snowflakeResult) waitForAsyncExecStatus() error {

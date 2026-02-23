@@ -8,7 +8,7 @@ import (
 	"log"
 	"strings"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "github.com/snowflakedb/gosnowflake/v2"
 )
 
 func main() {

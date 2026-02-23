@@ -109,7 +109,7 @@ type s3HeaderAPI interface {
 }
 
 // cloudUtil implementation
-func (util *snowflakeS3Client) getFileHeader(meta *fileMetadata, filename string) (*fileHeader, error) {
+func (util *snowflakeS3Client) getFileHeader(ctx context.Context, meta *fileMetadata, filename string) (*fileHeader, error) {
 	headObjInput, err := util.getS3Object(meta, filename)
 	if err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ func (util *snowflakeS3Client) getFileHeader(meta *fileMetadata, filename string
 	if meta.mockHeader != nil {
 		s3Cli = meta.mockHeader
 	}
-	out, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*s3.HeadObjectOutput, error) {
+	out, err := withCloudStorageTimeout(ctx, util.cfg, func(ctx context.Context) (*s3.HeadObjectOutput, error) {
 		return s3Cli.HeadObject(ctx, headObjInput)
 	})
 	if err != nil {
@@ -181,6 +181,7 @@ type s3UploadAPI interface {
 
 // cloudUtil implementation
 func (util *snowflakeS3Client) uploadFile(
+	ctx context.Context,
 	dataFile string,
 	meta *fileMetadata,
 	maxConcurrency int,
@@ -217,7 +218,7 @@ func (util *snowflakeS3Client) uploadFile(
 		uploader = meta.mockUploader
 	}
 
-	_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (any, error) {
+	_, err = withCloudStorageTimeout(ctx, util.cfg, func(ctx context.Context) (any, error) {
 		if meta.srcStream != nil {
 			uploadStream := cmp.Or(meta.realSrcStream, meta.srcStream)
 			return uploader.Upload(ctx, &s3.PutObjectInput{
@@ -273,6 +274,7 @@ type s3DownloadAPI interface {
 
 // cloudUtil implementation
 func (util *snowflakeS3Client) nativeDownloadFile(
+	ctx context.Context,
 	meta *fileMetadata,
 	fullDstFileName string,
 	maxConcurrency int64,
@@ -296,8 +298,8 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 		downloader = meta.mockDownloader
 	}
 
-	_, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (any, error) {
-		if meta.options != nil && meta.options.GetFileToStream {
+	_, err := withCloudStorageTimeout(ctx, util.cfg, func(ctx context.Context) (any, error) {
+		if isFileGetStream(ctx) {
 			buf := manager.NewWriteAtBuffer([]byte{})
 			if _, err := downloader.Download(ctx, buf, &s3.GetObjectInput{
 				Bucket: s3Obj.Bucket,

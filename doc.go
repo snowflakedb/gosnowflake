@@ -6,7 +6,7 @@ Clients can use the database/sql package directly. For example:
 	import (
 		"database/sql"
 
-		_ "github.com/snowflakedb/gosnowflake"
+		_ "github.com/snowflakedb/gosnowflake/v2"
 
 		"log"
 	)
@@ -110,8 +110,6 @@ The following connection parameters are supported:
     Certificate Status Protocol (OCSP) certificate revocation check.
     OCSP module caches responses internally. If your application is long running, you can enable cache clearing by calling StartOCSPCacheClearer and disable by calling StopOCSPCacheClearer.
     IMPORTANT: Change the default value for testing or emergency situations only.
-
-  - insecureMode: deprecated. Use disableOCSPChecks instead.
 
   - token: a token that can be used to authenticate. Should be used in conjunction with the "oauth" authenticator.
 
@@ -238,10 +236,10 @@ For example:
 
 If you are using this method, you dont need to pass a driver name to specify the driver type in which
 you are looking to connect. Since the driver name is not needed, you can optionally bypass driver registration
-on startup. To do this, set `GOSNOWFLAKE_SKIP_REGISTERATION` in your environment. This is useful you wish to
+on startup. To do this, set `GOSNOWFLAKE_SKIP_REGISTRATION` in your environment. This is useful you wish to
 register multiple verions of the driver.
 
-Note: `GOSNOWFLAKE_SKIP_REGISTERATION` should not be used if sql.Open() is used as the method
+Note: `GOSNOWFLAKE_SKIP_REGISTRATION` should not be used if sql.Open() is used as the method
 to connect to the server, as sql.Open will require registration so it can map the driver name
 to the driver type, which in this case is "snowflake" and SnowflakeDriver{}.
 
@@ -311,7 +309,7 @@ If you want to define S3 client logging, override S3LoggingMode variable using c
 Example:
 
 	    import (
-	      sf "github.com/snowflakedb/gosnowflake"
+	      sf "github.com/snowflakedb/gosnowflake/v2"
 	      "github.com/aws/aws-sdk-go-v2/aws"
 	    )
 
@@ -645,10 +643,10 @@ See StructuredObject for all available operations including null support, embedd
 
 Retrieving array of simple types works exactly the same like normal values - using Scan function.
 
-You can use WithMapValuesNullable and WithArrayValuesNullable contexts to handle null values in, respectively, maps
+You can use WithEmbeddedValuesNullable context to handle null values in maps
 and arrays of simple types in the database. In that case, sql null types will be used:
 
-	ctx := WithArrayValuesNullable(WithStructuredTypesEnabled(context.Background))
+	ctx := WithEmbeddedValuesNullable(WithStructuredTypesEnabled(context.Background()))
 	...
 	var res []sql.NullBool
 	err := rows.Scan(&res)
@@ -784,14 +782,18 @@ If precision is important, you have to use string representation and use your ow
 # Arrow batches
 
 You can retrieve data in a columnar format similar to the format a server returns, without transposing them to rows.
-When working with the arrow columnar format in go driver, ArrowBatch structs are used. These are structs
-mostly corresponding to data chunks received from the backend. They allow for access to specific arrow.Record structs.
+Arrow Batches mode is available through the separate `arrowbatches` sub-package (`github.com/snowflakedb/gosnowflake/v2/arrowbatches`).
+This sub-package provides access to Arrow columnar data using ArrowBatch structs, which correspond to data chunks
+received from the backend. They allow for access to specific arrow.Record structs.
+
+The arrow-compute dependency (which significantly increases binary size) is only pulled in when you import the
+arrowbatches sub-package. If you don't need Arrow batch support, simply don't import it.
 
 An ArrowBatch can exist in a state where the underlying data has not yet been loaded. The data is downloaded and
 translated only on demand. Translation options are retrieved from a context.Context interface, which is either
 passed from query context or set by the user using WithContext(ctx) method.
 
-In order to access them you must use `WithArrowBatches` context, similar to the following:
+In order to access them you must use `arrowbatches.WithArrowBatches` context, similar to the following:
 
 	    var rows driver.Rows
 		err = conn.Raw(func(x interface{}) error {
@@ -801,11 +803,11 @@ In order to access them you must use `WithArrowBatches` context, similar to the 
 
 		...
 
-		batches, err := rows.(sf.SnowflakeRows).GetArrowBatches()
+		batches, err := arrowbatches.GetArrowBatches(rows.(sf.SnowflakeRows))
 
 		... // use Arrow records
 
-This returns []*ArrowBatch.
+This returns []*arrowbatches.ArrowBatch.
 
 ArrowBatch functions:
 
@@ -821,9 +823,9 @@ that has already been downloaded. For example:
 	records2, _ := batch.WithContext(ctx).Fetch()
 
 will produce the same result in records1 and records2, irrespective of the newly provided ctx. Context worth noting are:
--WithArrowBatchesTimestampOption
+-arrowbatches.WithTimestampOption
 -WithHigherPrecision
--WithArrowBatchesUtf8Validation
+-arrowbatches.WithUtf8Validation
 described in more detail later.
 
 Fetch():
@@ -845,10 +847,10 @@ Consequently, Snowflake uses a custom timestamp format in Arrow, which differs o
 
 If you want to use timestamps in Arrow batches, you have two options:
 
- 1. The Go driver can reduce timestamp struct into simple Arrow Timestamp, if you set `WithArrowBatchesTimestampOption` to nanosecond, microsecond, millisecond or second.
+ 1. The Go driver can reduce timestamp struct into simple Arrow Timestamp, if you set `arrowbatches.WithTimestampOption` to nanosecond, microsecond, millisecond or second.
     For nanosecond, some timestamp values might not fit into Arrow timestamp. E.g after year 2262 or before 1677.
  2. You can use native Snowflake values. In that case you will receive complex structs as described above. To transform Snowflake values into the Golang time.Time struct you can use `ArrowSnowflakeTimestampToTime`.
-    To enable this feature, you must use `WithArrowBatchesTimestampOption` context with value set to`UseOriginalTimestamp`.
+    To enable this feature, you must use `arrowbatches.WithTimestampOption` context with value set to`UseOriginalTimestamp`.
 
 How to handle invalid UTF-8 characters in Arrow batches:
 
@@ -857,7 +859,7 @@ However, according to the Arrow specifications (https://arrow.apache.org/docs/cp
 and https://github.com/apache/arrow/blob/a03d957b5b8d0425f9d5b6c98b6ee1efa56a1248/go/arrow/datatype.go#L73-L74),
 Arrow string columns should only contain UTF-8 characters.
 
-To address this issue and prevent potential downstream disruptions, the context WithArrowBatchesUtf8Validation, is introduced.
+To address this issue and prevent potential downstream disruptions, the context arrowbatches.WithUtf8Validation is introduced.
 When enabled, this feature iterates through all values in string columns, identifying and replacing any invalid characters with `�`.
 This ensures that Arrow records conform to the UTF-8 standards, preventing validation failures in downstream services like the Rust Arrow library that impose strict validation checks.
 
@@ -918,51 +920,58 @@ INSERT statement. You can use this technique to insert multiple rows in a single
 As an example, the following code inserts rows into a table that contains integer, float, boolean, and string columns. The example
 binds arrays to the parameters in the INSERT statement.
 
-	// Create a table containing an integer, float, boolean, and string column.
-	_, err = db.Exec("create or replace table my_table(c1 int, c2 float, c3 boolean, c4 string)")
-	...
-	// Define the arrays containing the data to insert.
-	intArray := []int{1, 2, 3}
-	fltArray := []float64{0.1, 2.34, 5.678}
-	boolArray := []bool{true, false, true}
-	strArray := []string{"test1", "test2", "test3"}
-	...
-	// Insert the data from the arrays and wrap in an Array() function into the table.
-	_, err = db.Exec("insert into my_table values (?, ?, ?, ?)", Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray))
+		// Create a table containing an integer, float, boolean, and string column.
+		_, err = db.Exec("create or replace table my_table(c1 int, c2 float, c3 boolean, c4 string)")
+		...
+		// Define the arrays containing the data to insert.
+		intArray := []int{1, 2, 3}
+		fltArray := []float64{0.1, 2.34, 5.678}
+		boolArray := []bool{true, false, true}
+		strArray := []string{"test1", "test2", "test3"}
+		...
+		// Insert the data from the arrays and wrap in an Array() function into the table.
+	    intArr, err := Array(&intArray)
+		fltArr, err := Array(&fltArray)
+		boolArr, err := Array(&boolArray)
+		strArr, err := Array(&strArray)
+		_, err = db.Exec("insert into my_table values (?, ?, ?, ?)", intArr, fltArr, boolArr, strArr)
 
 If the array contains SQL NULL values, use slice []interface{}, which allows Golang nil values.
 This feature is available in version 1.6.12 (and later) of the driver. For example,
 
-	 	// Define the arrays containing the data to insert.
-	 	strArray := make([]interface{}, 3)
-		strArray[0] = "test1"
-		strArray[1] = "test2"
-		strArray[2] = nil // This line is optional as nil is the default value.
-		...
-		// Create a table and insert the data from the array as shown above.
-		_, err = db.Exec("create or replace table my_table(c1 string)")
-		_, err = db.Exec("insert into my_table values (?)", Array(&strArray))
-		...
-		// Use sql.NullString to fetch the string column that contains NULL values.
-		var s sql.NullString
-		rows, _ := db.Query("select * from my_table")
-		for rows.Next() {
-			err := rows.Scan(&s)
-			if err != nil {
-				log.Fatalf("Failed to scan. err: %v", err)
+		 	// Define the arrays containing the data to insert.
+		 	strArray := make([]interface{}, 3)
+			strArray[0] = "test1"
+			strArray[1] = "test2"
+			strArray[2] = nil // This line is optional as nil is the default value.
+			...
+			// Create a table and insert the data from the array as shown above.
+	        strArr, err := Array(&strArray)
+			_, err = db.Exec("create or replace table my_table(c1 string)")
+			_, err = db.Exec("insert into my_table values (?)", strArr)
+			...
+			// Use sql.NullString to fetch the string column that contains NULL values.
+			var s sql.NullString
+			rows, _ := db.Query("select * from my_table")
+			for rows.Next() {
+				err := rows.Scan(&s)
+				if err != nil {
+					log.Fatalf("Failed to scan. err: %v", err)
+				}
+				if s.Valid {
+					fmt.Println("Retrieved value:", s.String)
+				} else {
+					fmt.Println("Retrieved value: NULL")
+				}
 			}
-			if s.Valid {
-				fmt.Println("Retrieved value:", s.String)
-			} else {
-				fmt.Println("Retrieved value: NULL")
-			}
-		}
 
 For slices []interface{} containing time.Time values, a binding parameter flag is required for the preceding array variable in the Array() function.
 This feature is available in version 1.6.13 (and later) of the driver. For example,
 
-	_, err = db.Exec("create or replace table my_table(c1 timestamp_ntz, c2 timestamp_ltz)")
-	_, err = db.Exec("insert into my_table values (?,?)", Array(&ntzArray, sf.TimestampNTZType), Array(&ltzArray, sf.TimestampLTZType))
+	    ntzArr, err := Array(&ntzArray, sf.TimestampNTZType)
+		ltzArr, err := Array(&ltzArray, sf.TimestampLTZType)
+		_, err = db.Exec("create or replace table my_table(c1 timestamp_ntz, c2 timestamp_ltz)")
+		_, err = db.Exec("insert into my_table values (?,?)", ntzArr, ltzArr)
 
 Note: For alternative ways to load data into the Snowflake database (including bulk loading using the COPY command), see
 Loading Data into Snowflake (https://docs.snowflake.com/en/user-guide-data-load.html).
@@ -1008,7 +1017,7 @@ any subsequent time.Time type to the DATE, TIME, TIMESTAMP_LTZ, TIMESTAMP_NTZ
 or BINARY data type. The above example could be rewritten as follows:
 
 	import (
-		sf "github.com/snowflakedb/gosnowflake"
+		sf "github.com/snowflakedb/gosnowflake/v2"
 	)
 	dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, ntz, timestamp_ntz, ltz timestamp_ltz)")
 	// ...
@@ -1039,35 +1048,6 @@ example, sf is an alias for the gosnowflake package:
 
 	var b = []byte{0x01, 0x02, 0x03}
 	_, err = stmt.Exec(sf.DataTypeBinary, b)
-
-# Maximum Number of Result Set Chunk Downloader
-
-The driver directly downloads a result set from the cloud storage if the size is large. It is
-required to shift workloads from the Snowflake database to the clients for scale. The download takes place by goroutine
-named "Chunk Downloader" asynchronously so that the driver can fetch the next result set while the application can
-consume the current result set.
-
-The application may change the number of result set chunk downloader if required. Note this does not help reduce
-memory footprint by itself. Consider Custom JSON Decoder.
-
-	import (
-		sf "github.com/snowflakedb/gosnowflake"
-	)
-	sf.MaxChunkDownloadWorkers = 2
-
-Custom JSON Decoder for Parsing Result Set (Experimental)
-
-The application may have the driver use a custom JSON decoder that incrementally parses the result set as follows.
-
-	import (
-		sf "github.com/snowflakedb/gosnowflake"
-	)
-	sf.CustomJSONDecoderEnabled = true
-	...
-
-This option will reduce the memory footprint to half or even quarter, but it can significantly degrade the
-performance depending on the environment. The test cases running on Travis Ubuntu box show five times less memory
-footprint while four times slower. Be cautious when using the option.
 
 # JWT authentication
 
@@ -1165,11 +1145,10 @@ the number of statements in the string. For example:
 		"database/sql"
 	)
 
-	var multi_statement_query = "SELECT c1 FROM t1; SELECT c2 FROM t2"
+	var multiStatementQuery = "SELECT c1 FROM t1; SELECT c2 FROM t2"
 	var number_of_statements = 2
-	blank_context = context.Background()
-	multi_statement_context, _ := WithMultiStatement(blank_context, number_of_statements)
-	rows, err := db.QueryContext(multi_statement_context, multi_statement_query)
+	ctx := WithMultiStatement(context.Background(), number_of_statements)
+	rows, err := db.QueryContext(ctx, multiStatementQuery)
 
 When multiple queries are executed by a single call to QueryContext(), multiple result sets are returned. After
 you process the first result set, get the next result set (for the next SQL statement) by calling NextResultSet().
@@ -1329,7 +1308,7 @@ and before retrieving the results. For a more elaborative example please see cmd
 			"fmt"
 			"log"
 			"os"
-			sf "github.com/snowflakedb/gosnowflake"
+			sf "github.com/snowflakedb/gosnowflake/v2"
 	    )
 
 		...
@@ -1357,7 +1336,7 @@ and before retrieving the results. For a more elaborative example please see cmd
 			...
 		}
 
-==> Some considerations related to the KeepSessionAlive configuration option in context of asynchronous query execution
+==> Some considerations related to the ServerSessionKeepAlive configuration option in context of asynchronous query execution
 
 When SQL Go connection is being closed, it performs the following actions:
 
@@ -1365,11 +1344,11 @@ When SQL Go connection is being closed, it performs the following actions:
 
 * cleans up all the http connections which are already idle - doesn't touch the ones which are in active use currently
 
-* if Config.KeepSessionAlive is false (default), then actively logs out the current Snowflake session.
+* if Config.ServerSessionKeepAlive is false (default), then actively logs out the current Snowflake session.
 
 !! Caveat: If there are any queries which are currently executing in the same Snowflake session (e.g. async queries sent with WithAsyncMode()), then those queries are automatically cancelled from the client side a couple minutes later after the Close() call, as a Snowflake session which has been actively logged out from, cannot sustain any queries.
 
-You can govern this behaviour with setting Config.KeepSessionAlive to true; when the corresponding Snowflake session will be kept alive for a long time (determined by the Snowflake engine) even after an explicit Connection.Close() call past the time when the last running query in the session finished executing.
+You can govern this behaviour with setting Config.ServerSessionKeepAlive to true; when the corresponding Snowflake session will be kept alive for a long time (determined by the Snowflake engine) even after an explicit Connection.Close() call past the time when the last running query in the session finished executing.
 
 The behaviour is also dependent on ABORT_DETACHED_QUERY parameter, please see the detailed explanation in the parameter description at https://docs.snowflake.com/en/sql-reference/parameters#abort-detached-query.
 
@@ -1419,7 +1398,7 @@ To send information from a stream (rather than a file) use code similar to the c
 	sqlText := fmt.Sprintf(sql,
 		strings.ReplaceAll(fname, "\\", "\\\\"),
 		tableName)
-	dbt.mustExecContext(WithFileStream(context.Background(), fileStream),
+	dbt.mustExecContext(WithFilePutStream(context.Background(), fileStream),
 		sqlText)
 
 Note: PUT statements are not supported for multi-statement queries.
@@ -1439,8 +1418,7 @@ an absolute path rather than a relative path. For example:
 To download a file into an in-memory stream (rather than a file) use code similar to the code below.
 
 	var streamBuf bytes.Buffer
-	ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{GetFileToStream: true})
-	ctx = WithFileGetStream(ctx, &streamBuf)
+	ctx := WithFileGetStream(context.Background(), &streamBuf)
 
 	sql := "get @~/data1.txt.gz file:///tmp/testData"
 	dbt.mustExecContext(ctx, sql)
@@ -1462,17 +1440,6 @@ Using custom configuration for PUT/GET:
 
 If you want to override some default configuration options, you can use `WithFileTransferOptions` context.
 There are multiple config parameters including progress bars or compression.
-
-# Surfacing errors originating from PUT and GET commands
-
-Default behaviour is to propagate the potential underlying errors encountered during executing calls associated with the PUT or GET commands to the caller, for increased awareness and easier handling or troubleshooting them.
-
-The behaviour is governed by the `RaisePutGetError` flag on `SnowflakeFileTransferOptions` (default: `true`)
-
-If you wish to ignore those errors instead, you can set `RaisePutGetError: false`. Example snippet:
-
-	ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{RaisePutGetError: false})
-	db.ExecContext(ctx, "PUT ...")
 
 # Minicore (Native Library)
 

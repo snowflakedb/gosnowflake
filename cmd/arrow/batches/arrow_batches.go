@@ -14,7 +14,8 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "github.com/snowflakedb/gosnowflake/v2"
+	"github.com/snowflakedb/gosnowflake/v2/arrowbatches"
 )
 
 type sampleRecord struct {
@@ -41,6 +42,7 @@ func main() {
 		{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
 		{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
 		{Name: "Protocol", EnvName: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
+		{Name: "Warehouse", EnvName: "SNOWFLAKE_TEST_WAREHOUSE", FailOnMissing: false},
 	})
 	if err != nil {
 		log.Fatalf("failed to create Config, err: %v", err)
@@ -53,9 +55,9 @@ func main() {
 
 	pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	ctx :=
-		sf.WithArrowBatchesTimestampOption(
+		arrowbatches.WithTimestampOption(
 			sf.WithArrowAllocator(
-				sf.WithArrowBatches(context.Background()), pool), sf.UseOriginalTimestamp)
+				arrowbatches.WithArrowBatches(context.Background()), pool), arrowbatches.UseOriginalTimestamp)
 
 	query := "SELECT SEQ4(), 'example ' || (SEQ4() * 2), " +
 		" TO_TIMESTAMP_NTZ('9999-01-01 13:13:13.' || LPAD(SEQ4(),9,'0'))  ltz " +
@@ -67,7 +69,10 @@ func main() {
 	}
 	defer db.Close()
 
-	conn, _ := db.Conn(ctx)
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		log.Fatalf("cannot create a connection from the pool. err: %v", err)
+	}
 	defer conn.Close()
 
 	var rows driver.Rows
@@ -80,7 +85,10 @@ func main() {
 	}
 	defer rows.Close()
 
-	batches, err := rows.(sf.SnowflakeRows).GetArrowBatches()
+	batches, err := arrowbatches.GetArrowBatches(rows.(sf.SnowflakeRows))
+	if err != nil {
+		log.Fatalf("unable to get arrow batches. err: %v", err)
+	}
 	batchIds := make(chan int, 1)
 	maxWorkers := len(batches)
 	sampleRecordsPerBatch := make([][]sampleRecord, len(batches))
@@ -126,7 +134,7 @@ func main() {
 }
 
 func convertFromColumnsToRows(records *[]arrow.Record, sampleRecordsPerBatch [][]sampleRecord, batchID int,
-	workerID int, totalRowID int, batch *sf.ArrowBatch) {
+	workerID int, totalRowID int, batch *arrowbatches.ArrowBatch) {
 	for _, record := range *records {
 		for rowID, intColumn := range record.Column(0).(*array.Int32).Int32Values() {
 			sampleRecord := sampleRecord{

@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/snowflakedb/gosnowflake/internal/compilation"
-	internalos "github.com/snowflakedb/gosnowflake/internal/os"
+	"github.com/snowflakedb/gosnowflake/v2/internal/compilation"
+	internalos "github.com/snowflakedb/gosnowflake/v2/internal/os"
 )
 
 const (
@@ -507,9 +507,9 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 
 	switch sc.cfg.Authenticator {
 	case AuthTypeExternalBrowser:
-		if sc.cfg.IDToken != "" {
+		if sc.cfg.idToken != "" {
 			requestMain.Authenticator = idTokenAuthenticator
-			requestMain.Token = sc.cfg.IDToken
+			requestMain.Token = sc.cfg.idToken
 			requestMain.LoginName = sc.cfg.User
 		} else {
 			requestMain.ProofKey = string(proofKey)
@@ -570,8 +570,8 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Password = sc.cfg.Password
 		switch {
-		case sc.cfg.MfaToken != "":
-			requestMain.Token = sc.cfg.MfaToken
+		case sc.cfg.mfaToken != "":
+			requestMain.Token = sc.cfg.mfaToken
 		case sc.cfg.PasscodeInPassword:
 			requestMain.ExtAuthnDuoMethod = "passcode"
 		case sc.cfg.Passcode != "":
@@ -760,7 +760,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 			if isEligibleForParallelLogin(sc.cfg, sc.cfg.ClientStoreTemporaryCredential) {
 				valueAwaiter := valueAwaitHolder.get(idTokenLockKey)
 				defer valueAwaiter.resumeOne()
-				sc.cfg.IDToken, _ = awaitValue(valueAwaiter, func() (string, error) {
+				sc.cfg.idToken, _ = awaitValue(valueAwaiter, func() (string, error) {
 					credential := credentialsStorage.getCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
 					return credential, nil
 				}, func(s string, err error) bool {
@@ -769,7 +769,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 					return ""
 				})
 			} else if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
-				sc.cfg.IDToken = credentialsStorage.getCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
+				sc.cfg.idToken = credentialsStorage.getCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
 			}
 		}
 		// Disable console login by default
@@ -785,7 +785,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 		if isEligibleForParallelLogin(sc.cfg, sc.cfg.ClientRequestMfaToken) {
 			valueAwaiter := valueAwaitHolder.get(mfaTokenLockKey)
 			defer valueAwaiter.resumeOne()
-			sc.cfg.MfaToken, _ = awaitValue(valueAwaiter, func() (string, error) {
+			sc.cfg.mfaToken, _ = awaitValue(valueAwaiter, func() (string, error) {
 				credential := credentialsStorage.getCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
 				return credential, nil
 			}, func(s string, err error) bool {
@@ -794,14 +794,14 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 				return ""
 			})
 		} else if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue {
-			sc.cfg.MfaToken = credentialsStorage.getCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
+			sc.cfg.mfaToken = credentialsStorage.getCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
 	}
 
 	logger.WithContext(sc.ctx).Infof("Authenticating via %v", sc.cfg.Authenticator.String())
 	switch sc.cfg.Authenticator {
 	case AuthTypeExternalBrowser:
-		if sc.cfg.IDToken == "" {
+		if sc.cfg.idToken == "" {
 			samlResponse, proofKey, err = authenticateByExternalBrowser(
 				sc.ctx,
 				sc.rest,
@@ -849,6 +849,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 		valueAwaiter.done()
 	}
 	sc.populateSessionParameters(authData.Parameters)
+	sc.configureTelemetry()
 	sc.ctx = context.WithValue(sc.ctx, SFSessionIDKey, authData.SessionID)
 	return nil
 }

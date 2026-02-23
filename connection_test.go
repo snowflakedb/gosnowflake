@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"net/http"
 	"net/url"
@@ -464,7 +465,7 @@ func TestClientSessionPersist(t *testing.T) {
 		rest:      sr,
 		telemetry: testTelemetry,
 	}
-	sc.cfg.KeepSessionAlive = true
+	sc.cfg.ServerSessionKeepAlive = true
 	count := closedSessionCount
 	if sc.Close() != nil {
 		t.Error("Connection close should not return error")
@@ -759,6 +760,31 @@ func TestAddTelemetryDataViaSnowflakeConnection(t *testing.T) {
 	assertNilF(t, err)
 }
 
+func TestConfigureTelemetry(t *testing.T) {
+	for _, enabled := range []bool{true, false} {
+		t.Run(strconv.FormatBool(enabled), func(t *testing.T) {
+			wiremock.registerMappings(t,
+				wiremockMapping{
+					filePath: "auth/password/successful_flow_with_telemetry.json",
+					params:   map[string]string{"%CLIENT_TELEMETRY_ENABLED%": strconv.FormatBool(enabled)},
+				},
+			)
+			cfg := wiremock.connectionConfig()
+			connector := NewConnector(SnowflakeDriver{}, *cfg)
+			db := sql.OpenDB(connector)
+			defer db.Close()
+			conn, err := db.Conn(context.Background())
+			assertNilF(t, err)
+			err = conn.Raw(func(x any) error {
+				sc := x.(*snowflakeConn)
+				assertEqualE(t, sc.telemetry.enabled, enabled)
+				return nil
+			})
+			assertNilF(t, err)
+		})
+	}
+}
+
 func TestGetInvalidQueryStatus(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		sct.sc.rest.RequestTimeout = 1 * time.Second
@@ -903,7 +929,7 @@ func executeQueryAndConfirmMessage(db *sql.DB, query string, expectedErrorTable 
 
 func TestQueryArrowStreamError(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
-		numrows := 50000 // approximately 10 ArrowBatch objects
+		numrows := 50000
 		query := fmt.Sprintf(selectRandomGenerator, numrows)
 		sct.sc.rest = &snowflakeRestful{
 			FuncPostQuery:    postQueryTest,
@@ -1017,8 +1043,8 @@ func TestGetTransport(t *testing.T) {
 		roundTripperCheck func(t *testing.T, roundTripper http.RoundTripper)
 	}{
 		{
-			name: "DisableOCSPChecks and InsecureMode false",
-			cfg:  &Config{Account: "one", DisableOCSPChecks: false, InsecureMode: false},
+			name: "DisableOCSPChecks",
+			cfg:  &Config{Account: "one", DisableOCSPChecks: false},
 			transportCheck: func(t *testing.T, transport *http.Transport) {
 				// We should have a verifier function
 				assertNotNilF(t, transport)
@@ -1027,25 +1053,7 @@ func TestGetTransport(t *testing.T) {
 			},
 		},
 		{
-			name: "DisableOCSPChecks true and InsecureMode false",
-			cfg:  &Config{Account: "two", DisableOCSPChecks: true, InsecureMode: false},
-			transportCheck: func(t *testing.T, transport *http.Transport) {
-				// We should not have a TLSClientConfig
-				assertNotNilF(t, transport)
-				assertNilF(t, transport.TLSClientConfig)
-			},
-		},
-		{
-			name: "DisableOCSPChecks false and InsecureMode true",
-			cfg:  &Config{Account: "three", DisableOCSPChecks: false, InsecureMode: true},
-			transportCheck: func(t *testing.T, transport *http.Transport) {
-				// We should not have a TLSClientConfig
-				assertNotNilF(t, transport)
-				assertNilF(t, transport.TLSClientConfig)
-			},
-		},
-		{
-			name: "DisableOCSPChecks and InsecureMode missing from Config",
+			name: "DisableOCSPChecks missing from Config",
 			cfg:  &Config{Account: "four"},
 			transportCheck: func(t *testing.T, transport *http.Transport) {
 				// We should have a verifier function
@@ -1065,7 +1073,7 @@ func TestGetTransport(t *testing.T) {
 		},
 		{
 			name: "Using custom Transporter",
-			cfg:  &Config{Account: "five", DisableOCSPChecks: true, InsecureMode: false, Transporter: EmptyTransporter{}},
+			cfg:  &Config{Account: "five", DisableOCSPChecks: true, Transporter: EmptyTransporter{}},
 			roundTripperCheck: func(t *testing.T, roundTripper http.RoundTripper) {
 				// We should have a custom Transporter
 				assertNotNilF(t, roundTripper)

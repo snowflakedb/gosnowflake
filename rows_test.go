@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 	"io"
 	"net/http"
 	"sync"
@@ -106,11 +107,11 @@ func TestRowsWithoutChunkDownloader(t *testing.T) {
 	for i = 0; i < 10; i++ {
 		cc = append(cc, []*string{&sts1, &sts2})
 	}
-	rt := []execResponseRowType{
+	rt := []query.ExecResponseRowType{
 		{Name: "c1", ByteLength: 10, Length: 10, Type: "FIXED", Scale: 0, Nullable: true},
 		{Name: "c2", ByteLength: 100000, Length: 100000, Type: "TEXT", Scale: 0, Nullable: false},
 	}
-	cm := []execResponseChunk{}
+	cm := []query.ExecResponseChunk{}
 	rows := new(snowflakeRows)
 	sc := &snowflakeConn{
 		cfg: &Config{
@@ -168,10 +169,6 @@ func downloadChunkTest(ctx context.Context, scd *snowflakeChunkDownloader, idx i
 
 func TestRowsWithChunkDownloader(t *testing.T) {
 	numChunks := 12
-	// changed the workers
-	backupMaxChunkDownloadWorkers := MaxChunkDownloadWorkers
-	MaxChunkDownloadWorkers = 2
-	logger.Info("START TESTS")
 	var i int
 	cc := make([][]*string, 0)
 	for i = 0; i < 100; i++ {
@@ -179,18 +176,21 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 		v2 := fmt.Sprintf("Test%v", i)
 		cc = append(cc, []*string{&v1, &v2})
 	}
-	rt := []execResponseRowType{
+	rt := []query.ExecResponseRowType{
 		{Name: "c1", ByteLength: 10, Length: 10, Type: "FIXED", Scale: 0, Nullable: true},
 		{Name: "c2", ByteLength: 100000, Length: 100000, Type: "TEXT", Scale: 0, Nullable: false},
 	}
-	cm := make([]execResponseChunk, 0)
+	cm := make([]query.ExecResponseChunk, 0)
 	for i = 0; i < numChunks; i++ {
-		cm = append(cm, execResponseChunk{URL: fmt.Sprintf("dummyURL%v", i+1), RowCount: rowsInChunk})
+		cm = append(cm, query.ExecResponseChunk{URL: fmt.Sprintf("dummyURL%v", i+1), RowCount: rowsInChunk})
 	}
 	rows := new(snowflakeRows)
+	two := "2"
 	sc := &snowflakeConn{
 		cfg: &Config{
-			Params: make(map[string]*string),
+			Params: map[string]*string{
+				clientPrefetchThreadsKey: &two,
+			},
 		},
 	}
 	rows.sc = sc
@@ -223,8 +223,6 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 		t.Fatalf("failed to get all results. expected:%v, got:%v", len(cc)+numChunks*rowsInChunk, cnt)
 	}
 	logger.Infof("dest: %v", dest)
-	MaxChunkDownloadWorkers = backupMaxChunkDownloadWorkers
-	logger.Info("END TESTS")
 }
 
 func downloadChunkTestError(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
@@ -253,10 +251,6 @@ func downloadChunkTestError(ctx context.Context, scd *snowflakeChunkDownloader, 
 
 func TestRowsWithChunkDownloaderError(t *testing.T) {
 	numChunks := 12
-	// changed the workers
-	backupMaxChunkDownloadWorkers := MaxChunkDownloadWorkers
-	MaxChunkDownloadWorkers = 3
-	logger.Info("START TESTS")
 	var i int
 	cc := make([][]*string, 0)
 	for i = 0; i < 100; i++ {
@@ -264,18 +258,21 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 		v2 := fmt.Sprintf("Test%v", i)
 		cc = append(cc, []*string{&v1, &v2})
 	}
-	rt := []execResponseRowType{
+	rt := []query.ExecResponseRowType{
 		{Name: "c1", ByteLength: 10, Length: 10, Type: "FIXED", Scale: 0, Nullable: true},
 		{Name: "c2", ByteLength: 100000, Length: 100000, Type: "TEXT", Scale: 0, Nullable: false},
 	}
-	cm := make([]execResponseChunk, 0)
+	cm := make([]query.ExecResponseChunk, 0)
 	for i = 0; i < numChunks; i++ {
-		cm = append(cm, execResponseChunk{URL: fmt.Sprintf("dummyURL%v", i+1), RowCount: rowsInChunk})
+		cm = append(cm, query.ExecResponseChunk{URL: fmt.Sprintf("dummyURL%v", i+1), RowCount: rowsInChunk})
 	}
 	rows := new(snowflakeRows)
+	three := "3"
 	sc := &snowflakeConn{
 		cfg: &Config{
-			Params: make(map[string]*string),
+			Params: map[string]*string{
+				clientPrefetchThreadsKey: &three,
+			},
 		},
 	}
 	rows.sc = sc
@@ -309,8 +306,6 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 		t.Fatalf("failed to get all results. expected:%v, got:%v", len(cc)+numChunks*rowsInChunk, cnt)
 	}
 	logger.Infof("dest: %v", dest)
-	MaxChunkDownloadWorkers = backupMaxChunkDownloadWorkers
-	logger.Info("END TESTS")
 }
 
 func downloadChunkTestErrorFail(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
@@ -348,13 +343,13 @@ func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
 		v2 := fmt.Sprintf("Test%v", i)
 		cc = append(cc, []*string{&v1, &v2})
 	}
-	rt := []execResponseRowType{
+	rt := []query.ExecResponseRowType{
 		{Name: "c1", ByteLength: 10, Length: 10, Type: "FIXED", Scale: 0, Nullable: true},
 		{Name: "c2", ByteLength: 100000, Length: 100000, Type: "TEXT", Scale: 0, Nullable: false},
 	}
-	cm := make([]execResponseChunk, 0)
+	cm := make([]query.ExecResponseChunk, 0)
 	for i = 0; i < numChunks; i++ {
-		cm = append(cm, execResponseChunk{URL: fmt.Sprintf("dummyURL%v", i+1), RowCount: rowsInChunk})
+		cm = append(cm, query.ExecResponseChunk{URL: fmt.Sprintf("dummyURL%v", i+1), RowCount: rowsInChunk})
 	}
 	rows := new(snowflakeRows)
 	sc := &snowflakeConn{
@@ -402,9 +397,9 @@ func getChunkTestInvalidResponseBody(_ context.Context, _ *snowflakeConn, _ stri
 
 func TestDownloadChunkInvalidResponseBody(t *testing.T) {
 	numChunks := 2
-	cm := make([]execResponseChunk, 0)
+	cm := make([]query.ExecResponseChunk, 0)
 	for i := 0; i < numChunks; i++ {
-		cm = append(cm, execResponseChunk{URL: fmt.Sprintf(
+		cm = append(cm, query.ExecResponseChunk{URL: fmt.Sprintf(
 			"dummyURL%v", i+1), RowCount: rowsInChunk})
 	}
 	scd := &snowflakeChunkDownloader{
@@ -444,9 +439,9 @@ func getChunkTestErrorStatus(_ context.Context, _ *snowflakeConn, _ string, _ ma
 
 func TestDownloadChunkErrorStatus(t *testing.T) {
 	numChunks := 2
-	cm := make([]execResponseChunk, 0)
+	cm := make([]query.ExecResponseChunk, 0)
 	for i := 0; i < numChunks; i++ {
-		cm = append(cm, execResponseChunk{URL: fmt.Sprintf(
+		cm = append(cm, query.ExecResponseChunk{URL: fmt.Sprintf(
 			"dummyURL%v", i+1), RowCount: rowsInChunk})
 	}
 	scd := &snowflakeChunkDownloader{
@@ -481,29 +476,6 @@ func TestDownloadChunkErrorStatus(t *testing.T) {
 	default:
 		t.Fatal("should have caused an error and queued in scd.ChunksError")
 	}
-}
-
-func TestWithArrowBatchesNotImplementedForResult(t *testing.T) {
-	ctx := WithArrowBatches(context.Background())
-	runSnowflakeConnTest(t, func(sct *SCTest) {
-
-		sct.mustExec("create or replace table testArrowBatches (a int, b int)", nil)
-		defer sct.mustExec("drop table if exists testArrowBatches", nil)
-
-		result := sct.mustExecContext(ctx, "insert into testArrowBatches values (1, 2), (3, 4), (5, 6)", []driver.NamedValue{})
-
-		_, err := result.(*snowflakeResult).GetArrowBatches()
-		if err == nil {
-			t.Fatal("should have raised an error")
-		}
-		driverErr, ok := err.(*SnowflakeError)
-		if !ok {
-			t.Fatalf("should be snowflake error. err: %v", err)
-		}
-		if driverErr.Number != ErrNotImplemented {
-			t.Fatalf("unexpected error code. expected: %v, got: %v", ErrNotImplemented, driverErr.Number)
-		}
-	})
 }
 
 func TestLocationChangesAfterAlterSession(t *testing.T) {

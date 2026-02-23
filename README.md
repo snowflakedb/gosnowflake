@@ -42,13 +42,13 @@ go mod init example.com/snowflake
 Get Gosnowflake source code, if not installed.
 
 ```sh
-go get -u github.com/snowflakedb/gosnowflake
+go get -u github.com/snowflakedb/gosnowflake/v2
 ```
 
 # Docs
 
 For detailed documentation and basic usage examples, please see the documentation at
-[godoc.org](https://godoc.org/github.com/snowflakedb/gosnowflake/).
+[godoc.org](https://godoc.org/github.com/snowflakedb/gosnowflake/v2).
 
 ## Notes
 
@@ -77,7 +77,7 @@ Congrats! You have successfully run SELECT 1 with Snowflake DB!
 
 # Development
 
-The developer notes are hosted with the source code on [GitHub](https://github.com/snowflakedb/gosnowflake).
+The developer notes are hosted with the source code on [GitHub](https://github.com/snowflakedb/gosnowflake/v2).
 
 ## Testing Code
 
@@ -112,7 +112,7 @@ This is for debugging Large SQL statements (greater than 300 characters). If you
 
 If you would like to ensure that certain tags are always present in the logs, `RegisterClientLogContextHook` can be used in your init function. See example below.
 ```go
-import "github.com/snowflakedb/gosnowflake"
+import "github.com/snowflakedb/gosnowflake/v2"
 
 func init() {
     // each time the logger is used, the logs will contain a REQUEST_ID field with requestID the value extracted 
@@ -126,7 +126,7 @@ func init() {
 ## Setting Log Level
 If you want to change the log level, `SetLogLevel` can be used in your init function like this:
 ```go
-import "github.com/snowflakedb/gosnowflake"
+import "github.com/snowflakedb/gosnowflake/v2"
 
 func init() {
     // The following line changes the log level to debug

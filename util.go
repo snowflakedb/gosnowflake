@@ -12,35 +12,30 @@ import (
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
 )
 
 type contextKey string
 
 const (
-	multiStatementCount              contextKey = "MULTI_STATEMENT_COUNT"
-	asyncMode                        contextKey = "ASYNC_MODE_QUERY"
-	queryIDChannel                   contextKey = "QUERY_ID_CHANNEL"
-	snowflakeRequestIDKey            contextKey = "SNOWFLAKE_REQUEST_ID"
-	fetchResultByID                  contextKey = "SF_FETCH_RESULT_BY_ID"
-	fileStreamFile                   contextKey = "STREAMING_PUT_FILE"
-	fileGetStream                    contextKey = "STREAMING_GET_FILE"
-	fileTransferOptions              contextKey = "FILE_TRANSFER_OPTIONS"
-	enableHigherPrecision            contextKey = "ENABLE_HIGHER_PRECISION"
-	enableDecfloat                   contextKey = "ENABLE_DECFLOAT"
-	enableArrowBatchesUtf8Validation contextKey = "ENABLE_ARROW_BATCHES_UTF8_VALIDATION"
-	arrowBatches                     contextKey = "ARROW_BATCHES"
-	arrowAlloc                       contextKey = "ARROW_ALLOC"
-	arrowBatchesTimestampOption      contextKey = "ARROW_BATCHES_TIMESTAMP_OPTION"
-	queryTag                         contextKey = "QUERY_TAG"
-	enableStructuredTypes            contextKey = "ENABLE_STRUCTURED_TYPES"
-	mapValuesNullable                contextKey = "MAP_VALUES_NULLABLE"
-	arrayValuesNullable              contextKey = "ARRAY_VALUES_NULLABLE"
-	describeOnly                     contextKey = "DESCRIBE_ONLY"
-	internalQuery                    contextKey = "INTERNAL_QUERY"
-	cancelRetry                      contextKey = "CANCEL_RETRY"
-	streamChunkDownload              contextKey = "STREAM_CHUNK_DOWNLOAD"
-	logQueryText                     contextKey = "LOG_QUERY_TEXT"
-	logQueryParameters               contextKey = "LOG_QUERY_PARAMETERS"
+	multiStatementCount    contextKey = "MULTI_STATEMENT_COUNT"
+	asyncMode              contextKey = "ASYNC_MODE_QUERY"
+	queryIDChannel         contextKey = "QUERY_ID_CHANNEL"
+	snowflakeRequestIDKey  contextKey = "SNOWFLAKE_REQUEST_ID"
+	fetchResultByID        contextKey = "SF_FETCH_RESULT_BY_ID"
+	filePutStream          contextKey = "STREAMING_PUT_FILE"
+	fileGetStream          contextKey = "STREAMING_GET_FILE"
+	fileTransferOptions    contextKey = "FILE_TRANSFER_OPTIONS"
+	enableDecfloat         contextKey = "ENABLE_DECFLOAT"
+	arrowAlloc             contextKey = "ARROW_ALLOC"
+	queryTag               contextKey = "QUERY_TAG"
+	enableStructuredTypes  contextKey = "ENABLE_STRUCTURED_TYPES"
+	embeddedValuesNullable contextKey = "EMBEDDED_VALUES_NULLABLE"
+	describeOnly           contextKey = "DESCRIBE_ONLY"
+	internalQuery          contextKey = "INTERNAL_QUERY"
+	cancelRetry            contextKey = "CANCEL_RETRY"
+	logQueryText           contextKey = "LOG_QUERY_TEXT"
+	logQueryParameters     contextKey = "LOG_QUERY_PARAMETERS"
 )
 
 var (
@@ -48,8 +43,8 @@ var (
 )
 
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
-func WithMultiStatement(ctx context.Context, num int) (context.Context, error) {
-	return context.WithValue(ctx, multiStatementCount, num), nil
+func WithMultiStatement(ctx context.Context, num int) context.Context {
+	return context.WithValue(ctx, multiStatementCount, num)
 }
 
 // WithAsyncMode returns a context that allows execution of query in async mode
@@ -67,19 +62,14 @@ func WithRequestID(ctx context.Context, requestID UUID) context.Context {
 	return context.WithValue(ctx, snowflakeRequestIDKey, requestID)
 }
 
-// WithStreamDownloader returns a context that allows the use of a stream based chunk downloader
-func WithStreamDownloader(ctx context.Context) context.Context {
-	return context.WithValue(ctx, streamChunkDownload, true)
-}
-
 // WithFetchResultByID returns a context that allows retrieving the result by query ID
 func WithFetchResultByID(ctx context.Context, queryID string) context.Context {
 	return context.WithValue(ctx, fetchResultByID, queryID)
 }
 
-// WithFileStream returns a context that contains the address of the file stream to be PUT
-func WithFileStream(ctx context.Context, reader io.Reader) context.Context {
-	return context.WithValue(ctx, fileStreamFile, reader)
+// WithFilePutStream returns a context that contains the address of the file stream to be PUT
+func WithFilePutStream(ctx context.Context, reader io.Reader) context.Context {
+	return context.WithValue(ctx, filePutStream, reader)
 }
 
 // WithFileGetStream returns a context that contains the address of the file stream to be GET
@@ -100,9 +90,9 @@ func WithDescribeOnly(ctx context.Context) context.Context {
 // WithHigherPrecision returns a context that enables higher precision by
 // returning a *big.Int or *big.Float variable when querying rows for column
 // types with numbers that don't fit into its native Golang counterpart
-// When used in combination with WithArrowBatches, original BigDecimal in arrow batches will be preserved.
+// When used in combination with arrowbatches.WithBatches, original BigDecimal in arrow batches will be preserved.
 func WithHigherPrecision(ctx context.Context) context.Context {
-	return context.WithValue(ctx, enableHigherPrecision, true)
+	return ia.WithHigherPrecision(ctx)
 }
 
 // WithDecfloatMappingEnabled returns a context that enables native support for DECFLOAT.
@@ -114,46 +104,11 @@ func WithDecfloatMappingEnabled(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableDecfloat, true)
 }
 
-// WithArrowBatches returns a context that allows users to retrieve
-// arrow.Record download workers upon querying
-func WithArrowBatches(ctx context.Context) context.Context {
-	return context.WithValue(ctx, arrowBatches, true)
-}
-
 // WithArrowAllocator returns a context embedding the provided allocator
 // which will be utilized by chunk downloaders when constructing Arrow
 // objects.
 func WithArrowAllocator(ctx context.Context, pool memory.Allocator) context.Context {
 	return context.WithValue(ctx, arrowAlloc, pool)
-}
-
-// WithOriginalTimestamp in combination with WithArrowBatches returns a context
-// that allows users to retrieve arrow.Record with original timestamp struct returned by Snowflake.
-// It can be used in case arrow.Timestamp cannot fit original timestamp values.
-//
-// Deprecated: please use WithArrowBatchesTimestampOption instead.
-func WithOriginalTimestamp(ctx context.Context) context.Context {
-	return context.WithValue(ctx, arrowBatchesTimestampOption, UseOriginalTimestamp)
-}
-
-// WithArrowBatchesTimestampOption in combination with WithArrowBatches returns a context
-// that allows users to retrieve arrow.Record with different timestamp options.
-// UseNanosecondTimestamp: arrow.Timestamp in nanosecond precision, could cause ErrTooHighTimestampPrecision if arrow.Timestamp cannot fit original timestamp values.
-// UseMicrosecondTimestamp: arrow.Timestamp in microsecond precision
-// UseMillisecondTimestamp: arrow.Timestamp in millisecond precision
-// UseSecondTimestamp: arrow.Timestamp in second precision
-// UseOriginalTimestamp: original timestamp struct returned by Snowflake. It can be used in case arrow.Timestamp cannot fit original timestamp values.
-func WithArrowBatchesTimestampOption(ctx context.Context, option snowflakeArrowBatchesTimestampOption) context.Context {
-	return context.WithValue(ctx, arrowBatchesTimestampOption, option)
-}
-
-// WithArrowBatchesUtf8Validation in combination with WithArrowBatches returns a context that
-// will validate and replace invalid UTF-8 characters in string columns with the replacement character
-// Theoretically, this should not be necessary, because arrow string column is only intended to contain valid UTF-8 characters.
-// However, in practice, it is possible that the data in the string column is not valid UTF-8.
-func WithArrowBatchesUtf8Validation(ctx context.Context) context.Context {
-	return context.WithValue(ctx, enableArrowBatchesUtf8Validation, true)
-
 }
 
 // WithQueryTag returns a context that will set the given tag as the QUERY_TAG
@@ -169,16 +124,11 @@ func WithStructuredTypesEnabled(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableStructuredTypes, true)
 }
 
-// WithMapValuesNullable changes how map values are returned.
+// WithEmbeddedValuesNullable changes how complex structures are returned.
 // Instead of simple values (like string) sql.NullXXX wrappers (like sql.NullString) are used.
-func WithMapValuesNullable(ctx context.Context) context.Context {
-	return context.WithValue(ctx, mapValuesNullable, true)
-}
-
-// WithArrayValuesNullable changes how array values are returned.
-// Instead of simple values (like string) sql.NullXXX wrappers (like sql.NullString) are used.
-func WithArrayValuesNullable(ctx context.Context) context.Context {
-	return context.WithValue(ctx, arrayValuesNullable, true)
+// It applies to map values and arrays.
+func WithEmbeddedValuesNullable(ctx context.Context) context.Context {
+	return context.WithValue(ctx, embeddedValuesNullable, true)
 }
 
 // WithInternal sets the internal query flag.

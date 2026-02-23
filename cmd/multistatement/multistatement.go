@@ -8,7 +8,7 @@ import (
 	"log"
 	"time"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "github.com/snowflakedb/gosnowflake/v2"
 )
 
 func main() {
@@ -58,9 +58,9 @@ func printSelectDemo(db *sql.DB) {
 
 	fmt.Println(query)
 
-	context := createMultistatementContext(numberOfQueries)
+	ctx := sf.WithMultiStatement(context.Background(), numberOfQueries)
 
-	result, err := db.QueryContext(context, query)
+	result, err := db.QueryContext(ctx, query)
 	if err != nil {
 		log.Fatalf("Error while querying snowflake: %v", err)
 	}
@@ -96,9 +96,9 @@ func printModifyingDemo(db *sql.DB) {
 
 	fmt.Println(query)
 
-	context := createMultistatementContext(numberOfQueries)
+	ctx := sf.WithMultiStatement(context.Background(), numberOfQueries)
 
-	result, err := db.ExecContext(context, query)
+	result, err := db.ExecContext(ctx, query)
 	if err != nil {
 		log.Fatalf("Error while querying snowflake: %v", err)
 	}
@@ -109,12 +109,4 @@ func printModifyingDemo(db *sql.DB) {
 	}
 
 	fmt.Printf("Rows affected: %d, expected: %d\n", rowsAffected, 3)
-}
-
-func createMultistatementContext(numberOfQueries int) context.Context {
-	context, err := sf.WithMultiStatement(context.Background(), numberOfQueries)
-	if err != nil {
-		log.Fatalf("Error while creating multi statement context: %v", err)
-	}
-	return context
 }
