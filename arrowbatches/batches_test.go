@@ -2,11 +2,16 @@ package arrowbatches
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,33 +26,98 @@ import (
 	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
 )
 
-var configParams = []*sf.ConfigParam{
-	{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
-	{Name: "User", EnvName: "SNOWFLAKE_TEST_USER", FailOnMissing: true},
-	{Name: "Password", EnvName: "SNOWFLAKE_TEST_PASSWORD", FailOnMissing: true},
-	{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
-	{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
-	{Name: "Protocol", EnvName: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
-	{Name: "Warehouse", EnvName: "SNOWFLAKE_TEST_WAREHOUSE", FailOnMissing: false},
-}
-
 // testConn holds a reusable database connection for running multiple queries.
 type testConn struct {
 	db   *sql.DB
 	conn *sql.Conn
 }
 
-func openTestConn(ctx context.Context, t *testing.T) *testConn {
+// repoRoot walks up from the current working directory to find the directory
+// containing go.mod, which is the repository root.
+func repoRoot(t *testing.T) string {
 	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("could not find repository root (no go.mod found)")
+		}
+		dir = parent
+	}
+}
+
+// readPrivateKey reads an RSA private key from a PEM file. If the path is
+// relative it is resolved against the repository root so that tests in
+// sub-packages work with repo-root-relative paths.
+func readPrivateKey(t *testing.T, path string) *rsa.PrivateKey {
+	t.Helper()
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(repoRoot(t), path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read private key file %q: %v", path, err)
+	}
+	block, _ := pem.Decode(data)
+	if block == nil {
+		t.Fatalf("failed to decode PEM block from %q", path)
+	}
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		t.Fatalf("failed to parse private key from %q: %v", path, err)
+	}
+	rsaKey, ok := key.(*rsa.PrivateKey)
+	if !ok {
+		t.Fatalf("private key in %q is not RSA (got %T)", path, key)
+	}
+	return rsaKey
+}
+
+func testConfig(t *testing.T) *sf.Config {
+	t.Helper()
+	configParams := []*sf.ConfigParam{
+		{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
+		{Name: "User", EnvName: "SNOWFLAKE_TEST_USER", FailOnMissing: true},
+		{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
+		{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
+		{Name: "Protocol", EnvName: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
+		{Name: "Warehouse", EnvName: "SNOWFLAKE_TEST_WAREHOUSE", FailOnMissing: false},
+	}
+	isJWT := os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT"
+	if !isJWT {
+		configParams = append(configParams,
+			&sf.ConfigParam{Name: "Password", EnvName: "SNOWFLAKE_TEST_PASSWORD", FailOnMissing: true},
+		)
+	}
 	cfg, err := sf.GetConfigFromEnv(configParams)
 	if err != nil {
 		t.Skipf("Snowflake config not available: %v", err)
+	}
+	if isJWT {
+		privKeyPath := os.Getenv("SNOWFLAKE_TEST_PRIVATE_KEY")
+		if privKeyPath == "" {
+			t.Fatal("SNOWFLAKE_TEST_PRIVATE_KEY must be set for JWT authentication")
+		}
+		cfg.PrivateKey = readPrivateKey(t, privKeyPath)
+		cfg.Authenticator = sf.AuthTypeJwt
 	}
 	tz := "UTC"
 	if cfg.Params == nil {
 		cfg.Params = make(map[string]*string)
 	}
 	cfg.Params["timezone"] = &tz
+	return cfg
+}
+
+func openTestConn(ctx context.Context, t *testing.T) *testConn {
+	t.Helper()
+	cfg := testConfig(t)
 	dsn, err := sf.DSN(cfg)
 	if err != nil {
 		t.Fatalf("failed to create DSN: %v", err)
@@ -268,17 +338,7 @@ func TestGetArrowBatchesWithTimestampOption(t *testing.T) {
 func TestGetArrowBatchesJSONResponseError(t *testing.T) {
 	ctx := WithArrowBatches(context.Background())
 
-	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
-		{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
-		{Name: "User", EnvName: "SNOWFLAKE_TEST_USER", FailOnMissing: true},
-		{Name: "Password", EnvName: "SNOWFLAKE_TEST_PASSWORD", FailOnMissing: true},
-		{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
-		{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
-		{Name: "Protocol", EnvName: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
-	})
-	if err != nil {
-		t.Skipf("Snowflake config not available: %v", err)
-	}
+	cfg := testConfig(t)
 
 	dsn, err := sf.DSN(cfg)
 	if err != nil {
@@ -297,7 +357,6 @@ func TestGetArrowBatchesJSONResponseError(t *testing.T) {
 	}
 	defer conn.Close()
 
-	// Force JSON response format on this connection
 	_, err = conn.ExecContext(ctx, "ALTER SESSION SET GO_QUERY_RESULT_FORMAT = json")
 	if err != nil {
 		t.Fatalf("failed to set JSON format: %v", err)
