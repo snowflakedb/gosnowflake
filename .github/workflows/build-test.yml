@@ -20,6 +20,10 @@ on:
       goTestParams:
         default:
         description: 'Parameters passed to go test'
+      sequentialTests:
+        type: boolean
+        default: false
+        description: 'Run tests sequentially (no buffering, slower)'
 
 concurrency:
   # older builds for the same pull request numer or branch should be cancelled
@@ -69,6 +73,7 @@ jobs:
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
                 GORACE: history_size=7
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+                SEQUENTIAL_TESTS: ${{ inputs.sequentialTests }}
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
               run: ./ci/test.sh
@@ -102,6 +107,7 @@ jobs:
             CLOUD_PROVIDER: AWS
             GORACE: history_size=7
             GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+            SEQUENTIAL_TESTS: ${{ inputs.sequentialTests }}
             WIREMOCK_PORT: 14335
             WIREMOCK_HTTPS_PORT: 13567
             HOME_EMPTY: "yes"
@@ -196,6 +202,7 @@ jobs:
                 GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+                SEQUENTIAL_TESTS: ${{ inputs.sequentialTests }}
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
               run: ci\\test.bat
@@ -332,6 +339,7 @@ jobs:
                 CLOUD_PROVIDER: ${{ matrix.cloud_go.cloud }}
                 GORACE: history_size=7
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+                SEQUENTIAL_TESTS: ${{ inputs.sequentialTests }}
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
               run: ./ci/test_rockylinux9_docker.sh ${{ matrix.cloud_go.go }}

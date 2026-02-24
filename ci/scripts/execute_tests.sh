@@ -17,13 +17,58 @@ if [[ "$HOME_EMPTY" == "yes" ]] ; then
   export HOME=
 fi
 
-if [[ -n "$JENKINS_HOME" ]]; then
-  export WORKSPACE=${WORKSPACE:-/mnt/workspace}
-  go test $GO_TEST_PARAMS -timeout 90m -race -v ./... | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml
+if [[ "$SEQUENTIAL_TESTS" == "true" ]] ; then
+  # Test each package separately to avoid buffering (slower but real-time output)
+  PACKAGES=$(go list ./...)
+
+  if [[ -n "$JENKINS_HOME" ]]; then
+    export WORKSPACE=${WORKSPACE:-/mnt/workspace}
+    (
+      for pkg in $PACKAGES; do
+        # Convert full package path to relative path
+        pkg_path=$(echo $pkg | sed "s|^github.com/snowflakedb/gosnowflake/v2||" | sed "s|^/||")
+        if [[ -z "$pkg_path" ]]; then
+          pkg_path="."
+        else
+          pkg_path="./$pkg_path"
+        fi
+        echo "=== Testing package: $pkg_path ===" >&2
+        go test $GO_TEST_PARAMS -timeout 90m -race -v "$pkg_path"
+      done
+    ) | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml
+  else
+    set +e
+    (
+      for pkg in $PACKAGES; do
+        pkg_path=$(echo $pkg | sed "s|^github.com/snowflakedb/gosnowflake/v2||" | sed "s|^/||")
+        if [[ -z "$pkg_path" ]]; then
+          pkg_path="."
+        else
+          pkg_path="./$pkg_path"
+        fi
+        echo "=== Testing package: $pkg_path ===" >&2
+        # Note: -coverprofile only works with single package, use -coverpkg for multiple
+        go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile="${pkg_path//\//_}_coverage.txt" -covermode=atomic -v "$pkg_path" || true
+      done
+      # Merge coverage files
+      go install github.com/wadey/gocovmerge@latest
+      gocovmerge *_coverage.txt > coverage.txt
+      rm -f *_coverage.txt
+    ) | tee test-output.txt
+    TEST_EXIT_CODE=${PIPESTATUS[0]}
+    cat test-output.txt | go-junit-report > test-report.junit.xml
+    exit $TEST_EXIT_CODE
+  fi
 else
-  set +e
-  go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile=coverage.txt -covermode=atomic -v ./... | tee test-output.txt
-  TEST_EXIT_CODE=$?
-  cat test-output.txt | go-junit-report > test-report.junit.xml
-  exit $TEST_EXIT_CODE
+  # Test all packages with ./... (parallel, faster, but buffered per package)
+  if [[ -n "$JENKINS_HOME" ]]; then
+    export WORKSPACE=${WORKSPACE:-/mnt/workspace}
+    go test $GO_TEST_PARAMS -timeout 90m -race -v ./... | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml
+  else
+    set +e
+    go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile=coverage.txt -covermode=atomic -v ./... | tee test-output.txt
+    TEST_EXIT_CODE=$?
+    cat test-output.txt | go-junit-report > test-report.junit.xml
+    exit $TEST_EXIT_CODE
+  fi
 fi

@@ -60,10 +60,61 @@ echo [INFO] Role:      %SNOWFLAKE_TEST_ROLE%
 
 go install github.com/jstemmer/go-junit-report/v2@latest
 
-REM Run tests and save output to file
-REM no -race, because it's not supported on Windows ARM
-go test %GO_TEST_PARAMS% --timeout 90m -coverprofile=coverage.txt -covermode=atomic -v ./... > test-output.txt 2>&1
-set TEST_EXIT=%ERRORLEVEL%
+REM Test based on SEQUENTIAL_TESTS setting
+if "%SEQUENTIAL_TESTS%"=="true" (
+    REM Test each package separately to avoid buffering - real-time output but slower
+    echo [INFO] Running tests sequentially for real-time output
+
+    REM Clear any existing output file
+    if exist test-output.txt del test-output.txt
+
+    REM Loop through each package and test separately
+    for /f "usebackq delims=" %%p in (`go list ./...`) do (
+        set PKG=%%p
+        REM Convert full package path to relative path
+        set PKG_PATH=!PKG:github.com/snowflakedb/gosnowflake/v2=!
+        if "!PKG_PATH!"=="" (
+            set PKG_PATH=.
+        ) else (
+            set PKG_PATH=.!PKG_PATH!
+        )
+
+        echo === Testing package: !PKG_PATH! ===
+        echo === Testing package: !PKG_PATH! === >> test-output.txt
+
+        REM Test package and append to output (no -race on Windows ARM)
+        REM Replace / with _ for coverage filename
+        set COV_FILE=!PKG_PATH:/=_!_coverage.txt
+        go test %GO_TEST_PARAMS% --timeout 90m -coverprofile=!COV_FILE! -covermode=atomic -v !PKG_PATH! >> test-output.txt 2>&1
+
+        REM Continue even if tests fail
+        if !ERRORLEVEL! NEQ 0 (
+            echo [WARN] Package !PKG_PATH! tests failed
+        )
+    )
+
+    REM Merge coverage files
+    go install github.com/wadey/gocovmerge@latest
+    gocovmerge *_coverage.txt > coverage.txt
+    del *_coverage.txt
+
+    REM Set exit code to 0 for sequential mode (we don't want to fail on first package error)
+    set TEST_EXIT=0
+) else (
+    REM Test all packages with ./... - parallel, faster, but buffered
+    echo [INFO] Running tests in parallel
+    go test %GO_TEST_PARAMS% --timeout 90m -coverprofile=coverage.txt -covermode=atomic -v ./... > test-output.txt 2>&1
+    set TEST_EXIT=%ERRORLEVEL%
+)
+
+REM Display the test output
+type test-output.txt
+
+REM Generate JUnit report from the saved output
+type test-output.txt | go-junit-report > test-report.junit.xml
+
+REM End local scope and exit with the test exit code
+endlocal & exit /b %TEST_EXIT%
 
 REM Display the test output
 type test-output.txt

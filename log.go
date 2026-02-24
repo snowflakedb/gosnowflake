@@ -6,10 +6,10 @@ import (
 )
 
 // SFSessionIDKey is context key of session id
-const SFSessionIDKey contextKey = "LOG_SESSION_ID"
+const SFSessionIDKey ContextKey = "LOG_SESSION_ID"
 
 // SFSessionUserKey is context key of user id of a session
-const SFSessionUserKey contextKey = "LOG_USER"
+const SFSessionUserKey ContextKey = "LOG_USER"
 
 func init() {
 	// Set default log keys in internal package
@@ -47,8 +47,8 @@ type (
 
 // SetLogKeys sets the context keys to be written to logs when logger.WithContext is used.
 // This function is thread-safe and can be called at runtime.
-func SetLogKeys(keys ...contextKey) {
-	// Convert contextKey to []interface{} for internal package
+func SetLogKeys(keys ...ContextKey) {
+	// Convert ContextKey to []interface{} for internal package
 	ikeys := make([]interface{}, len(keys))
 	for i, k := range keys {
 		ikeys[i] = k
@@ -57,13 +57,13 @@ func SetLogKeys(keys ...contextKey) {
 }
 
 // GetLogKeys returns the currently configured context keys.
-func GetLogKeys() []contextKey {
+func GetLogKeys() []ContextKey {
 	ikeys := loggerinternal.GetLogKeys()
 
-	// Convert []interface{} back to []contextKey
-	keys := make([]contextKey, 0, len(ikeys))
+	// Convert []interface{} back to []ContextKey
+	keys := make([]ContextKey, 0, len(ikeys))
 	for _, k := range ikeys {
-		if ck, ok := k.(contextKey); ok {
+		if ck, ok := k.(ContextKey); ok {
 			keys = append(keys, ck)
 		}
 	}
@@ -99,12 +99,21 @@ func GetLogger() SFLogger {
 }
 
 // CreateDefaultLogger creates and returns a new instance of SFLogger with default config.
-// The returned logger is automatically wrapped with secret masking.
+// The returned logger is automatically wrapped with secret masking and level filtering.
 // This is a pure factory function and does NOT modify global state.
 // If you want to set it as the global logger, call SetLogger(&newLogger).
+//
+// The wrapping chain is: levelFilteringLogger → secretMaskingLogger → defaultLogger
 func CreateDefaultLogger() SFLogger {
-	inner := loggerinternal.NewDefaultLogger()
-	wrappedInterface := loggerinternal.NewSecretMaskingLogger(inner)
-	wrapped, _ := wrappedInterface.(loginterface.SFLogger)
-	return wrapped
+	// Create the actual logger
+	actualLogger := loggerinternal.NewDefaultLogger()
+
+	// Step 1: Wrap with secret masking
+	maskedInterface := loggerinternal.NewSecretMaskingLogger(actualLogger)
+	masked, _ := maskedInterface.(loginterface.SFLogger)
+
+	// Step 2: Wrap with level filtering (outermost layer)
+	filtered := loggerinternal.NewLevelFilteringLogger(masked)
+
+	return filtered
 }

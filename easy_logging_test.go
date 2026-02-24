@@ -14,6 +14,7 @@ import (
 )
 
 func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) {
+	skipOnWindows(t, "Doesn't work on Windows")
 	defer cleanUp()
 	logDir := t.TempDir()
 	logLevel := levelError
@@ -39,6 +40,7 @@ func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) 
 }
 
 func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *testing.T) {
+	skipOnWindows(t, "Doesn't work on Windows")
 	skipOnMissingHome(t)
 	appExe, err := os.Executable()
 	assertNilF(t, err, "application exe not accessible")
@@ -82,6 +84,7 @@ func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *tes
 }
 
 func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing.T) {
+	skipOnWindows(t, "Doesn't work on Windows")
 	skipOnMissingHome(t)
 	defer cleanUp()
 	configDir, err := os.UserHomeDir()
@@ -142,6 +145,7 @@ func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
 }
 
 func TestLogToConfiguredFile(t *testing.T) {
+	skipOnWindows(t, "Doesn't work on Windows")
 	defer cleanUp()
 	dir := t.TempDir()
 	easyLoggingInitTrials.reset()

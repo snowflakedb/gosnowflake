@@ -186,89 +186,73 @@ func (log *defaultLogger) SetHandler(handler interface{}) error {
 	return nil
 }
 
-// Implement all formatted logging methods (*f variants)
-func (log *defaultLogger) Tracef(format string, args ...interface{}) {
+// logWithSkip logs a message at the given level, skipping 'skip' frames when determining source location.
+// This is used internally to skip wrapper frames (levelFilteringLogger -> secretMaskingLogger -> defaultLogger)
+// and report the actual caller's location.
+func (log *defaultLogger) logWithSkip(skip int, level slog.Level, msg string) {
 	if !log.isEnabled() {
 		return
 	}
-	log.inner.Log(context.Background(), LevelTrace, fmt.Sprintf(format, args...))
+	var pcs [1]uintptr
+	// Skip: runtime.Callers itself + logWithSkip + specified skip
+	runtime.Callers(skip+2, pcs[:])
+	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
+	_ = log.handler.Handle(context.Background(), r)
+}
+
+// Implement all formatted logging methods (*f variants)
+// Skip depth = 3 assumes standard wrapper chain: levelFilteringLogger -> secretMaskingLogger -> defaultLogger
+// If wrapper chain changes, update this value. See TestSkipDepthWarning test.
+func (log *defaultLogger) Tracef(format string, args ...interface{}) {
+	log.logWithSkip(3, LevelTrace, fmt.Sprintf(format, args...))
 }
 
 func (log *defaultLogger) Debugf(format string, args ...interface{}) {
-	if !log.isEnabled() {
-		return
-	}
-	log.inner.Log(context.Background(), LevelDebug, fmt.Sprintf(format, args...))
+	log.logWithSkip(3, LevelDebug, fmt.Sprintf(format, args...))
 }
 
 func (log *defaultLogger) Infof(format string, args ...interface{}) {
-	if !log.isEnabled() {
-		return
-	}
-	log.inner.Log(context.Background(), LevelInfo, fmt.Sprintf(format, args...))
+	log.logWithSkip(3, LevelInfo, fmt.Sprintf(format, args...))
 }
 
 func (log *defaultLogger) Warnf(format string, args ...interface{}) {
-	if !log.isEnabled() {
-		return
-	}
-	log.inner.Log(context.Background(), LevelWarn, fmt.Sprintf(format, args...))
+	log.logWithSkip(3, LevelWarn, fmt.Sprintf(format, args...))
 }
 
 func (log *defaultLogger) Errorf(format string, args ...interface{}) {
-	if !log.isEnabled() {
-		return
-	}
-	log.inner.Log(context.Background(), LevelError, fmt.Sprintf(format, args...))
+	log.logWithSkip(3, LevelError, fmt.Sprintf(format, args...))
 }
 
 func (log *defaultLogger) Fatalf(format string, args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Log(context.Background(), LevelFatal, fmt.Sprintf(format, args...))
-	}
+	log.logWithSkip(3, LevelFatal, fmt.Sprintf(format, args...))
 	os.Exit(1)
 }
 
 // Implement all direct logging methods
+// Skip depth = 3 assumes standard wrapper chain: levelFilteringLogger -> secretMaskingLogger -> defaultLogger
+// If wrapper chain changes, update this value. See TestSkipDepthWarning test.
 func (log *defaultLogger) Trace(msg string) {
-	if !log.isEnabled() {
-		return
-	}
-	log.inner.Log(context.Background(), LevelTrace, fmt.Sprint(msg))
+	log.logWithSkip(3, LevelTrace, msg)
 }
 
 func (log *defaultLogger) Debug(msg string) {
-	if !log.isEnabled() {
-		return
-	}
-	log.inner.Log(context.Background(), LevelDebug, fmt.Sprint(msg))
+	log.logWithSkip(3, LevelDebug, msg)
 }
 
 func (log *defaultLogger) Info(msg string) {
-	if !log.isEnabled() {
-		return
-	}
-	log.inner.Log(context.Background(), LevelInfo, fmt.Sprint(msg))
+	log.logWithSkip(3, LevelInfo, msg)
 }
 
 func (log *defaultLogger) Warn(msg string) {
-	if !log.isEnabled() {
-		return
-	}
-	log.inner.Log(context.Background(), LevelWarn, fmt.Sprint(msg))
+	log.logWithSkip(3, LevelWarn, msg)
 }
 
 func (log *defaultLogger) Error(msg string) {
-	if !log.isEnabled() {
-		return
-	}
-	log.inner.Log(context.Background(), LevelError, fmt.Sprint(msg))
+	log.logWithSkip(3, LevelError, msg)
 }
 
 func (log *defaultLogger) Fatal(msg string) {
-	if log.isEnabled() {
-		log.inner.Log(context.Background(), LevelFatal, fmt.Sprint(msg))
-	}
+	log.logWithSkip(3, LevelFatal, msg)
 	os.Exit(1)
 }
 
@@ -336,89 +320,70 @@ func (e *slogEntry) isEnabled() bool {
 	return *e.enabled
 }
 
-// Implement all formatted logging methods (*f variants)
-func (e *slogEntry) Tracef(format string, args ...interface{}) {
+// logWithSkip logs a message at the given level, skipping 'skip' frames when determining source location.
+func (e *slogEntry) logWithSkip(skip int, level slog.Level, msg string) {
 	if !e.isEnabled() {
 		return
 	}
-	e.logger.Log(context.Background(), LevelTrace, fmt.Sprintf(format, args...))
+	var pcs [1]uintptr
+	runtime.Callers(skip+2, pcs[:]) // +2: runtime.Callers itself + logWithSkip
+	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
+	_ = e.logger.Handler().Handle(context.Background(), r)
+}
+
+// Implement all formatted logging methods (*f variants)
+// Skip depth = 3 assumes standard wrapper chain: levelFilteringEntry -> secretMaskingEntry -> slogEntry
+// If wrapper chain changes, update this value. See TestSkipDepthWarning test.
+func (e *slogEntry) Tracef(format string, args ...interface{}) {
+	e.logWithSkip(3, LevelTrace, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Debugf(format string, args ...interface{}) {
-	if !e.isEnabled() {
-		return
-	}
-	e.logger.Log(context.Background(), LevelDebug, fmt.Sprintf(format, args...))
+	e.logWithSkip(3, LevelDebug, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Infof(format string, args ...interface{}) {
-	if !e.isEnabled() {
-		return
-	}
-	e.logger.Log(context.Background(), LevelInfo, fmt.Sprintf(format, args...))
+	e.logWithSkip(3, LevelInfo, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Warnf(format string, args ...interface{}) {
-	if !e.isEnabled() {
-		return
-	}
-	e.logger.Log(context.Background(), LevelWarn, fmt.Sprintf(format, args...))
+	e.logWithSkip(3, LevelWarn, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Errorf(format string, args ...interface{}) {
-	if !e.isEnabled() {
-		return
-	}
-	e.logger.Log(context.Background(), LevelError, fmt.Sprintf(format, args...))
+	e.logWithSkip(3, LevelError, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Fatalf(format string, args ...interface{}) {
-	if e.isEnabled() {
-		e.logger.Log(context.Background(), LevelFatal, fmt.Sprintf(format, args...))
-	}
+	e.logWithSkip(3, LevelFatal, fmt.Sprintf(format, args...))
 	os.Exit(1)
 }
 
 // Implement all direct logging methods
+// Skip depth = 3 assumes standard wrapper chain: levelFilteringEntry -> secretMaskingEntry -> slogEntry
+// If wrapper chain changes, update this value. See TestSkipDepthWarning test.
 func (e *slogEntry) Trace(msg string) {
-	if !e.isEnabled() {
-		return
-	}
-	e.logger.Log(context.Background(), LevelTrace, msg)
+	e.logWithSkip(3, LevelTrace, msg)
 }
 
 func (e *slogEntry) Debug(msg string) {
-	if !e.isEnabled() {
-		return
-	}
-	e.logger.Log(context.Background(), LevelDebug, msg)
+	e.logWithSkip(3, LevelDebug, msg)
 }
 
 func (e *slogEntry) Info(msg string) {
-	if !e.isEnabled() {
-		return
-	}
-	e.logger.Log(context.Background(), LevelInfo, msg)
+	e.logWithSkip(3, LevelInfo, msg)
 }
 
 func (e *slogEntry) Warn(msg string) {
-	if !e.isEnabled() {
-		return
-	}
-	e.logger.Log(context.Background(), LevelWarn, msg)
+	e.logWithSkip(3, LevelWarn, msg)
 }
 
 func (e *slogEntry) Error(msg string) {
-	if !e.isEnabled() {
-		return
-	}
-	e.logger.Log(context.Background(), LevelError, msg)
+	e.logWithSkip(3, LevelError, msg)
 }
 
 func (e *slogEntry) Fatal(msg string) {
-	if e.isEnabled() {
-		e.logger.Log(context.Background(), LevelFatal, msg)
-	}
+	e.logWithSkip(3, LevelFatal, msg)
 	os.Exit(1)
 }
 
@@ -446,12 +411,6 @@ func (log *defaultLogger) ReplaceGlobalLogger(newLogger interface{}) {
 		_ = log.file.Close()
 	}
 }
-
-// Ensure defaultLogger satisfies the expected interfaces through duck typing
-var _ interface {
-	SetLogLevel(string) error
-	GetLogLevel() string
-} = (*defaultLogger)(nil)
 
 // Ensure defaultLogger implements SFLogger
 var _ SFLogger = (*defaultLogger)(nil)

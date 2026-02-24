@@ -55,7 +55,7 @@ func TestTokenFilePermission(t *testing.T) {
 		connectionsAbsolutePath, err2 := path.Abs("./test_data/connections.toml")
 		assertNilF(t, err2, "The error should not occur")
 
-		expectedWarn := fmt.Sprintf("level=warning msg=\"file '%v' is readable by someone other than the owner. "+
+		expectedWarn := fmt.Sprintf("msg=\"file '%v' is readable by someone other than the owner. "+
 			"Your Permission: -rw-r--r--. If you want to disable this warning, either remove read permissions from group "+
 			"and others or set the environment variable SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE to true\"", connectionsAbsolutePath)
 		assertStringContainsF(t, buf.String(), expectedWarn)

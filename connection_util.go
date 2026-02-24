@@ -261,7 +261,7 @@ func isLogQueryParametersEnabled(ctx context.Context) bool {
 	return isBooleanContextEnabled(ctx, logQueryParameters)
 }
 
-func isBooleanContextEnabled(ctx context.Context, key contextKey) bool {
+func isBooleanContextEnabled(ctx context.Context, key ContextKey) bool {
 	v := ctx.Value(key)
 	if v == nil {
 		return false
