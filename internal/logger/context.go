@@ -73,14 +73,20 @@ func extractContextFields(ctx context.Context) []slog.Attr {
 	for _, key := range logKeys {
 		if val := ctx.Value(key); val != nil {
 			keyStr := fmt.Sprint(key)
-			attrs = append(attrs, slog.Any(keyStr, val))
+
+			if strVal, ok := val.(string); ok {
+				attrs = append(attrs, slog.String(keyStr, MaskSecrets(strVal)))
+			} else {
+				masked := MaskSecrets(fmt.Sprint(val))
+				attrs = append(attrs, slog.String(keyStr, masked))
+			}
 		}
 	}
 
 	// Custom hooks
 	for key, hook := range clientLogContextHooks {
 		if val := hook(ctx); val != "" {
-			attrs = append(attrs, slog.String(key, val))
+			attrs = append(attrs, slog.String(key, MaskSecrets(val)))
 		}
 	}
 
