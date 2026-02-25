@@ -37,21 +37,16 @@ var _ SFLogger = (*mockLogger)(nil)
 
 func TestSecretMaskingLogger(t *testing.T) {
 	mock := &mockLogger{}
-	wrapped := NewSecretMaskingLogger(mock)
+	logger := newSecretMaskingLogger(mock)
 
-	// Test that secret masking logger properly implements SFLogger
-	if logger, ok := wrapped.(SFLogger); ok {
-		// Use a real password pattern that will be masked
-		logger.Infof("test message with %s", "password:secret123")
+	// Use a real password pattern that will be masked
+	logger.Infof("test message with %s", "password:secret123")
 
-		// Secret masking logger formats the message, masks it, then passes with "%s" format
-		if mock.lastMessage != "%s" {
-			t.Errorf("Expected format string to be '%%s', got %s", mock.lastMessage)
-		}
-
-		// The masked message should have been passed as the first arg
-		// (We can't check this with the current mock, but we verified it works in other tests)
-	} else {
-		t.Error("wrapped logger should implement SFLogger interface")
+	// Secret masking logger formats the message, masks it, then passes with "%s" format
+	if mock.lastMessage != "%s" {
+		t.Errorf("Expected format string to be '%%s', got %s", mock.lastMessage)
 	}
+
+	// The masked message should have been passed as the first arg
+	// (We can't check this with the current mock, but we verified it works in other tests)
 }

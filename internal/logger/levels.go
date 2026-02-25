@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"fmt"
 	"log/slog"
 	"math"
 	"strings"
@@ -19,22 +18,24 @@ const (
 )
 
 // parseLevel converts a string level to slog.Level
-func parseLevel(level string) (slog.Level, error) {
+func parseLevel(level string) slog.Level {
 	switch strings.ToUpper(level) {
 	case "TRACE":
-		return LevelTrace, nil
+		return LevelTrace
 	case "DEBUG":
-		return LevelDebug, nil
+		return LevelDebug
 	case "INFO":
-		return LevelInfo, nil
+		return LevelInfo
 	case "WARN":
-		return LevelWarn, nil
+		return LevelWarn
 	case "ERROR":
-		return LevelError, nil
+		return LevelError
 	case "FATAL":
-		return LevelFatal, nil
+		return LevelFatal
+	case "OFF":
+		return LevelOff
 	default:
-		return 0, fmt.Errorf("invalid log level: %s", level)
+		return LevelInfo
 	}
 }
 
@@ -53,6 +54,8 @@ func levelToString(level slog.Level) string {
 		return "error"
 	case LevelFatal:
 		return "fatal"
+	case LevelOff:
+		return "off"
 	default:
 		return "info"
 	}

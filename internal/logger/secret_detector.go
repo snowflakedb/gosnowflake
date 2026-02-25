@@ -1,8 +1,6 @@
 package logger
 
 import (
-	"fmt"
-	"os"
 	"regexp"
 	"sync"
 )
@@ -23,32 +21,18 @@ const (
 
 var (
 	initSecretDetectorOnce sync.Once
-	awsKeyRegexp           *regexp.Regexp
-	awsTokenRegexp         *regexp.Regexp
-	sasTokenRegexp         *regexp.Regexp
-	privateKeyRegexp       *regexp.Regexp
-	privateKeyDataRegexp   *regexp.Regexp
-	privateKeyParamRegexp  *regexp.Regexp
-	connectionTokenRegexp  *regexp.Regexp
-	passwordRegexp         *regexp.Regexp
-	dsnPasswordRegexp      *regexp.Regexp
-	clientSecretRegexp     *regexp.Regexp
-	jwtTokenRegexp         *regexp.Regexp
+	awsKeyRegexp           = regexp.MustCompile(awsKeyPattern)
+	awsTokenRegexp         = regexp.MustCompile(awsTokenPattern)
+	sasTokenRegexp         = regexp.MustCompile(sasTokenPattern)
+	privateKeyRegexp       = regexp.MustCompile(privateKeyPattern)
+	privateKeyDataRegexp   = regexp.MustCompile(privateKeyDataPattern)
+	privateKeyParamRegexp  = regexp.MustCompile(privateKeyParamPattern)
+	connectionTokenRegexp  = regexp.MustCompile(connectionTokenPattern)
+	passwordRegexp         = regexp.MustCompile(passwordPattern)
+	dsnPasswordRegexp      = regexp.MustCompile(dsnPasswordPattern)
+	clientSecretRegexp     = regexp.MustCompile(clientSecretPattern)
+	jwtTokenRegexp         = regexp.MustCompile(jwtTokenPattern)
 )
-
-func registerRegexps() {
-	awsKeyRegexp = regexp.MustCompile(awsKeyPattern)
-	awsTokenRegexp = regexp.MustCompile(awsTokenPattern)
-	sasTokenRegexp = regexp.MustCompile(sasTokenPattern)
-	privateKeyRegexp = regexp.MustCompile(privateKeyPattern)
-	privateKeyDataRegexp = regexp.MustCompile(privateKeyDataPattern)
-	privateKeyParamRegexp = regexp.MustCompile(privateKeyParamPattern)
-	connectionTokenRegexp = regexp.MustCompile(connectionTokenPattern)
-	passwordRegexp = regexp.MustCompile(passwordPattern)
-	dsnPasswordRegexp = regexp.MustCompile(dsnPasswordPattern)
-	clientSecretRegexp = regexp.MustCompile(clientSecretPattern)
-	jwtTokenRegexp = regexp.MustCompile(jwtTokenPattern)
-}
 
 type secretmasker string
 
@@ -105,16 +89,6 @@ func newSecretMasker(text string) secretmasker {
 
 // MaskSecrets masks secrets in text (exported for use by main package and secret masking logger)
 func MaskSecrets(text string) (masked string) {
-	// Recover from any panic during regex initialization
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Fprintf(os.Stderr, "panic occurred during secret masking: %v\n", r)
-			masked = "****"
-		}
-	}()
-
-	initSecretDetectorOnce.Do(registerRegexps)
-
 	s := newSecretMasker(text)
 
 	return s.maskConnectionToken().

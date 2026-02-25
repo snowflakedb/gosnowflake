@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"errors"
+	"log"
 	"sync"
 
 	"github.com/snowflakedb/gosnowflake/v2/loginterface"
@@ -9,18 +11,10 @@ import (
 // LoggerAccessor allows internal packages to access the global logger
 // without importing the main gosnowflake package (avoiding circular dependencies)
 var (
-	globalLogger       loginterface.SFLogger
-	loggerAccessorOnce sync.Once
-	loggerAccessorMu   sync.RWMutex
+	loggerAccessorMu sync.RWMutex
+	// globalLogger is the actual logger that provides all features (secret masking, level filtering, etc.)
+	globalLogger loginterface.SFLogger
 )
-
-// SetGlobalLoggerAccessor sets the logger accessor for internal packages
-// This should be called by the main package during initialization
-func SetGlobalLoggerAccessor(logger loginterface.SFLogger) {
-	loggerAccessorMu.Lock()
-	defer loggerAccessorMu.Unlock()
-	globalLogger = logger
-}
 
 // GetLogger returns the global logger for use by internal packages
 // Returns a default logger if not yet initialized
@@ -34,104 +28,62 @@ func GetLogger() loginterface.SFLogger {
 	loggerAccessorMu.RLock()
 	defer loggerAccessorMu.RUnlock()
 
-	if globalLogger == nil {
-		// Return a default logger if not initialized yet
-		loggerAccessorOnce.Do(func() {
-			inner := NewDefaultLogger()
-			// Wrap with secret masking
-			maskedInterface := NewSecretMaskingLogger(inner)
-			masked, ok := maskedInterface.(loginterface.SFLogger)
-			if !ok {
-				panic("wrapped logger does not implement SFLogger interface")
-			}
-			// Wrap with level filtering
-			filtered := NewLevelFilteringLogger(masked)
-			globalLogger = filtered
-		})
-	}
-
 	return globalLogger
 }
 
-// SetLoggerWithMasking wraps any logger with secret masking and level filtering, then sets it as the global logger.
-// If the logger is already wrapped with SecretMaskingAdapter, it uses the inner logger directly.
-// This centralizes the wrapping logic that was duplicated across SetLogger and CreateDefaultLogger.
-// LoggerProxy instances are rejected to prevent infinite recursion.
+// SetLogger sets the raw (base) logger implementation and wraps it with the standard protection layers.
+// This function ALWAYS wraps the provided logger with:
+//  1. Secret masking (to protect sensitive data)
+//  2. Level filtering (for performance optimization)
 //
-// The wrapping chain is: levelFilteringLogger → secretMaskingLogger → actualLogger
-// This ensures level filtering happens first (performance optimization) before expensive masking operations.
-func SetLoggerWithMasking(logger interface{}) error {
+// There is no way to bypass these protective layers. The globalLogger structure is:
+//
+//	globalLogger = levelFilteringLogger → secretMaskingLogger → rawLogger
+//
+// If the provided logger is already wrapped (e.g., from CreateDefaultLogger), this function
+// automatically extracts the raw logger to prevent double-wrapping.
+//
+// Internal wrapper types that would cause issues are rejected:
+//   - LoggerProxy (would cause infinite recursion)
+func SetLogger(providedLogger SFLogger) error {
 	loggerAccessorMu.Lock()
 	defer loggerAccessorMu.Unlock()
 
-	// Reject LoggerProxy - it should never be set as the global logger
-	// because it delegates to GetLogger(), which would create infinite recursion
-	if _, isProxy := logger.(*LoggerProxy); isProxy {
-		return &loggerError{message: "cannot set LoggerProxy as global logger - it would create infinite recursion"}
+	// Reject LoggerProxy to prevent infinite recursion
+	if _, isProxy := providedLogger.(*LoggerProxy); isProxy {
+		return errors.New("cannot set LoggerProxy as raw logger - it would create infinite recursion")
 	}
 
-	// Check if already a SecretMaskingAdapter
-	if adapter, ok := logger.(*SecretMaskingAdapter); ok {
-		// Already wrapped - use the inner logger directly
-		globalLogger = adapter.Inner
-		return nil
+	// Unwrap if the logger is one of our own wrapper types
+	// This allows SetLogger to accept both raw loggers and fully-wrapped loggers
+	rawLogger := providedLogger
+
+	// If it's a level filtering logger, unwrap to get the secret masking layer
+	if levelFiltering, ok := rawLogger.(*levelFilteringLogger); ok {
+		rawLogger = levelFiltering.inner
 	}
 
-	// Unwrap if the logger is wrapping a LoggerProxy
-	type unwrapper interface {
-		Unwrap() interface{}
-	}
-	if u, ok := logger.(unwrapper); ok {
-		if inner, ok := u.Unwrap().(loginterface.SFLogger); ok {
-			if _, isProxy := inner.(*LoggerProxy); isProxy {
-				return &loggerError{message: "cannot set logger wrapping LoggerProxy - it would create infinite recursion"}
-			}
-		}
+	// If it's a secret masking logger, unwrap to get the raw logger
+	if secretMasking, ok := rawLogger.(*secretMaskingLogger); ok {
+		rawLogger = secretMasking.inner
 	}
 
-	// Build the wrapping chain: levelFiltering → secretMasking → actualLogger
-
-	// Step 1: Wrap with secret masking
-	maskedInterface := NewSecretMaskingLogger(logger)
-	masked, ok := maskedInterface.(loginterface.SFLogger)
-	if !ok {
-		return &loggerError{message: "wrapped logger does not implement SFLogger interface"}
-	}
-
-	// Step 2: Wrap with level filtering (outermost layer)
-	filtered := NewLevelFilteringLogger(masked)
+	// Build the standard protection chain: levelFiltering → secretMasking → rawLogger
+	masked := newSecretMaskingLogger(rawLogger)
+	filtered := newLevelFilteringLogger(masked)
 
 	globalLogger = filtered
 	return nil
 }
 
-// CreateAndSetDefaultLogger creates a new default logger, wraps it with secret masking and level filtering,
-// and sets it as the global logger. This centralizes the initialization logic.
-//
-// The wrapping chain is: levelFilteringLogger → secretMaskingLogger → defaultLogger
-// This ensures level filtering happens first (performance optimization) before expensive masking operations.
-func CreateAndSetDefaultLogger() {
-	loggerAccessorMu.Lock()
-	defer loggerAccessorMu.Unlock()
-
-	// Create the actual logger
-	actualLogger := NewDefaultLogger()
-
-	// Step 1: Wrap with secret masking
-	maskedInterface := NewSecretMaskingLogger(actualLogger)
-	masked, _ := maskedInterface.(loginterface.SFLogger)
-
-	// Step 2: Wrap with level filtering (outermost layer)
-	filtered := NewLevelFilteringLogger(masked)
-
-	globalLogger = filtered
+func init() {
+	rawLogger := newRawLogger()
+	if err := SetLogger(rawLogger); err != nil {
+		log.Panicf("cannot set default logger. %v", err)
+	}
 }
 
-// loggerError is a simple error type for logger-related errors
-type loggerError struct {
-	message string
-}
-
-func (e *loggerError) Error() string {
-	return e.message
+// CreateDefaultLogger function creates a new instance of the default logger with the standard protection layers.
+func CreateDefaultLogger() loginterface.SFLogger {
+	return newLevelFilteringLogger(newSecretMaskingLogger(newRawLogger()))
 }

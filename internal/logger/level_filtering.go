@@ -2,10 +2,9 @@ package logger
 
 import (
 	"context"
-	"io"
-	"strings"
-
+	"errors"
 	"github.com/snowflakedb/gosnowflake/v2/loginterface"
+	"io"
 )
 
 // levelFilteringLogger wraps any logger and filters log messages based on log level.
@@ -23,48 +22,15 @@ func (l *levelFilteringLogger) Unwrap() interface{} {
 	return l.inner
 }
 
-// Level values for comparison (matching slog conventions)
-const (
-	levelTraceValue = -8
-	levelDebugValue = -4
-	levelInfoValue  = 0
-	levelWarnValue  = 4
-	levelErrorValue = 8
-	levelFatalValue = 12
-	levelOffValue   = 999 // Higher than any real level
-)
-
-// levelValue returns the numeric value of a log level
-func levelValue(level string) int {
-	switch strings.ToUpper(level) {
-	case "TRACE":
-		return levelTraceValue
-	case "DEBUG":
-		return levelDebugValue
-	case "INFO":
-		return levelInfoValue
-	case "WARN", "WARNING":
-		return levelWarnValue
-	case "ERROR":
-		return levelErrorValue
-	case "FATAL":
-		return levelFatalValue
-	case "OFF":
-		return levelOffValue
-	default:
-		return levelInfoValue
-	}
-}
-
 // shouldLog determines if a message at messageLevel should be logged
 // given the current configured level
 func (l *levelFilteringLogger) shouldLog(messageLevel string) bool {
 	currentLevel := l.inner.GetLogLevel()
-	return levelValue(messageLevel) >= levelValue(currentLevel)
+	return parseLevel(messageLevel) >= parseLevel(currentLevel)
 }
 
-// NewLevelFilteringLogger creates a new level filtering wrapper around the provided logger
-func NewLevelFilteringLogger(inner SFLogger) SFLogger {
+// newLevelFilteringLogger creates a new level filtering wrapper around the provided logger
+func newLevelFilteringLogger(inner SFLogger) SFLogger {
 	if inner == nil {
 		panic("inner logger cannot be nil")
 	}
@@ -202,7 +168,7 @@ func (l *levelFilteringLogger) SetHandler(handler interface{}) error {
 	if sh, ok := l.inner.(setHandlerLogger); ok {
 		return sh.SetHandler(handler)
 	}
-	return &loggerError{message: "underlying logger does not support SetHandler"}
+	return errors.New("underlying logger does not support SetHandler")
 }
 
 // levelFilteringEntry wraps a log entry and filters by level

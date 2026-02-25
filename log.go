@@ -15,9 +15,6 @@ func init() {
 	// Set default log keys in internal package
 	SetLogKeys(SFSessionIDKey, SFSessionUserKey)
 
-	// Initialize the default logger in internal package
-	loggerinternal.CreateAndSetDefaultLogger()
-
 	// Set default log level
 	_ = logger.SetLogLevel("error")
 	if runningOnGithubAction() {
@@ -87,10 +84,15 @@ func GetClientLogContextHooks() map[string]ClientLogContextHook {
 // This ensures a single source of truth for the current logger
 var logger SFLogger = loggerinternal.NewLoggerProxy()
 
-// SetLogger set a new logger of SFLogger interface for gosnowflake
-// The provided logger will automatically be wrapped with secret masking.
+// SetLogger sets a custom logger implementation for gosnowflake.
+// The provided logger will be used as the base logger and automatically wrapped with:
+//   - Secret masking (to protect sensitive data like passwords and tokens)
+//   - Level filtering (for performance optimization)
+//
+// You cannot bypass these protective layers. If you need to configure them, use the
+// returned logger's methods (SetLogLevel, etc.).
 func SetLogger(inLogger *SFLogger) {
-	_ = loggerinternal.SetLoggerWithMasking(*inLogger)
+	_ = loggerinternal.SetLogger(*inLogger)
 }
 
 // GetLogger return logger that is not public
@@ -105,15 +107,5 @@ func GetLogger() SFLogger {
 //
 // The wrapping chain is: levelFilteringLogger → secretMaskingLogger → defaultLogger
 func CreateDefaultLogger() SFLogger {
-	// Create the actual logger
-	actualLogger := loggerinternal.NewDefaultLogger()
-
-	// Step 1: Wrap with secret masking
-	maskedInterface := loggerinternal.NewSecretMaskingLogger(actualLogger)
-	masked, _ := maskedInterface.(loginterface.SFLogger)
-
-	// Step 2: Wrap with level filtering (outermost layer)
-	filtered := loggerinternal.NewLevelFilteringLogger(masked)
-
-	return filtered
+	return loggerinternal.CreateDefaultLogger()
 }

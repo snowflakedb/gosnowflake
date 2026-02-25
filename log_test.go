@@ -15,7 +15,7 @@ func TestLogLevelEnabled(t *testing.T) {
 		t.Fatalf("log level could not be set %v", err)
 	}
 	if log.GetLogLevel() != "info" {
-		t.Fatalf("log level should be trace but is %v", log.GetLogLevel())
+		t.Fatalf("log level should be info but is %v", log.GetLogLevel())
 	}
 }
 
@@ -99,6 +99,32 @@ func TestLogSetLevel(t *testing.T) {
 	if !strings.Contains(strbuf, "trace level") ||
 		!strings.Contains(strbuf, "debug level") {
 		t.Fatalf("unexpected output in log: %v", strbuf)
+	}
+}
+
+func TestLowerLevelsAreSuppressed(t *testing.T) {
+	logger := CreateDefaultLogger()
+	buf := &bytes.Buffer{}
+	logger.SetOutput(buf)
+	_ = logger.SetLogLevel("info")
+
+	logger.Trace("should print at trace level")
+	logger.Debug("should print at debug level")
+	logger.Info("should print at info level")
+	logger.Warn("should print at warn level")
+	logger.Error("should print at error level")
+
+	var strbuf = buf.String()
+
+	if strings.Contains(strbuf, "trace level") ||
+		strings.Contains(strbuf, "debug level") {
+		t.Fatalf("unexpected debug and trace are not present in log: %v", strbuf)
+	}
+
+	if !strings.Contains(strbuf, "info level") ||
+		!strings.Contains(strbuf, "warn level") ||
+		!strings.Contains(strbuf, "error level") {
+		t.Fatalf("expected info, warn, error output in log: %v", strbuf)
 	}
 }
 

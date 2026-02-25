@@ -1,3 +1,5 @@
+// Package loginterface package defines the logging interface for Snowflake's Go driver.
+// If you want to implement a custom logger, you should implement the SFLogger interface defined in this package.
 package loginterface
 
 import (

@@ -9,9 +9,9 @@ import (
 
 // Storage for log keys and hooks (single source of truth)
 var (
+	contextConfigMu       sync.RWMutex
 	logKeys               []interface{}
 	clientLogContextHooks map[string]ClientLogContextHook
-	contextConfigMu       sync.RWMutex
 )
 
 // SetLogKeys sets the context keys to be extracted from context

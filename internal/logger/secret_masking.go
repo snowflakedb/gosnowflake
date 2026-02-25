@@ -20,21 +20,13 @@ func (l *secretMaskingLogger) Unwrap() interface{} {
 	return l.inner
 }
 
-// NewSecretMaskingLogger creates a new secret masking wrapper around the provided logger.
-// Returns interface{} which the caller can type-assert to their SFLogger interface.
-// The inner logger must implement the SFLogger interface.
-func NewSecretMaskingLogger(inner interface{}) interface{} {
+// newSecretMaskingLogger creates a new secret masking wrapper around the provided logger.
+func newSecretMaskingLogger(inner SFLogger) *secretMaskingLogger {
 	if inner == nil {
 		panic("inner logger cannot be nil")
 	}
 
-	// Type assert to ensure it implements SFLogger
-	sfLogger, ok := inner.(SFLogger)
-	if !ok {
-		panic("inner logger must implement SFLogger interface")
-	}
-
-	return &secretMaskingLogger{inner: sfLogger}
+	return &secretMaskingLogger{inner: inner}
 }
 
 // Helper methods for masking
