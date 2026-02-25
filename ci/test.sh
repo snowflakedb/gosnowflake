@@ -15,9 +15,6 @@ if [[ -n "$JENKINS_HOME" ]]; then
 
   source $CI_DIR/_init.sh
 
-  echo "Use /sbin/ip"
-  IP_ADDR=$(/sbin/ip -4 addr show scope global dev eth0 | grep inet | awk '{print $2}' | cut -d / -f 1)
-
   declare -A TARGET_TEST_IMAGES
   if [[ -n "$TARGET_DOCKER_TEST_IMAGE" ]]; then
       echo "[INFO] TARGET_DOCKER_TEST_IMAGE: $TARGET_DOCKER_TEST_IMAGE"
@@ -39,8 +36,7 @@ if [[ -n "$JENKINS_HOME" ]]; then
       echo "[INFO] Testing $DRIVER_NAME on $name"
       docker container run \
           --rm \
-          --add-host=snowflake.reg.local:${IP_ADDR} \
-          --add-host=s3testaccount.reg.local:${IP_ADDR} \
+          --network=host \
           -v $ROOT_DIR:/mnt/host \
           -v $WORKSPACE:/mnt/workspace \
           -e LOCAL_USER_ID=$(id -u ${USER}) \
