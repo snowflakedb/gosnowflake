@@ -191,8 +191,8 @@ func isPrefixEqual(u1 *url.URL, u2 *url.URL) bool {
 	if p1 == "" && u1.Scheme == "https" {
 		p1 = "443"
 	}
-	p2 := u1.Port()
-	if p2 == "" && u1.Scheme == "https" {
+	p2 := u2.Port()
+	if p2 == "" && u2.Scheme == "https" {
 		p2 = "443"
 	}
 	return u1.Hostname() == u2.Hostname() && p1 == p2 && u1.Scheme == u2.Scheme
