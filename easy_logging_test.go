@@ -202,7 +202,7 @@ func notEmptyLines(lines string) []string {
 func cleanUp() {
 	newLogger := CreateDefaultLogger()
 	if loggerinternal.IsDefaultLogger(logger) {
-		SetLogger(&newLogger)
+		SetLogger(newLogger)
 	}
 	easyLoggingInitTrials.reset()
 }

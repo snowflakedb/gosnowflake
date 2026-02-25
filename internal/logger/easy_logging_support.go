@@ -9,10 +9,8 @@ import (
 // This is used by the easy logging feature to manage log file handles.
 func CloseFileOnLoggerReplace(sflog interface{}, file *os.File) error {
 	// Try to get the underlying default logger
-	if dl, ok := unwrapToDefaultLogger(sflog); ok {
-		if c, ok := dl.(EasyLoggingSupport); ok {
-			return c.CloseFileOnLoggerReplace(file)
-		}
+	if ell, ok := unwrapToEasyLoggingLogger(sflog); ok {
+		return ell.CloseFileOnLoggerReplace(file)
 	}
 	return fmt.Errorf("logger does not support closeFileOnLoggerReplace")
 }
@@ -20,16 +18,16 @@ func CloseFileOnLoggerReplace(sflog interface{}, file *os.File) error {
 // IsDefaultLogger checks if the given logger is a default logger instance.
 // This is used by the easy logging feature to determine if reconfiguration is allowed.
 func IsDefaultLogger(sflog interface{}) bool {
-	_, ok := unwrapToDefaultLogger(sflog)
+	_, ok := unwrapToEasyLoggingLogger(sflog)
 	return ok
 }
 
-// unwrapToDefaultLogger unwraps a logger to get to the underlying default logger if present
-func unwrapToDefaultLogger(sflog interface{}) (interface{}, bool) {
+// unwrapToEasyLoggingLogger unwraps a logger to get to the underlying default logger if present
+func unwrapToEasyLoggingLogger(sflog interface{}) (EasyLoggingSupport, bool) {
 	current := sflog
 
-	// Special case: if this is a LoggerProxy, get the actual global logger
-	if _, isProxy := current.(*LoggerProxy); isProxy {
+	// Special case: if this is a Proxy, get the actual global logger
+	if _, isProxy := current.(*Proxy); isProxy {
 		current = GetLogger()
 	}
 
@@ -43,8 +41,8 @@ func unwrapToDefaultLogger(sflog interface{}) (interface{}, bool) {
 	}
 
 	// Check if it's a default logger by checking if it has EasyLoggingSupport
-	if _, ok := current.(EasyLoggingSupport); ok {
-		return current, true
+	if ell, ok := current.(EasyLoggingSupport); ok {
+		return ell, true
 	}
 
 	return nil, false

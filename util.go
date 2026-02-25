@@ -15,6 +15,7 @@ import (
 	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
 )
 
+// ContextKey is a type for context keys used in gosnowflake. Using a custom type helps avoid collisions with other context keys.
 type ContextKey string
 
 const (

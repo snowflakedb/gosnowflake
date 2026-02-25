@@ -306,19 +306,22 @@ Users can customize logging in two ways:
 
 1. Using a custom slog.Handler (if you want to use slog with custom formatting):
 
-	import (
-		"log/slog"
-		sf "github.com/snowflakedb/gosnowflake/v2"
-	)
+		import (
+			"log/slog"
+	        "os"
+			sf "github.com/snowflakedb/gosnowflake/v2"
+		)
 
-	// Create your custom handler
-	customHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})
+		// Create your custom handler
+		customHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})
 
-	// Get the default logger and set your handler
-	logger := sf.GetLogger()
-	logger.SetHandler(customHandler)
+		// Get the default logger and set your handler
+		logger := sf.GetLogger()
+		if sl, ok := logger.(sf.SFSlogLogger); ok {
+	        sl.SetHandler(customHandler)
+	    }
 
 2. Using a complete custom logger implementation (if you want full control):
 
@@ -329,7 +332,7 @@ Users can customize logging in two ways:
 
 	// Set your custom logger
 	customLogger := &MyCustomLogger{}
-	sf.SetLogger(&customLogger)
+	sf.SetLogger(customLogger)
 
 Important notes:
 

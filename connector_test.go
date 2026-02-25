@@ -83,12 +83,12 @@ func TestConnectorCancelContext(t *testing.T) {
 	// Create a buffer for capturing log output
 	var buf bytes.Buffer
 	testLogger.SetOutput(&buf)
-	SetLogger(&testLogger)
+	SetLogger(testLogger)
 
 	// Restore default logger after the test completes
 	defer func() {
 		// Recreate the default logger instead of trying to restore a proxy
-		SetLogger(&origLogger)
+		SetLogger(origLogger)
 	}()
 
 	// pass in our context which should only be used for establishing the initial connection; not persisted.

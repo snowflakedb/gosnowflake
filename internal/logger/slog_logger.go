@@ -65,7 +65,10 @@ func (log *rawLogger) isEnabled() bool {
 
 // SetLogLevel sets the log level
 func (log *rawLogger) SetLogLevel(level string) error {
-	upperLevel := parseLevel(strings.ToUpper(level))
+	upperLevel, err := parseLevel(strings.ToUpper(level))
+	if err != nil {
+		return fmt.Errorf("error while setting log level. %v", err)
+	}
 
 	if upperLevel == LevelOff {
 		log.mu.Lock()
@@ -140,19 +143,13 @@ func createOpts(level slog.Level) *slog.HandlerOptions {
 // SetHandler sets a custom slog handler (implements SFSlogLogger interface)
 // The provided handler will be wrapped with snowflakeHandler to preserve context extraction.
 // Secret masking is handled at a higher level (secretMaskingLogger wrapper).
-func (log *rawLogger) SetHandler(handler interface{}) error {
-	// Type assert to slog.Handler
-	slogHandler, ok := handler.(slog.Handler)
-	if !ok {
-		return fmt.Errorf("handler must be of type slog.Handler")
-	}
-
+func (log *rawLogger) SetHandler(handler slog.Handler) error {
 	log.mu.Lock()
 	defer log.mu.Unlock()
 
 	// Wrap user's handler with snowflakeHandler to preserve context extraction
 	log.handler = &snowflakeHandler{
-		inner:    slogHandler,
+		inner:    handler,
 		levelVar: log.levelVar,
 	}
 	log.inner = slog.New(log.handler)

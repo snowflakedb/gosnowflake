@@ -2,7 +2,6 @@ package logger
 
 import (
 	"regexp"
-	"sync"
 )
 
 const (
@@ -20,18 +19,17 @@ const (
 )
 
 var (
-	initSecretDetectorOnce sync.Once
-	awsKeyRegexp           = regexp.MustCompile(awsKeyPattern)
-	awsTokenRegexp         = regexp.MustCompile(awsTokenPattern)
-	sasTokenRegexp         = regexp.MustCompile(sasTokenPattern)
-	privateKeyRegexp       = regexp.MustCompile(privateKeyPattern)
-	privateKeyDataRegexp   = regexp.MustCompile(privateKeyDataPattern)
-	privateKeyParamRegexp  = regexp.MustCompile(privateKeyParamPattern)
-	connectionTokenRegexp  = regexp.MustCompile(connectionTokenPattern)
-	passwordRegexp         = regexp.MustCompile(passwordPattern)
-	dsnPasswordRegexp      = regexp.MustCompile(dsnPasswordPattern)
-	clientSecretRegexp     = regexp.MustCompile(clientSecretPattern)
-	jwtTokenRegexp         = regexp.MustCompile(jwtTokenPattern)
+	awsKeyRegexp          = regexp.MustCompile(awsKeyPattern)
+	awsTokenRegexp        = regexp.MustCompile(awsTokenPattern)
+	sasTokenRegexp        = regexp.MustCompile(sasTokenPattern)
+	privateKeyRegexp      = regexp.MustCompile(privateKeyPattern)
+	privateKeyDataRegexp  = regexp.MustCompile(privateKeyDataPattern)
+	privateKeyParamRegexp = regexp.MustCompile(privateKeyParamPattern)
+	connectionTokenRegexp = regexp.MustCompile(connectionTokenPattern)
+	passwordRegexp        = regexp.MustCompile(passwordPattern)
+	dsnPasswordRegexp     = regexp.MustCompile(dsnPasswordPattern)
+	clientSecretRegexp    = regexp.MustCompile(clientSecretPattern)
+	jwtTokenRegexp        = regexp.MustCompile(jwtTokenPattern)
 )
 
 type secretmasker string

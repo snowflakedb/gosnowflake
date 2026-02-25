@@ -3,7 +3,9 @@ package logger
 import (
 	"context"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/loginterface"
 	"io"
+	"log/slog"
 )
 
 // secretMaskingLogger wraps any logger implementation and ensures
@@ -154,9 +156,8 @@ func (l *secretMaskingLogger) SetOutput(output io.Writer) {
 }
 
 // SetHandler delegates to inner logger's SetHandler (for slog handler configuration)
-func (l *secretMaskingLogger) SetHandler(handler interface{}) error {
-	type setHandlerLogger interface{ SetHandler(interface{}) error }
-	if logger, ok := l.inner.(setHandlerLogger); ok {
+func (l *secretMaskingLogger) SetHandler(handler slog.Handler) error {
+	if logger, ok := l.inner.(loginterface.SFSlogLogger); ok {
 		return logger.SetHandler(handler)
 	}
 	return fmt.Errorf("inner logger does not support SetHandler")

@@ -107,7 +107,7 @@ func reconfigureEasyLogging(logLevel string, logPath string) error {
 		logger.Errorf("%s", err)
 	}
 	if loggerinternal.IsDefaultLogger(logger) {
-		SetLogger(&newLogger)
+		SetLogger(newLogger)
 	}
 	return nil
 }

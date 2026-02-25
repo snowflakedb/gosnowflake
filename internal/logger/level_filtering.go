@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/snowflakedb/gosnowflake/v2/loginterface"
 	"io"
+	"log/slog"
 )
 
 // levelFilteringLogger wraps any logger and filters log messages based on log level.
@@ -25,8 +26,13 @@ func (l *levelFilteringLogger) Unwrap() interface{} {
 // shouldLog determines if a message at messageLevel should be logged
 // given the current configured level
 func (l *levelFilteringLogger) shouldLog(messageLevel string) bool {
-	currentLevel := l.inner.GetLogLevel()
-	return parseLevel(messageLevel) >= parseLevel(currentLevel)
+	messageLvl, err := parseLevel(messageLevel)
+	currentLvl, err2 := parseLevel(l.inner.GetLogLevel())
+	if err != nil || err2 != nil {
+		l.inner.Warnf("Invalid log level - message: %s, current: %s. Logging message by default.", messageLevel, l.inner.GetLogLevel())
+		return true
+	}
+	return messageLvl >= currentLvl
 }
 
 // newLevelFilteringLogger creates a new level filtering wrapper around the provided logger
@@ -162,10 +168,8 @@ func (l *levelFilteringLogger) SetOutput(output io.Writer) {
 }
 
 // SetHandler implements SFSlogLogger interface for advanced slog handler configuration
-func (l *levelFilteringLogger) SetHandler(handler interface{}) error {
-	// Try to delegate to inner logger if it supports SetHandler
-	type setHandlerLogger interface{ SetHandler(interface{}) error }
-	if sh, ok := l.inner.(setHandlerLogger); ok {
+func (l *levelFilteringLogger) SetHandler(handler slog.Handler) error {
+	if sh, ok := l.inner.(loginterface.SFSlogLogger); ok {
 		return sh.SetHandler(handler)
 	}
 	return errors.New("underlying logger does not support SetHandler")

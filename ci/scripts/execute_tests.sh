@@ -38,6 +38,7 @@ if [[ "$SEQUENTIAL_TESTS" == "true" ]] ; then
     ) | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml
   else
     set +e
+    FAILED=0
     (
       for pkg in $PACKAGES; do
         pkg_path=$(echo $pkg | sed "s|^github.com/snowflakedb/gosnowflake/v2||" | sed "s|^/||")
@@ -48,12 +49,17 @@ if [[ "$SEQUENTIAL_TESTS" == "true" ]] ; then
         fi
         echo "=== Testing package: $pkg_path ===" >&2
         # Note: -coverprofile only works with single package, use -coverpkg for multiple
-        go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile="${pkg_path//\//_}_coverage.txt" -covermode=atomic -v "$pkg_path" || true
+        go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile="${pkg_path//\//_}_coverage.txt" -covermode=atomic -v "$pkg_path"
+        if [[ $? -ne 0 ]]; then
+          FAILED=1
+          echo "[ERROR] Package $pkg_path tests failed" >&2
+        fi
       done
       # Merge coverage files
       go install github.com/wadey/gocovmerge@latest
       gocovmerge *_coverage.txt > coverage.txt
       rm -f *_coverage.txt
+      exit $FAILED
     ) | tee test-output.txt
     TEST_EXIT_CODE=${PIPESTATUS[0]}
     cat test-output.txt | go-junit-report > test-report.junit.xml

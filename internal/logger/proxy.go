@@ -9,96 +9,110 @@ import (
 	"github.com/snowflakedb/gosnowflake/v2/loginterface"
 )
 
-// LoggerProxy is a proxy that delegates all calls to the global logger.
+// Proxy is a proxy that delegates all calls to the global logger.
 // This ensures a single source of truth for the current logger.
-type LoggerProxy struct{}
+type Proxy struct{}
 
-// Compile-time verification that LoggerProxy implements SFLogger
-var _ loginterface.SFLogger = (*LoggerProxy)(nil)
+// Compile-time verification that Proxy implements SFLogger
+var _ loginterface.SFLogger = (*Proxy)(nil)
 
-// All logging methods delegate to the global logger
-
-func (p *LoggerProxy) Tracef(format string, args ...interface{}) {
+// Tracef implements the Tracef method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) Tracef(format string, args ...interface{}) {
 	GetLogger().Tracef(format, args...)
 }
 
-func (p *LoggerProxy) Debugf(format string, args ...interface{}) {
+// Debugf implements the Debugf method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) Debugf(format string, args ...interface{}) {
 	GetLogger().Debugf(format, args...)
 }
 
-func (p *LoggerProxy) Infof(format string, args ...interface{}) {
+// Infof implements the Infof method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) Infof(format string, args ...interface{}) {
 	GetLogger().Infof(format, args...)
 }
 
-func (p *LoggerProxy) Warnf(format string, args ...interface{}) {
+// Warnf implements the Warnf method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) Warnf(format string, args ...interface{}) {
 	GetLogger().Warnf(format, args...)
 }
 
-func (p *LoggerProxy) Errorf(format string, args ...interface{}) {
+// Errorf implements the Errorf method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) Errorf(format string, args ...interface{}) {
 	GetLogger().Errorf(format, args...)
 }
 
-func (p *LoggerProxy) Fatalf(format string, args ...interface{}) {
+// Fatalf implements the Fatalf method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) Fatalf(format string, args ...interface{}) {
 	GetLogger().Fatalf(format, args...)
 }
 
-func (p *LoggerProxy) Trace(msg string) {
+// Trace implements the Trace method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) Trace(msg string) {
 	GetLogger().Trace(msg)
 }
 
-func (p *LoggerProxy) Debug(msg string) {
+// Debug implements the Debug method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) Debug(msg string) {
 	GetLogger().Debug(msg)
 }
 
-func (p *LoggerProxy) Info(msg string) {
+// Info implements the Info method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) Info(msg string) {
 	GetLogger().Info(msg)
 }
 
-func (p *LoggerProxy) Warn(msg string) {
+// Warn implements the Warn method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) Warn(msg string) {
 	GetLogger().Warn(msg)
 }
 
-func (p *LoggerProxy) Error(msg string) {
+// Error implements the Error method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) Error(msg string) {
 	GetLogger().Error(msg)
 }
 
-func (p *LoggerProxy) Fatal(msg string) {
+// Fatal implements the Fatal method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) Fatal(msg string) {
 	GetLogger().Fatal(msg)
 }
 
-func (p *LoggerProxy) WithField(key string, value interface{}) loginterface.LogEntry {
+// WithField implements the WithField method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) WithField(key string, value interface{}) loginterface.LogEntry {
 	return GetLogger().WithField(key, value)
 }
 
-func (p *LoggerProxy) WithFields(fields map[string]any) loginterface.LogEntry {
+// WithFields implements the WithFields method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) WithFields(fields map[string]any) loginterface.LogEntry {
 	return GetLogger().WithFields(fields)
 }
 
-func (p *LoggerProxy) WithContext(ctx context.Context) loginterface.LogEntry {
+// WithContext implements the WithContext method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) WithContext(ctx context.Context) loginterface.LogEntry {
 	return GetLogger().WithContext(ctx)
 }
 
-func (p *LoggerProxy) SetLogLevel(level string) error {
+// SetLogLevel implements the SetLogLevel method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) SetLogLevel(level string) error {
 	return GetLogger().SetLogLevel(level)
 }
 
-func (p *LoggerProxy) GetLogLevel() string {
+// GetLogLevel implements the GetLogLevel method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) GetLogLevel() string {
 	return GetLogger().GetLogLevel()
 }
 
-func (p *LoggerProxy) SetOutput(output io.Writer) {
+// SetOutput implements the SetOutput method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) SetOutput(output io.Writer) {
 	GetLogger().SetOutput(output)
 }
 
 // SetHandler implements SFSlogLogger interface for advanced slog handler configuration.
 // This delegates to the underlying logger if it supports SetHandler.
-func (p *LoggerProxy) SetHandler(handler slog.Handler) error {
+func (p *Proxy) SetHandler(handler slog.Handler) error {
 	logger := GetLogger()
 
-	// Try to set handler via duck typing
-	type setHandlerLogger interface{ SetHandler(interface{}) error }
-	if sh, ok := logger.(setHandlerLogger); ok {
-		return sh.SetHandler(handler)
+	if sl, ok := logger.(loginterface.SFSlogLogger); ok {
+		return sl.SetHandler(handler)
 	}
 
 	return fmt.Errorf("underlying logger does not support SetHandler")
@@ -107,5 +121,5 @@ func (p *LoggerProxy) SetHandler(handler slog.Handler) error {
 // NewLoggerProxy creates a new logger proxy that delegates all calls
 // to the global logger managed by the internal package.
 func NewLoggerProxy() loginterface.SFLogger {
-	return &LoggerProxy{}
+	return &Proxy{}
 }

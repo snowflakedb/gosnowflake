@@ -80,8 +80,9 @@ func GetClientLogContextHooks() map[string]ClientLogContextHook {
 	return loggerinternal.GetClientLogContextHooks()
 }
 
-// logger is a proxy that delegates all calls to the internal global logger
-// This ensures a single source of truth for the current logger
+// logger is a proxy that delegates all calls to the internal global logger.
+// This ensures a single source of truth for the current logger.
+// This variable is private and should only be used internally within the main package.
 var logger SFLogger = loggerinternal.NewLoggerProxy()
 
 // SetLogger sets a custom logger implementation for gosnowflake.
@@ -91,21 +92,33 @@ var logger SFLogger = loggerinternal.NewLoggerProxy()
 //
 // You cannot bypass these protective layers. If you need to configure them, use the
 // returned logger's methods (SetLogLevel, etc.).
-func SetLogger(inLogger *SFLogger) {
-	_ = loggerinternal.SetLogger(*inLogger)
+//
+// Example:
+//
+//	customLogger := mylogger.New()
+//	gosnowflake.SetLogger(customLogger)
+func SetLogger(logger SFLogger) {
+	_ = loggerinternal.SetLogger(logger)
 }
 
-// GetLogger return logger that is not public
+// GetLogger returns the current global logger with all protective layers applied
+// (secret masking and level filtering). This is the actual wrapped logger instance,
+// not a proxy.
+//
+// Example:
+//
+//	logger := gosnowflake.GetLogger()
+//	logger.Info("message")
 func GetLogger() SFLogger {
-	return logger
+	return loggerinternal.GetLogger()
 }
 
 // CreateDefaultLogger creates and returns a new instance of SFLogger with default config.
 // The returned logger is automatically wrapped with secret masking and level filtering.
 // This is a pure factory function and does NOT modify global state.
-// If you want to set it as the global logger, call SetLogger(&newLogger).
+// If you want to set it as the global logger, call SetLogger(newLogger).
 //
-// The wrapping chain is: levelFilteringLogger → secretMaskingLogger → defaultLogger
+// The wrapping chain is: levelFilteringLogger → secretMaskingLogger → rawLogger
 func CreateDefaultLogger() SFLogger {
 	return loggerinternal.CreateDefaultLogger()
 }

@@ -280,14 +280,14 @@ func TestCustomSlogHandler(t *testing.T) {
 	// Save original logger
 	originalLogger := gosnowflake.GetLogger()
 	defer func() {
-		gosnowflake.SetLogger(&originalLogger)
+		gosnowflake.SetLogger(originalLogger)
 	}()
 
 	// Create a new default logger
 	logger := gosnowflake.CreateDefaultLogger()
 
 	// Set it as global logger first
-	gosnowflake.SetLogger(&logger)
+	gosnowflake.SetLogger(logger)
 
 	// Get the logger and try to set custom handler
 	currentLogger := gosnowflake.GetLogger()
@@ -326,7 +326,7 @@ func TestCustomLoggerImplementation(t *testing.T) {
 	// Save original logger
 	originalLogger := gosnowflake.GetLogger()
 	defer func() {
-		gosnowflake.SetLogger(&originalLogger)
+		gosnowflake.SetLogger(originalLogger)
 	}()
 
 	// Create custom logger
@@ -334,7 +334,7 @@ func TestCustomLoggerImplementation(t *testing.T) {
 	var sfLogger gosnowflake.SFLogger = customLog
 
 	// Set as global logger
-	gosnowflake.SetLogger(&sfLogger)
+	gosnowflake.SetLogger(sfLogger)
 
 	// Get logger (should be proxied)
 	logger := gosnowflake.GetLogger()
@@ -355,7 +355,7 @@ func TestCustomLoggerSecretMasking(t *testing.T) {
 	// Save original logger
 	originalLogger := gosnowflake.GetLogger()
 	defer func() {
-		gosnowflake.SetLogger(&originalLogger)
+		gosnowflake.SetLogger(originalLogger)
 	}()
 
 	// Create custom logger
@@ -363,7 +363,7 @@ func TestCustomLoggerSecretMasking(t *testing.T) {
 	var sfLogger gosnowflake.SFLogger = customLog
 
 	// Set as global logger
-	gosnowflake.SetLogger(&sfLogger)
+	gosnowflake.SetLogger(sfLogger)
 
 	// Get logger
 	logger := gosnowflake.GetLogger()
@@ -385,12 +385,12 @@ func TestCustomHandlerWithContext(t *testing.T) {
 	// Save original logger
 	originalLogger := gosnowflake.GetLogger()
 	defer func() {
-		gosnowflake.SetLogger(&originalLogger)
+		gosnowflake.SetLogger(originalLogger)
 	}()
 
 	// Create a new default logger with JSON handler
 	logger := gosnowflake.CreateDefaultLogger()
-	gosnowflake.SetLogger(&logger)
+	gosnowflake.SetLogger(logger)
 
 	currentLogger := gosnowflake.GetLogger()
 
@@ -424,7 +424,7 @@ func TestCustomLoggerWithFields(t *testing.T) {
 	// Save original logger
 	originalLogger := gosnowflake.GetLogger()
 	defer func() {
-		gosnowflake.SetLogger(&originalLogger)
+		gosnowflake.SetLogger(originalLogger)
 	}()
 
 	// Create custom logger
@@ -432,7 +432,7 @@ func TestCustomLoggerWithFields(t *testing.T) {
 	var sfLogger gosnowflake.SFLogger = customLog
 
 	// Set as global logger
-	gosnowflake.SetLogger(&sfLogger)
+	gosnowflake.SetLogger(sfLogger)
 
 	// Get logger
 	logger := gosnowflake.GetLogger()
@@ -457,7 +457,7 @@ func TestCustomLoggerLevelConfiguration(t *testing.T) {
 	// Save original logger
 	originalLogger := gosnowflake.GetLogger()
 	defer func() {
-		gosnowflake.SetLogger(&originalLogger)
+		gosnowflake.SetLogger(originalLogger)
 	}()
 
 	// Create custom logger
@@ -465,7 +465,7 @@ func TestCustomLoggerLevelConfiguration(t *testing.T) {
 	var sfLogger gosnowflake.SFLogger = customLog
 
 	// Set as global logger
-	gosnowflake.SetLogger(&sfLogger)
+	gosnowflake.SetLogger(sfLogger)
 
 	// Get logger
 	logger := gosnowflake.GetLogger()
@@ -498,12 +498,12 @@ func TestCustomHandlerRestore(t *testing.T) {
 	// Save original logger
 	originalLogger := gosnowflake.GetLogger()
 	defer func() {
-		gosnowflake.SetLogger(&originalLogger)
+		gosnowflake.SetLogger(originalLogger)
 	}()
 
 	// Create logger with JSON handler
 	logger1 := gosnowflake.CreateDefaultLogger()
-	gosnowflake.SetLogger(&logger1)
+	gosnowflake.SetLogger(logger1)
 
 	buf1 := &bytes.Buffer{}
 	if slogLogger, ok := gosnowflake.GetLogger().(gosnowflake.SFSlogLogger); ok {
@@ -526,7 +526,7 @@ func TestCustomHandlerRestore(t *testing.T) {
 	logger2 := gosnowflake.CreateDefaultLogger()
 	buf2 := &bytes.Buffer{}
 	logger2.SetOutput(buf2)
-	gosnowflake.SetLogger(&logger2)
+	gosnowflake.SetLogger(logger2)
 
 	// Log with default text handler
 	_ = gosnowflake.GetLogger().SetLogLevel("info")

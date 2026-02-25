@@ -17,13 +17,6 @@ var (
 )
 
 // GetLogger returns the global logger for use by internal packages
-// Returns a default logger if not yet initialized
-//
-// Example usage:
-//
-//	log := logger.GetLogger()
-//	log.Info("Message from internal package")
-//	log.WithField("key", "value").Info("Structured log")
 func GetLogger() loginterface.SFLogger {
 	loggerAccessorMu.RLock()
 	defer loggerAccessorMu.RUnlock()
@@ -44,14 +37,14 @@ func GetLogger() loginterface.SFLogger {
 // automatically extracts the raw logger to prevent double-wrapping.
 //
 // Internal wrapper types that would cause issues are rejected:
-//   - LoggerProxy (would cause infinite recursion)
+//   - Proxy (would cause infinite recursion)
 func SetLogger(providedLogger SFLogger) error {
 	loggerAccessorMu.Lock()
 	defer loggerAccessorMu.Unlock()
 
-	// Reject LoggerProxy to prevent infinite recursion
-	if _, isProxy := providedLogger.(*LoggerProxy); isProxy {
-		return errors.New("cannot set LoggerProxy as raw logger - it would create infinite recursion")
+	// Reject Proxy to prevent infinite recursion
+	if _, isProxy := providedLogger.(*Proxy); isProxy {
+		return errors.New("cannot set Proxy as raw logger - it would create infinite recursion")
 	}
 
 	// Unwrap if the logger is one of our own wrapper types
