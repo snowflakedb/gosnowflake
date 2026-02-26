@@ -1212,7 +1212,6 @@ func TestParseDSN(t *testing.T) {
 				CloudStorageTimeout:       defaultCloudStorageTimeout,
 				IncludeRetryReason:        ConfigBoolTrue,
 				DisableSamlURLCheck:       ConfigBoolFalse,
-				Token:                     "mock_token123456",
 				TokenFilePath:             "test_data/snowflake/session/token",
 			},
 			ocspMode: ocspModeFailOpen,
@@ -2478,4 +2477,27 @@ func TestDSNParsingWithTLSConfig(t *testing.T) {
 
 		})
 	}
+}
+
+func TestTokenAndTokenFilePathValidation(t *testing.T) {
+	cfg := &Config{
+		Account:       "a",
+		User:          "u",
+		Password:      "p",
+		Token:         "direct-token",
+		TokenFilePath: "test_data/snowflake/session/token",
+	}
+	err := cfg.Validate()
+	if err == nil {
+		t.Error("Expected validation error when both Token and TokenFilePath are set")
+	}
+
+	// Only Token — should pass
+	cfg.TokenFilePath = ""
+	assertNilE(t, cfg.Validate())
+
+	// Only TokenFilePath — should pass
+	cfg.Token = ""
+	cfg.TokenFilePath = "test_data/snowflake/session/token"
+	assertNilE(t, cfg.Validate())
 }
