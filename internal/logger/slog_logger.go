@@ -77,9 +77,9 @@ func (log *rawLogger) SetLogLevel(level string) error {
 
 	log.mu.Lock()
 	log.enabled = true
+	log.level = upperLevel
 	log.mu.Unlock()
 
-	log.level = upperLevel
 	return nil
 }
 
