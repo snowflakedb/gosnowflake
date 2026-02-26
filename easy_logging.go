@@ -87,14 +87,18 @@ func easyLoggingInitError(err error) error {
 
 func reconfigureEasyLogging(logLevel string, logPath string) error {
 	// don't allow any change if a non-default logger is already being used.
-	if _, ok := logger.(loggerinternal.EasyLoggingSupport); ok {
+	currentLogger := GetLogger()
+	if !loggerinternal.IsEasyLoggingLogger(currentLogger) {
+		logger.Warnf("Cannot reconfigure easy logging: custom logger is in use")
 		return nil // cannot replace custom logger
 	}
+
 	newLogger := CreateDefaultLogger()
 	err := newLogger.SetLogLevel(logLevel)
 	if err != nil {
 		return err
 	}
+
 	var output io.Writer
 	var file *os.File
 	output, file, err = createLogWriter(logPath)
@@ -106,6 +110,13 @@ func reconfigureEasyLogging(logLevel string, logPath string) error {
 	if err != nil {
 		logger.Errorf("%s", err)
 	}
+
+	// Actually set the new logger as the global logger
+	if err := SetLogger(newLogger); err != nil {
+		logger.Errorf("Failed to set new logger: %s", err)
+		return err
+	}
+
 	return nil
 }
 

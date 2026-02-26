@@ -16,6 +16,10 @@ import (
 func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) {
 	skipOnWindows(t, "Doesn't work on Windows")
 	defer cleanUp()
+	origLogLevel := logger.GetLogLevel()
+	defer logger.SetLogLevel(origLogLevel)
+	logger.SetLogLevel("error")
+
 	logDir := t.TempDir()
 	logLevel := levelError
 	contents := createClientConfigContent(logLevel, logDir)
@@ -42,6 +46,10 @@ func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) 
 func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *testing.T) {
 	skipOnWindows(t, "Doesn't work on Windows")
 	skipOnMissingHome(t)
+	origLogLevel := logger.GetLogLevel()
+	defer logger.SetLogLevel(origLogLevel)
+	logger.SetLogLevel("error")
+
 	appExe, err := os.Executable()
 	assertNilF(t, err, "application exe not accessible")
 	userHome, err := os.UserHomeDir()
@@ -87,6 +95,10 @@ func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing
 	skipOnWindows(t, "Doesn't work on Windows")
 	skipOnMissingHome(t)
 	defer cleanUp()
+	origLogLevel := logger.GetLogLevel()
+	defer logger.SetLogLevel(origLogLevel)
+	logger.SetLogLevel("error")
+
 	configDir, err := os.UserHomeDir()
 	logDir := t.TempDir()
 	assertNilF(t, err, "user home directory error")
@@ -147,6 +159,10 @@ func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
 func TestLogToConfiguredFile(t *testing.T) {
 	skipOnWindows(t, "Doesn't work on Windows")
 	defer cleanUp()
+	origLogLevel := logger.GetLogLevel()
+	defer logger.SetLogLevel(origLogLevel)
+	logger.SetLogLevel("error")
+
 	dir := t.TempDir()
 	easyLoggingInitTrials.reset()
 	configContent := createClientConfigContent(levelWarn, dir)

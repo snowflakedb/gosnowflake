@@ -15,6 +15,13 @@ func CloseFileOnLoggerReplace(sflog interface{}, file *os.File) error {
 	return fmt.Errorf("logger does not support closeFileOnLoggerReplace")
 }
 
+// IsEasyLoggingLogger checks if the given logger is based on the default logger implementation.
+// This is used by easy logging to determine if reconfiguration is allowed.
+func IsEasyLoggingLogger(sflog interface{}) bool {
+	_, ok := unwrapToEasyLoggingLogger(sflog)
+	return ok
+}
+
 // unwrapToEasyLoggingLogger unwraps a logger to get to the underlying default logger if present
 func unwrapToEasyLoggingLogger(sflog interface{}) (EasyLoggingSupport, bool) {
 	current := sflog
