@@ -74,9 +74,6 @@ func (l *levelFilteringLogger) Errorf(format string, args ...interface{}) {
 }
 
 func (l *levelFilteringLogger) Fatalf(format string, args ...interface{}) {
-	if !l.shouldLog(loginterface.LevelFatal) {
-		return
-	}
 	l.inner.Fatalf(format, args...)
 }
 
@@ -117,9 +114,6 @@ func (l *levelFilteringLogger) Error(msg string) {
 }
 
 func (l *levelFilteringLogger) Fatal(msg string) {
-	if !l.shouldLog(loginterface.LevelFatal) {
-		return
-	}
 	l.inner.Fatal(msg)
 }
 
