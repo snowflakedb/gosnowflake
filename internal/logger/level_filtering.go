@@ -3,7 +3,7 @@ package logger
 import (
 	"context"
 	"errors"
-	"github.com/snowflakedb/gosnowflake/v2/loginterface"
+	"github.com/snowflakedb/gosnowflake/v2/sflog"
 	"io"
 	"log/slog"
 )
@@ -25,7 +25,7 @@ func (l *levelFilteringLogger) Unwrap() interface{} {
 
 // shouldLog determines if a message at messageLevel should be logged
 // given the current configured level
-func (l *levelFilteringLogger) shouldLog(messageLevel loginterface.Level) bool {
+func (l *levelFilteringLogger) shouldLog(messageLevel sflog.Level) bool {
 	return messageLevel >= l.inner.GetLogLevelInt()
 }
 
@@ -39,35 +39,35 @@ func newLevelFilteringLogger(inner SFLogger) SFLogger {
 
 // Implement all formatted logging methods (*f variants)
 func (l *levelFilteringLogger) Tracef(format string, args ...interface{}) {
-	if !l.shouldLog(loginterface.LevelTrace) {
+	if !l.shouldLog(sflog.LevelTrace) {
 		return
 	}
 	l.inner.Tracef(format, args...)
 }
 
 func (l *levelFilteringLogger) Debugf(format string, args ...interface{}) {
-	if !l.shouldLog(loginterface.LevelDebug) {
+	if !l.shouldLog(sflog.LevelDebug) {
 		return
 	}
 	l.inner.Debugf(format, args...)
 }
 
 func (l *levelFilteringLogger) Infof(format string, args ...interface{}) {
-	if !l.shouldLog(loginterface.LevelInfo) {
+	if !l.shouldLog(sflog.LevelInfo) {
 		return
 	}
 	l.inner.Infof(format, args...)
 }
 
 func (l *levelFilteringLogger) Warnf(format string, args ...interface{}) {
-	if !l.shouldLog(loginterface.LevelWarn) {
+	if !l.shouldLog(sflog.LevelWarn) {
 		return
 	}
 	l.inner.Warnf(format, args...)
 }
 
 func (l *levelFilteringLogger) Errorf(format string, args ...interface{}) {
-	if !l.shouldLog(loginterface.LevelError) {
+	if !l.shouldLog(sflog.LevelError) {
 		return
 	}
 	l.inner.Errorf(format, args...)
@@ -79,35 +79,35 @@ func (l *levelFilteringLogger) Fatalf(format string, args ...interface{}) {
 
 // Implement all direct logging methods
 func (l *levelFilteringLogger) Trace(msg string) {
-	if !l.shouldLog(loginterface.LevelTrace) {
+	if !l.shouldLog(sflog.LevelTrace) {
 		return
 	}
 	l.inner.Trace(msg)
 }
 
 func (l *levelFilteringLogger) Debug(msg string) {
-	if !l.shouldLog(loginterface.LevelDebug) {
+	if !l.shouldLog(sflog.LevelDebug) {
 		return
 	}
 	l.inner.Debug(msg)
 }
 
 func (l *levelFilteringLogger) Info(msg string) {
-	if !l.shouldLog(loginterface.LevelInfo) {
+	if !l.shouldLog(sflog.LevelInfo) {
 		return
 	}
 	l.inner.Info(msg)
 }
 
 func (l *levelFilteringLogger) Warn(msg string) {
-	if !l.shouldLog(loginterface.LevelWarn) {
+	if !l.shouldLog(sflog.LevelWarn) {
 		return
 	}
 	l.inner.Warn(msg)
 }
 
 func (l *levelFilteringLogger) Error(msg string) {
-	if !l.shouldLog(loginterface.LevelError) {
+	if !l.shouldLog(sflog.LevelError) {
 		return
 	}
 	l.inner.Error(msg)
@@ -118,7 +118,7 @@ func (l *levelFilteringLogger) Fatal(msg string) {
 }
 
 // Implement structured logging methods - these return wrapped entries
-func (l *levelFilteringLogger) WithField(key string, value interface{}) loginterface.LogEntry {
+func (l *levelFilteringLogger) WithField(key string, value interface{}) sflog.LogEntry {
 	innerEntry := l.inner.WithField(key, value)
 	return &levelFilteringEntry{
 		parent: l,
@@ -126,7 +126,7 @@ func (l *levelFilteringLogger) WithField(key string, value interface{}) loginter
 	}
 }
 
-func (l *levelFilteringLogger) WithFields(fields map[string]any) loginterface.LogEntry {
+func (l *levelFilteringLogger) WithFields(fields map[string]any) sflog.LogEntry {
 	innerEntry := l.inner.WithFields(fields)
 	return &levelFilteringEntry{
 		parent: l,
@@ -134,7 +134,7 @@ func (l *levelFilteringLogger) WithFields(fields map[string]any) loginterface.Lo
 	}
 }
 
-func (l *levelFilteringLogger) WithContext(ctx context.Context) loginterface.LogEntry {
+func (l *levelFilteringLogger) WithContext(ctx context.Context) sflog.LogEntry {
 	innerEntry := l.inner.WithContext(ctx)
 	return &levelFilteringEntry{
 		parent: l,
@@ -147,7 +147,7 @@ func (l *levelFilteringLogger) SetLogLevel(level string) error {
 	return l.inner.SetLogLevel(level)
 }
 
-func (l *levelFilteringLogger) SetLogLevelInt(level loginterface.Level) error {
+func (l *levelFilteringLogger) SetLogLevelInt(level sflog.Level) error {
 	return l.inner.SetLogLevelInt(level)
 }
 
@@ -155,7 +155,7 @@ func (l *levelFilteringLogger) GetLogLevel() string {
 	return l.inner.GetLogLevel()
 }
 
-func (l *levelFilteringLogger) GetLogLevelInt() loginterface.Level {
+func (l *levelFilteringLogger) GetLogLevelInt() sflog.Level {
 	return l.inner.GetLogLevelInt()
 }
 
@@ -165,7 +165,7 @@ func (l *levelFilteringLogger) SetOutput(output io.Writer) {
 
 // SetHandler implements SFSlogLogger interface for advanced slog handler configuration
 func (l *levelFilteringLogger) SetHandler(handler slog.Handler) error {
-	if sh, ok := l.inner.(loginterface.SFSlogLogger); ok {
+	if sh, ok := l.inner.(sflog.SFSlogLogger); ok {
 		return sh.SetHandler(handler)
 	}
 	return errors.New("underlying logger does not support SetHandler")
@@ -174,40 +174,40 @@ func (l *levelFilteringLogger) SetHandler(handler slog.Handler) error {
 // levelFilteringEntry wraps a log entry and filters by level
 type levelFilteringEntry struct {
 	parent *levelFilteringLogger
-	inner  loginterface.LogEntry
+	inner  sflog.LogEntry
 }
 
 // Implement all formatted logging methods for entry
 func (e *levelFilteringEntry) Tracef(format string, args ...interface{}) {
-	if !e.parent.shouldLog(loginterface.LevelTrace) {
+	if !e.parent.shouldLog(sflog.LevelTrace) {
 		return
 	}
 	e.inner.Tracef(format, args...)
 }
 
 func (e *levelFilteringEntry) Debugf(format string, args ...interface{}) {
-	if !e.parent.shouldLog(loginterface.LevelDebug) {
+	if !e.parent.shouldLog(sflog.LevelDebug) {
 		return
 	}
 	e.inner.Debugf(format, args...)
 }
 
 func (e *levelFilteringEntry) Infof(format string, args ...interface{}) {
-	if !e.parent.shouldLog(loginterface.LevelInfo) {
+	if !e.parent.shouldLog(sflog.LevelInfo) {
 		return
 	}
 	e.inner.Infof(format, args...)
 }
 
 func (e *levelFilteringEntry) Warnf(format string, args ...interface{}) {
-	if !e.parent.shouldLog(loginterface.LevelWarn) {
+	if !e.parent.shouldLog(sflog.LevelWarn) {
 		return
 	}
 	e.inner.Warnf(format, args...)
 }
 
 func (e *levelFilteringEntry) Errorf(format string, args ...interface{}) {
-	if !e.parent.shouldLog(loginterface.LevelError) {
+	if !e.parent.shouldLog(sflog.LevelError) {
 		return
 	}
 	e.inner.Errorf(format, args...)
@@ -219,35 +219,35 @@ func (e *levelFilteringEntry) Fatalf(format string, args ...interface{}) {
 
 // Implement all direct logging methods for entry
 func (e *levelFilteringEntry) Trace(msg string) {
-	if !e.parent.shouldLog(loginterface.LevelTrace) {
+	if !e.parent.shouldLog(sflog.LevelTrace) {
 		return
 	}
 	e.inner.Trace(msg)
 }
 
 func (e *levelFilteringEntry) Debug(msg string) {
-	if !e.parent.shouldLog(loginterface.LevelDebug) {
+	if !e.parent.shouldLog(sflog.LevelDebug) {
 		return
 	}
 	e.inner.Debug(msg)
 }
 
 func (e *levelFilteringEntry) Info(msg string) {
-	if !e.parent.shouldLog(loginterface.LevelInfo) {
+	if !e.parent.shouldLog(sflog.LevelInfo) {
 		return
 	}
 	e.inner.Info(msg)
 }
 
 func (e *levelFilteringEntry) Warn(msg string) {
-	if !e.parent.shouldLog(loginterface.LevelWarn) {
+	if !e.parent.shouldLog(sflog.LevelWarn) {
 		return
 	}
 	e.inner.Warn(msg)
 }
 
 func (e *levelFilteringEntry) Error(msg string) {
-	if !e.parent.shouldLog(loginterface.LevelError) {
+	if !e.parent.shouldLog(sflog.LevelError) {
 		return
 	}
 	e.inner.Error(msg)

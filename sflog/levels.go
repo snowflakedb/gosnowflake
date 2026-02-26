@@ -1,4 +1,4 @@
-package loginterface
+package sflog
 
 import (
 	"fmt"

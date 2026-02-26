@@ -2,7 +2,7 @@ package logger
 
 import (
 	"context"
-	"github.com/snowflakedb/gosnowflake/v2/loginterface"
+	"github.com/snowflakedb/gosnowflake/v2/sflog"
 	"io"
 	"testing"
 )
@@ -30,9 +30,9 @@ func (m *mockLogger) WithField(key string, value interface{}) LogEntry { return 
 func (m *mockLogger) WithFields(fields map[string]any) LogEntry        { return m }
 func (m *mockLogger) WithContext(ctx context.Context) LogEntry         { return m }
 func (m *mockLogger) SetLogLevel(level string) error                   { return nil }
-func (m *mockLogger) SetLogLevelInt(level loginterface.Level) error    { return nil }
+func (m *mockLogger) SetLogLevelInt(level sflog.Level) error           { return nil }
 func (m *mockLogger) GetLogLevel() string                              { return "info" }
-func (m *mockLogger) GetLogLevelInt() loginterface.Level               { return loginterface.LevelInfo }
+func (m *mockLogger) GetLogLevelInt() sflog.Level                      { return sflog.LevelInfo }
 func (m *mockLogger) SetOutput(output io.Writer)                       {}
 
 // Compile-time verification that mockLogger implements SFLogger

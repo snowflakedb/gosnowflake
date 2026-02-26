@@ -3,7 +3,7 @@ package logger
 import (
 	"context"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/v2/loginterface"
+	"github.com/snowflakedb/gosnowflake/v2/sflog"
 	"io"
 	"log/slog"
 	"os"
@@ -23,7 +23,7 @@ func formatSource(frame *runtime.Frame) (string, string) {
 type rawLogger struct {
 	inner   *slog.Logger
 	handler *snowflakeHandler
-	level   loginterface.Level
+	level   sflog.Level
 	enabled bool // For OFF level support
 	file    *os.File
 	output  io.Writer
@@ -35,7 +35,7 @@ var _ SFLogger = (*rawLogger)(nil)
 
 // newRawLogger creates the internal default logger using slog
 func newRawLogger() SFLogger {
-	level := loginterface.LevelInfo
+	level := sflog.LevelInfo
 
 	opts := createOpts(slog.Level(level))
 
@@ -62,14 +62,14 @@ func (log *rawLogger) isEnabled() bool {
 
 // SetLogLevel sets the log level
 func (log *rawLogger) SetLogLevel(level string) error {
-	upperLevel, err := loginterface.ParseLevel(strings.ToUpper(level))
+	upperLevel, err := sflog.ParseLevel(strings.ToUpper(level))
 	if err != nil {
 		return fmt.Errorf("error while setting log level. %v", err)
 	}
 
-	if upperLevel == loginterface.LevelOff {
+	if upperLevel == sflog.LevelOff {
 		log.mu.Lock()
-		log.level = loginterface.LevelOff
+		log.level = sflog.LevelOff
 		log.enabled = false
 		log.mu.Unlock()
 		return nil
@@ -83,11 +83,11 @@ func (log *rawLogger) SetLogLevel(level string) error {
 	return nil
 }
 
-func (log *rawLogger) SetLogLevelInt(level loginterface.Level) error {
+func (log *rawLogger) SetLogLevelInt(level sflog.Level) error {
 	log.mu.Lock()
 	defer log.mu.Unlock()
 
-	_, err := loginterface.LevelToString(level)
+	_, err := sflog.LevelToString(level)
 	if err != nil {
 		return fmt.Errorf("invalid log level: %d", level)
 	}
@@ -97,13 +97,13 @@ func (log *rawLogger) SetLogLevelInt(level loginterface.Level) error {
 
 // GetLogLevel returns the current log level
 func (log *rawLogger) GetLogLevel() string {
-	if levelStr, err := loginterface.LevelToString(log.level); err == nil {
+	if levelStr, err := sflog.LevelToString(log.level); err == nil {
 		return levelStr
 	}
 	return "unknown"
 }
 
-func (log *rawLogger) GetLogLevelInt() loginterface.Level {
+func (log *rawLogger) GetLogLevelInt() sflog.Level {
 	log.mu.Lock()
 	defer log.mu.Unlock()
 	return log.level
@@ -168,7 +168,7 @@ func (log *rawLogger) SetHandler(handler slog.Handler) error {
 // logWithSkip logs a message at the given level, skipping 'skip' frames when determining source location.
 // This is used internally to skip wrapper frames (levelFilteringLogger -> secretMaskingLogger -> rawLogger)
 // and report the actual caller's location.
-func (log *rawLogger) logWithSkip(skip int, level loginterface.Level, msg string) {
+func (log *rawLogger) logWithSkip(skip int, level sflog.Level, msg string) {
 	if !log.isEnabled() {
 		return
 	}
@@ -183,27 +183,27 @@ func (log *rawLogger) logWithSkip(skip int, level loginterface.Level, msg string
 // Skip depth = 3 assumes standard wrapper chain: levelFilteringLogger -> secretMaskingLogger -> rawLogger
 // If wrapper chain changes, update this value. See TestSkipDepthWarning test.
 func (log *rawLogger) Tracef(format string, args ...interface{}) {
-	log.logWithSkip(3, loginterface.LevelTrace, fmt.Sprintf(format, args...))
+	log.logWithSkip(3, sflog.LevelTrace, fmt.Sprintf(format, args...))
 }
 
 func (log *rawLogger) Debugf(format string, args ...interface{}) {
-	log.logWithSkip(3, loginterface.LevelDebug, fmt.Sprintf(format, args...))
+	log.logWithSkip(3, sflog.LevelDebug, fmt.Sprintf(format, args...))
 }
 
 func (log *rawLogger) Infof(format string, args ...interface{}) {
-	log.logWithSkip(3, loginterface.LevelInfo, fmt.Sprintf(format, args...))
+	log.logWithSkip(3, sflog.LevelInfo, fmt.Sprintf(format, args...))
 }
 
 func (log *rawLogger) Warnf(format string, args ...interface{}) {
-	log.logWithSkip(3, loginterface.LevelWarn, fmt.Sprintf(format, args...))
+	log.logWithSkip(3, sflog.LevelWarn, fmt.Sprintf(format, args...))
 }
 
 func (log *rawLogger) Errorf(format string, args ...interface{}) {
-	log.logWithSkip(3, loginterface.LevelError, fmt.Sprintf(format, args...))
+	log.logWithSkip(3, sflog.LevelError, fmt.Sprintf(format, args...))
 }
 
 func (log *rawLogger) Fatalf(format string, args ...interface{}) {
-	log.logWithSkip(3, loginterface.LevelFatal, fmt.Sprintf(format, args...))
+	log.logWithSkip(3, sflog.LevelFatal, fmt.Sprintf(format, args...))
 	os.Exit(1)
 }
 
@@ -211,27 +211,27 @@ func (log *rawLogger) Fatalf(format string, args ...interface{}) {
 // Skip depth = 3 assumes standard wrapper chain: levelFilteringLogger -> secretMaskingLogger -> rawLogger
 // If wrapper chain changes, update this value. See TestSkipDepthWarning test.
 func (log *rawLogger) Trace(msg string) {
-	log.logWithSkip(3, loginterface.LevelTrace, msg)
+	log.logWithSkip(3, sflog.LevelTrace, msg)
 }
 
 func (log *rawLogger) Debug(msg string) {
-	log.logWithSkip(3, loginterface.LevelDebug, msg)
+	log.logWithSkip(3, sflog.LevelDebug, msg)
 }
 
 func (log *rawLogger) Info(msg string) {
-	log.logWithSkip(3, loginterface.LevelInfo, msg)
+	log.logWithSkip(3, sflog.LevelInfo, msg)
 }
 
 func (log *rawLogger) Warn(msg string) {
-	log.logWithSkip(3, loginterface.LevelWarn, msg)
+	log.logWithSkip(3, sflog.LevelWarn, msg)
 }
 
 func (log *rawLogger) Error(msg string) {
-	log.logWithSkip(3, loginterface.LevelError, msg)
+	log.logWithSkip(3, sflog.LevelError, msg)
 }
 
 func (log *rawLogger) Fatal(msg string) {
-	log.logWithSkip(3, loginterface.LevelFatal, msg)
+	log.logWithSkip(3, sflog.LevelFatal, msg)
 	os.Exit(1)
 }
 
@@ -300,7 +300,7 @@ func (e *slogEntry) isEnabled() bool {
 }
 
 // logWithSkip logs a message at the given level, skipping 'skip' frames when determining source location.
-func (e *slogEntry) logWithSkip(skip int, level loginterface.Level, msg string) {
+func (e *slogEntry) logWithSkip(skip int, level sflog.Level, msg string) {
 	if !e.isEnabled() {
 		return
 	}
@@ -314,27 +314,27 @@ func (e *slogEntry) logWithSkip(skip int, level loginterface.Level, msg string) 
 // Skip depth = 3 assumes standard wrapper chain: levelFilteringEntry -> secretMaskingEntry -> slogEntry
 // If wrapper chain changes, update this value. See TestSkipDepthWarning test.
 func (e *slogEntry) Tracef(format string, args ...interface{}) {
-	e.logWithSkip(3, loginterface.LevelTrace, fmt.Sprintf(format, args...))
+	e.logWithSkip(3, sflog.LevelTrace, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Debugf(format string, args ...interface{}) {
-	e.logWithSkip(3, loginterface.LevelDebug, fmt.Sprintf(format, args...))
+	e.logWithSkip(3, sflog.LevelDebug, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Infof(format string, args ...interface{}) {
-	e.logWithSkip(3, loginterface.LevelInfo, fmt.Sprintf(format, args...))
+	e.logWithSkip(3, sflog.LevelInfo, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Warnf(format string, args ...interface{}) {
-	e.logWithSkip(3, loginterface.LevelWarn, fmt.Sprintf(format, args...))
+	e.logWithSkip(3, sflog.LevelWarn, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Errorf(format string, args ...interface{}) {
-	e.logWithSkip(3, loginterface.LevelError, fmt.Sprintf(format, args...))
+	e.logWithSkip(3, sflog.LevelError, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Fatalf(format string, args ...interface{}) {
-	e.logWithSkip(3, loginterface.LevelFatal, fmt.Sprintf(format, args...))
+	e.logWithSkip(3, sflog.LevelFatal, fmt.Sprintf(format, args...))
 	os.Exit(1)
 }
 
@@ -342,27 +342,27 @@ func (e *slogEntry) Fatalf(format string, args ...interface{}) {
 // Skip depth = 3 assumes standard wrapper chain: levelFilteringEntry -> secretMaskingEntry -> slogEntry
 // If wrapper chain changes, update this value. See TestSkipDepthWarning test.
 func (e *slogEntry) Trace(msg string) {
-	e.logWithSkip(3, loginterface.LevelTrace, msg)
+	e.logWithSkip(3, sflog.LevelTrace, msg)
 }
 
 func (e *slogEntry) Debug(msg string) {
-	e.logWithSkip(3, loginterface.LevelDebug, msg)
+	e.logWithSkip(3, sflog.LevelDebug, msg)
 }
 
 func (e *slogEntry) Info(msg string) {
-	e.logWithSkip(3, loginterface.LevelInfo, msg)
+	e.logWithSkip(3, sflog.LevelInfo, msg)
 }
 
 func (e *slogEntry) Warn(msg string) {
-	e.logWithSkip(3, loginterface.LevelWarn, msg)
+	e.logWithSkip(3, sflog.LevelWarn, msg)
 }
 
 func (e *slogEntry) Error(msg string) {
-	e.logWithSkip(3, loginterface.LevelError, msg)
+	e.logWithSkip(3, sflog.LevelError, msg)
 }
 
 func (e *slogEntry) Fatal(msg string) {
-	e.logWithSkip(3, loginterface.LevelFatal, msg)
+	e.logWithSkip(3, sflog.LevelFatal, msg)
 	os.Exit(1)
 }
 

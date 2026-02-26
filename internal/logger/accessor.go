@@ -5,7 +5,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/snowflakedb/gosnowflake/v2/loginterface"
+	"github.com/snowflakedb/gosnowflake/v2/sflog"
 )
 
 // LoggerAccessor allows internal packages to access the global logger
@@ -13,11 +13,11 @@ import (
 var (
 	loggerAccessorMu sync.Mutex
 	// globalLogger is the actual logger that provides all features (secret masking, level filtering, etc.)
-	globalLogger loginterface.SFLogger
+	globalLogger sflog.SFLogger
 )
 
 // GetLogger returns the global logger for use by internal packages
-func GetLogger() loginterface.SFLogger {
+func GetLogger() sflog.SFLogger {
 	loggerAccessorMu.Lock()
 	defer loggerAccessorMu.Unlock()
 
@@ -77,6 +77,6 @@ func init() {
 }
 
 // CreateDefaultLogger function creates a new instance of the default logger with the standard protection layers.
-func CreateDefaultLogger() loginterface.SFLogger {
+func CreateDefaultLogger() sflog.SFLogger {
 	return newLevelFilteringLogger(newSecretMaskingLogger(newRawLogger()))
 }

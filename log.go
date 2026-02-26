@@ -2,7 +2,7 @@ package gosnowflake
 
 import (
 	loggerinternal "github.com/snowflakedb/gosnowflake/v2/internal/logger"
-	"github.com/snowflakedb/gosnowflake/v2/loginterface"
+	"github.com/snowflakedb/gosnowflake/v2/sflog"
 )
 
 // SFSessionIDKey is context key of session id
@@ -16,27 +16,27 @@ func init() {
 	SetLogKeys(SFSessionIDKey, SFSessionUserKey)
 }
 
-// Re-export types from loginterface package for backward compatibility
+// Re-export types from sflog package for backward compatibility
 type (
 	// ClientLogContextHook is a client-defined hook that can be used to insert log
 	// fields based on the Context.
-	ClientLogContextHook = loginterface.ClientLogContextHook
+	ClientLogContextHook = sflog.ClientLogContextHook
 
 	// LogEntry allows for logging using a snapshot of field values.
 	// No implementation-specific logging details should be placed into this interface.
-	LogEntry = loginterface.LogEntry
+	LogEntry = sflog.LogEntry
 
 	// SFLogger Snowflake logger interface which abstracts away the underlying logging mechanism.
 	// No implementation-specific logging details should be placed into this interface.
-	SFLogger = loginterface.SFLogger
+	SFLogger = sflog.SFLogger
 
 	// SFSlogLogger is an optional interface for advanced slog handler configuration.
 	// This interface is separate from SFLogger to maintain framework-agnostic design.
 	// Users can type-assert the logger to check if slog handler configuration is supported.
-	SFSlogLogger = loginterface.SFSlogLogger
+	SFSlogLogger = sflog.SFSlogLogger
 
-	// Level is the log level. Info is set to 0. For more details, see loginterface.Level.
-	Level = loginterface.Level
+	// Level is the log level. Info is set to 0. For more details, see sflog.Level.
+	Level = sflog.Level
 )
 
 // SetLogKeys sets the context keys to be written to logs when logger.WithContext is used.

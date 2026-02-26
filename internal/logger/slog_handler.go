@@ -2,7 +2,7 @@ package logger
 
 import (
 	"context"
-	"github.com/snowflakedb/gosnowflake/v2/loginterface"
+	"github.com/snowflakedb/gosnowflake/v2/sflog"
 	"log/slog"
 )
 
@@ -12,7 +12,7 @@ type snowflakeHandler struct {
 	levelVar *slog.LevelVar
 }
 
-func newSnowflakeHandler(inner slog.Handler, level loginterface.Level) *snowflakeHandler {
+func newSnowflakeHandler(inner slog.Handler, level sflog.Level) *snowflakeHandler {
 	levelVar := &slog.LevelVar{}
 	levelVar.Set(slog.Level(level))
 	return &snowflakeHandler{

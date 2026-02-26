@@ -6,7 +6,7 @@ import (
 	"io"
 	"log/slog"
 
-	"github.com/snowflakedb/gosnowflake/v2/loginterface"
+	"github.com/snowflakedb/gosnowflake/v2/sflog"
 )
 
 // Proxy is a proxy that delegates all calls to the global logger.
@@ -14,7 +14,7 @@ import (
 type Proxy struct{}
 
 // Compile-time verification that Proxy implements SFLogger
-var _ loginterface.SFLogger = (*Proxy)(nil)
+var _ sflog.SFLogger = (*Proxy)(nil)
 
 // Tracef implements the Tracef method of the SFLogger interface by delegating to the global logger.
 func (p *Proxy) Tracef(format string, args ...interface{}) {
@@ -77,17 +77,17 @@ func (p *Proxy) Fatal(msg string) {
 }
 
 // WithField implements the WithField method of the SFLogger interface by delegating to the global logger.
-func (p *Proxy) WithField(key string, value interface{}) loginterface.LogEntry {
+func (p *Proxy) WithField(key string, value interface{}) sflog.LogEntry {
 	return GetLogger().WithField(key, value)
 }
 
 // WithFields implements the WithFields method of the SFLogger interface by delegating to the global logger.
-func (p *Proxy) WithFields(fields map[string]any) loginterface.LogEntry {
+func (p *Proxy) WithFields(fields map[string]any) sflog.LogEntry {
 	return GetLogger().WithFields(fields)
 }
 
 // WithContext implements the WithContext method of the SFLogger interface by delegating to the global logger.
-func (p *Proxy) WithContext(ctx context.Context) loginterface.LogEntry {
+func (p *Proxy) WithContext(ctx context.Context) sflog.LogEntry {
 	return GetLogger().WithContext(ctx)
 }
 
@@ -97,7 +97,7 @@ func (p *Proxy) SetLogLevel(level string) error {
 }
 
 // SetLogLevelInt implements the SetLogLevelInt method of the SFLogger interface by delegating to the global logger.
-func (p *Proxy) SetLogLevelInt(level loginterface.Level) error {
+func (p *Proxy) SetLogLevelInt(level sflog.Level) error {
 	return GetLogger().SetLogLevelInt(level)
 }
 
@@ -107,7 +107,7 @@ func (p *Proxy) GetLogLevel() string {
 }
 
 // GetLogLevelInt implements the GetLogLevelInt method of the SFLogger interface by delegating to the global logger.
-func (p *Proxy) GetLogLevelInt() loginterface.Level {
+func (p *Proxy) GetLogLevelInt() sflog.Level {
 	return GetLogger().GetLogLevelInt()
 }
 
@@ -121,7 +121,7 @@ func (p *Proxy) SetOutput(output io.Writer) {
 func (p *Proxy) SetHandler(handler slog.Handler) error {
 	logger := GetLogger()
 
-	if sl, ok := logger.(loginterface.SFSlogLogger); ok {
+	if sl, ok := logger.(sflog.SFSlogLogger); ok {
 		return sl.SetHandler(handler)
 	}
 
@@ -130,6 +130,6 @@ func (p *Proxy) SetHandler(handler slog.Handler) error {
 
 // NewLoggerProxy creates a new logger proxy that delegates all calls
 // to the global logger managed by the internal package.
-func NewLoggerProxy() loginterface.SFLogger {
+func NewLoggerProxy() sflog.SFLogger {
 	return &Proxy{}
 }

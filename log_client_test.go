@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/v2/loginterface"
+	"github.com/snowflakedb/gosnowflake/v2/sflog"
 	"io"
 	"log/slog"
 	"strings"
@@ -156,7 +156,7 @@ func (l *customLogger) SetLogLevel(level string) error {
 func (l *customLogger) SetLogLevelInt(level gosnowflake.Level) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	levelStr, err := loginterface.LevelToString(level)
+	levelStr, err := sflog.LevelToString(level)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (l *customLogger) GetLogLevel() string {
 func (l *customLogger) GetLogLevelInt() gosnowflake.Level {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	level, _ := loginterface.ParseLevel(l.level)
+	level, _ := sflog.ParseLevel(l.level)
 	return level
 }
 

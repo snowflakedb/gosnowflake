@@ -3,7 +3,7 @@ package logger
 import (
 	"context"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/v2/loginterface"
+	"github.com/snowflakedb/gosnowflake/v2/sflog"
 	"io"
 	"log/slog"
 )
@@ -147,7 +147,7 @@ func (l *secretMaskingLogger) SetLogLevel(level string) error {
 	return l.inner.SetLogLevel(level)
 }
 
-func (l *secretMaskingLogger) SetLogLevelInt(level loginterface.Level) error {
+func (l *secretMaskingLogger) SetLogLevelInt(level sflog.Level) error {
 	return l.inner.SetLogLevelInt(level)
 }
 
@@ -155,7 +155,7 @@ func (l *secretMaskingLogger) GetLogLevel() string {
 	return l.inner.GetLogLevel()
 }
 
-func (l *secretMaskingLogger) GetLogLevelInt() loginterface.Level {
+func (l *secretMaskingLogger) GetLogLevelInt() sflog.Level {
 	return l.inner.GetLogLevelInt()
 }
 
@@ -165,7 +165,7 @@ func (l *secretMaskingLogger) SetOutput(output io.Writer) {
 
 // SetHandler delegates to inner logger's SetHandler (for slog handler configuration)
 func (l *secretMaskingLogger) SetHandler(handler slog.Handler) error {
-	if logger, ok := l.inner.(loginterface.SFSlogLogger); ok {
+	if logger, ok := l.inner.(sflog.SFSlogLogger); ok {
 		return logger.SetHandler(handler)
 	}
 	return fmt.Errorf("inner logger does not support SetHandler")
