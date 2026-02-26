@@ -14,12 +14,6 @@ const SFSessionUserKey ContextKey = "LOG_USER"
 func init() {
 	// Set default log keys in internal package
 	SetLogKeys(SFSessionIDKey, SFSessionUserKey)
-
-	// Set default log level
-	_ = logger.SetLogLevel("error")
-	if runningOnGithubAction() {
-		_ = logger.SetLogLevel("fatal")
-	}
 }
 
 // Re-export types from loginterface package for backward compatibility
@@ -40,6 +34,9 @@ type (
 	// This interface is separate from SFLogger to maintain framework-agnostic design.
 	// Users can type-assert the logger to check if slog handler configuration is supported.
 	SFSlogLogger = loginterface.SFSlogLogger
+
+	// Level is the log level. Info is set to 0. For more details, see loginterface.Level.
+	Level = loginterface.Level
 )
 
 // SetLogKeys sets the context keys to be written to logs when logger.WithContext is used.
@@ -97,8 +94,8 @@ var logger SFLogger = loggerinternal.NewLoggerProxy()
 //
 //	customLogger := mylogger.New()
 //	gosnowflake.SetLogger(customLogger)
-func SetLogger(logger SFLogger) {
-	_ = loggerinternal.SetLogger(logger)
+func SetLogger(logger SFLogger) error {
+	return loggerinternal.SetLogger(logger)
 }
 
 // GetLogger returns the current global logger with all protective layers applied

@@ -53,37 +53,37 @@ func (l *secretMaskingLogger) maskString(value string) string {
 func (l *secretMaskingLogger) Tracef(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := l.maskString(message)
-	l.inner.Tracef("%s", maskedMessage)
+	l.inner.Trace(maskedMessage)
 }
 
 func (l *secretMaskingLogger) Debugf(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := l.maskString(message)
-	l.inner.Debugf("%s", maskedMessage)
+	l.inner.Debug(maskedMessage)
 }
 
 func (l *secretMaskingLogger) Infof(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := l.maskString(message)
-	l.inner.Infof("%s", maskedMessage)
+	l.inner.Info(maskedMessage)
 }
 
 func (l *secretMaskingLogger) Warnf(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := l.maskString(message)
-	l.inner.Warnf("%s", maskedMessage)
+	l.inner.Warn(maskedMessage)
 }
 
 func (l *secretMaskingLogger) Errorf(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := l.maskString(message)
-	l.inner.Errorf("%s", maskedMessage)
+	l.inner.Error(maskedMessage)
 }
 
 func (l *secretMaskingLogger) Fatalf(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := l.maskString(message)
-	l.inner.Fatalf("%s", maskedMessage)
+	l.inner.Fatal(maskedMessage)
 }
 
 // Implement all direct logging methods
@@ -147,8 +147,16 @@ func (l *secretMaskingLogger) SetLogLevel(level string) error {
 	return l.inner.SetLogLevel(level)
 }
 
+func (l *secretMaskingLogger) SetLogLevelInt(level loginterface.Level) error {
+	return l.inner.SetLogLevelInt(level)
+}
+
 func (l *secretMaskingLogger) GetLogLevel() string {
 	return l.inner.GetLogLevel()
+}
+
+func (l *secretMaskingLogger) GetLogLevelInt() loginterface.Level {
+	return l.inner.GetLogLevelInt()
 }
 
 func (l *secretMaskingLogger) SetOutput(output io.Writer) {
@@ -176,37 +184,37 @@ var _ LogEntry = (*secretMaskingEntry)(nil)
 func (e *secretMaskingEntry) Tracef(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := MaskSecrets(message)
-	e.inner.Tracef("%s", maskedMessage)
+	e.inner.Trace(maskedMessage)
 }
 
 func (e *secretMaskingEntry) Debugf(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := MaskSecrets(message)
-	e.inner.Debugf("%s", maskedMessage)
+	e.inner.Debug(maskedMessage)
 }
 
 func (e *secretMaskingEntry) Infof(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := MaskSecrets(message)
-	e.inner.Infof("%s", maskedMessage)
+	e.inner.Info(maskedMessage)
 }
 
 func (e *secretMaskingEntry) Warnf(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := MaskSecrets(message)
-	e.inner.Warnf("%s", maskedMessage)
+	e.inner.Warn(maskedMessage)
 }
 
 func (e *secretMaskingEntry) Errorf(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := MaskSecrets(message)
-	e.inner.Errorf("%s", maskedMessage)
+	e.inner.Error(maskedMessage)
 }
 
 func (e *secretMaskingEntry) Fatalf(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := MaskSecrets(message)
-	e.inner.Fatalf("%s", maskedMessage)
+	e.inner.Fatal(maskedMessage)
 }
 
 // Implement all direct logging methods

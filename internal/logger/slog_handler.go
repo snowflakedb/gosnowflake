@@ -2,6 +2,7 @@ package logger
 
 import (
 	"context"
+	"github.com/snowflakedb/gosnowflake/v2/loginterface"
 	"log/slog"
 )
 
@@ -9,6 +10,15 @@ import (
 type snowflakeHandler struct {
 	inner    slog.Handler
 	levelVar *slog.LevelVar
+}
+
+func newSnowflakeHandler(inner slog.Handler, level loginterface.Level) *snowflakeHandler {
+	levelVar := &slog.LevelVar{}
+	levelVar.Set(slog.Level(level))
+	return &snowflakeHandler{
+		inner:    inner,
+		levelVar: levelVar,
+	}
 }
 
 // Enabled checks if the handler is enabled for the given level

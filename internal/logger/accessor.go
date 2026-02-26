@@ -11,15 +11,15 @@ import (
 // LoggerAccessor allows internal packages to access the global logger
 // without importing the main gosnowflake package (avoiding circular dependencies)
 var (
-	loggerAccessorMu sync.RWMutex
+	loggerAccessorMu sync.Mutex
 	// globalLogger is the actual logger that provides all features (secret masking, level filtering, etc.)
 	globalLogger loginterface.SFLogger
 )
 
 // GetLogger returns the global logger for use by internal packages
 func GetLogger() loginterface.SFLogger {
-	loggerAccessorMu.RLock()
-	defer loggerAccessorMu.RUnlock()
+	loggerAccessorMu.Lock()
+	defer loggerAccessorMu.Unlock()
 
 	return globalLogger
 }

@@ -18,87 +18,30 @@ const (
 	jwtTokenPattern        = `(?i)(jwt|bearer)[\s:=]*([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)` // pragma: allowlist secret
 )
 
-var (
-	awsKeyRegexp          = regexp.MustCompile(awsKeyPattern)
-	awsTokenRegexp        = regexp.MustCompile(awsTokenPattern)
-	sasTokenRegexp        = regexp.MustCompile(sasTokenPattern)
-	privateKeyRegexp      = regexp.MustCompile(privateKeyPattern)
-	privateKeyDataRegexp  = regexp.MustCompile(privateKeyDataPattern)
-	privateKeyParamRegexp = regexp.MustCompile(privateKeyParamPattern)
-	connectionTokenRegexp = regexp.MustCompile(connectionTokenPattern)
-	passwordRegexp        = regexp.MustCompile(passwordPattern)
-	dsnPasswordRegexp     = regexp.MustCompile(dsnPasswordPattern)
-	clientSecretRegexp    = regexp.MustCompile(clientSecretPattern)
-	jwtTokenRegexp        = regexp.MustCompile(jwtTokenPattern)
-)
-
-type secretmasker string
-
-func (s secretmasker) maskConnectionToken() secretmasker {
-	return secretmasker(connectionTokenRegexp.ReplaceAllString(s.String(), "$1${2}****"))
+type patternAndReplace struct {
+	regex       *regexp.Regexp
+	replacement string
 }
 
-func (s secretmasker) maskPassword() secretmasker {
-	return secretmasker(passwordRegexp.ReplaceAllString(s.String(), "$1${2}****"))
-}
-
-func (s secretmasker) maskDsnPassword() secretmasker {
-	return secretmasker(dsnPasswordRegexp.ReplaceAllString(s.String(), "$1:****@"))
-}
-
-func (s secretmasker) maskAwsKey() secretmasker {
-	return secretmasker(awsKeyRegexp.ReplaceAllString(s.String(), "${1}****$2"))
-}
-
-func (s secretmasker) maskAwsToken() secretmasker {
-	return secretmasker(awsTokenRegexp.ReplaceAllString(s.String(), "${1}XXXX$2"))
-}
-
-func (s secretmasker) maskSasToken() secretmasker {
-	return secretmasker(sasTokenRegexp.ReplaceAllString(s.String(), "${1}****$2"))
-}
-func (s secretmasker) maskPrivateKey() secretmasker {
-	return secretmasker(privateKeyRegexp.ReplaceAllString(s.String(), "-----BEGIN PRIVATE KEY-----\\\\\\\\nXXXX\\\\\\\\n-----END PRIVATE KEY-----")) // pragma: allowlist secret
-}
-
-func (s secretmasker) maskPrivateKeyData() secretmasker {
-	return secretmasker(privateKeyDataRegexp.ReplaceAllString(s.String(), `"privateKeyData": "XXXX"`))
-}
-
-func (s secretmasker) maskClientSecret() secretmasker {
-	return secretmasker(clientSecretRegexp.ReplaceAllString(s.String(), "$1${2}****"))
-}
-
-func (s secretmasker) maskPrivateKeyParam() secretmasker {
-	return secretmasker(privateKeyParamRegexp.ReplaceAllString(s.String(), "privateKey=****$2"))
-}
-
-func (s secretmasker) maskJwtToken() secretmasker {
-	return secretmasker(jwtTokenRegexp.ReplaceAllString(s.String(), "$1 ****"))
-}
-
-func (s secretmasker) String() string {
-	return string(s)
-}
-
-func newSecretMasker(text string) secretmasker {
-	return secretmasker(text)
+var secretDetectorPatterns = []patternAndReplace{
+	{regexp.MustCompile(awsKeyPattern), "$1=****$2"},
+	{regexp.MustCompile(awsTokenPattern), "${1}XXXX$2"},
+	{regexp.MustCompile(sasTokenPattern), "${1}****$2"},
+	{regexp.MustCompile(privateKeyPattern), "-----BEGIN PRIVATE KEY-----\\\\\\\\nXXXX\\\\\\\\n-----END PRIVATE KEY-----"}, // pragma: allowlist secret
+	{regexp.MustCompile(privateKeyDataPattern), `"privateKeyData": "XXXX"`},
+	{regexp.MustCompile(privateKeyParamPattern), "privateKey=****$2"},
+	{regexp.MustCompile(connectionTokenPattern), "$1${2}****"},
+	{regexp.MustCompile(passwordPattern), "$1${2}****"},
+	{regexp.MustCompile(dsnPasswordPattern), "$1:****@"},
+	{regexp.MustCompile(clientSecretPattern), "$1${2}****"},
+	{regexp.MustCompile(jwtTokenPattern), "$1 ****"},
 }
 
 // MaskSecrets masks secrets in text (exported for use by main package and secret masking logger)
 func MaskSecrets(text string) (masked string) {
-	s := newSecretMasker(text)
-
-	return s.maskConnectionToken().
-		maskPassword().
-		maskDsnPassword().
-		maskPrivateKeyData().
-		maskPrivateKeyParam().
-		maskPrivateKey().
-		maskAwsToken().
-		maskSasToken().
-		maskAwsKey().
-		maskClientSecret().
-		maskJwtToken().
-		String()
+	res := text
+	for _, pattern := range secretDetectorPatterns {
+		res = pattern.regex.ReplaceAllString(res, pattern.replacement)
+	}
+	return res
 }

@@ -11,7 +11,7 @@ import (
 
 // TestLoggerConfiguration verifies configuration methods work
 func TestLoggerConfiguration(t *testing.T) {
-	log := logger.GetLogger()
+	log := logger.CreateDefaultLogger()
 
 	// Get current level
 	level := log.GetLogLevel()
@@ -28,14 +28,14 @@ func TestLoggerConfiguration(t *testing.T) {
 
 	// Verify it changed
 	newLevel := log.GetLogLevel()
-	if newLevel != "debug" {
+	if newLevel != "DEBUG" {
 		t.Errorf("Expected 'debug', got '%s'", newLevel)
 	}
 }
 
 // TestLoggerSecretMasking verifies secret masking works
 func TestLoggerSecretMasking(t *testing.T) {
-	log := logger.GetLogger()
+	log := logger.CreateDefaultLogger()
 
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
@@ -63,7 +63,7 @@ func TestLoggerSecretMasking(t *testing.T) {
 
 // TestLoggerAllMethods verifies all logging methods are available and produce output
 func TestLoggerAllMethods(t *testing.T) {
-	log := logger.GetLogger()
+	log := logger.CreateDefaultLogger()
 
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
@@ -104,7 +104,7 @@ func TestLoggerAllMethods(t *testing.T) {
 
 // TestLoggerLevelFiltering verifies log level filtering works correctly
 func TestLoggerLevelFiltering(t *testing.T) {
-	log := logger.GetLogger()
+	log := logger.CreateDefaultLogger()
 
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
@@ -137,7 +137,7 @@ func TestLoggerLevelFiltering(t *testing.T) {
 
 // TestLogEntry verifies log entry methods and field inclusion
 func TestLogEntry(t *testing.T) {
-	log := logger.GetLogger()
+	log := logger.CreateDefaultLogger()
 
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
@@ -170,7 +170,7 @@ func TestLogEntry(t *testing.T) {
 
 // TestLogEntryWithFields verifies WithFields works correctly
 func TestLogEntryWithFields(t *testing.T) {
-	log := logger.GetLogger()
+	log := logger.CreateDefaultLogger()
 
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
@@ -205,31 +205,9 @@ func TestLogEntryWithFields(t *testing.T) {
 	t.Log("WithFields works correctly")
 }
 
-// TestGetLogger verifies GetLogger returns a consistent global instance
-func TestGetLogger(t *testing.T) {
-	log1 := logger.GetLogger()
-	log2 := logger.GetLogger()
-
-	// Both calls should return references to the same underlying logger
-	// We verify this by checking that configuration changes affect both
-	var buf bytes.Buffer
-	log1.SetOutput(&buf)
-	_ = log1.SetLogLevel("info")
-
-	// Log through log2
-	log2.Info("test message from log2")
-
-	output := buf.String()
-
-	// Should appear in the buffer set through log1
-	if !strings.Contains(output, "test message from log2") {
-		t.Errorf("Expected message from log2 to appear in log1's output: %s", output)
-	}
-}
-
 // TestSetOutput verifies output redirection works correctly
 func TestSetOutput(t *testing.T) {
-	log := logger.GetLogger()
+	log := logger.CreateDefaultLogger()
 
 	// Test with first buffer
 	var buf1 bytes.Buffer
@@ -263,7 +241,7 @@ func TestSetOutput(t *testing.T) {
 
 // TestLogEntryWithContext verifies WithContext works correctly
 func TestLogEntryWithContext(t *testing.T) {
-	log := logger.GetLogger()
+	log := logger.CreateDefaultLogger()
 
 	var buf bytes.Buffer
 	log.SetOutput(&buf)

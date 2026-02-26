@@ -37,7 +37,9 @@ type SFLogger interface {
 	WithFields(fields map[string]any) LogEntry
 
 	SetLogLevel(level string) error
+	SetLogLevelInt(level Level) error
 	GetLogLevel() string
+	GetLogLevelInt() Level
 	WithContext(ctx context.Context) LogEntry
 	SetOutput(output io.Writer)
 }

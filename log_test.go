@@ -14,7 +14,7 @@ func TestLogLevelEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("log level could not be set %v", err)
 	}
-	if log.GetLogLevel() != "info" {
+	if log.GetLogLevel() != "INFO" {
 		t.Fatalf("log level should be info but is %v", log.GetLogLevel())
 	}
 }

@@ -96,9 +96,19 @@ func (p *Proxy) SetLogLevel(level string) error {
 	return GetLogger().SetLogLevel(level)
 }
 
+// SetLogLevelInt implements the SetLogLevelInt method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) SetLogLevelInt(level loginterface.Level) error {
+	return GetLogger().SetLogLevelInt(level)
+}
+
 // GetLogLevel implements the GetLogLevel method of the SFLogger interface by delegating to the global logger.
 func (p *Proxy) GetLogLevel() string {
 	return GetLogger().GetLogLevel()
+}
+
+// GetLogLevelInt implements the GetLogLevelInt method of the SFLogger interface by delegating to the global logger.
+func (p *Proxy) GetLogLevelInt() loginterface.Level {
+	return GetLogger().GetLogLevelInt()
 }
 
 // SetOutput implements the SetOutput method of the SFLogger interface by delegating to the global logger.
