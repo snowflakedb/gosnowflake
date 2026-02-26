@@ -10,6 +10,7 @@ Bug fixes:
 
 - Added panic recovery block for stage file uploads and downloads operation (snowflakedb/gosnowflake#1687).
 - Fixed WIF metadata request from Azure container, manifested with HTTP 400 error (snowflakedb/gosnowflake#1701).
+- Fixed SAML authentication port validation bypass in `isPrefixEqual` where the second URL's port was never checked (snowflakedb/gosnowflake#1712).
 
 ## 1.19.0
 

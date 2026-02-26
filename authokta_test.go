@@ -36,6 +36,37 @@ func TestUnitPostBackURL(t *testing.T) {
 	}
 }
 
+func TestUnitIsPrefixEqual(t *testing.T) {
+	mustParse := func(raw string) *url.URL {
+		u, err := url.Parse(raw)
+		assertNilF(t, err, "parsing URL: "+raw)
+		return u
+	}
+	tests := []struct {
+		name     string
+		u1       string
+		u2       string
+		expected bool
+	}{
+		{"same origin", "https://abc.com", "https://abc.com", true},
+		{"same origin with path", "https://abc.com/foo", "https://abc.com/bar", true},
+		{"explicit 443 vs implicit", "https://abc.com:443", "https://abc.com", true},
+		{"implicit vs explicit 443", "https://abc.com", "https://abc.com:443", true},
+		{"both explicit same port", "https://abc.com:8443", "https://abc.com:8443", true},
+		{"different port on same host", "https://abc.com", "https://abc.com:9443", false},
+		{"different port both explicit", "https://abc.com:8443", "https://abc.com:9443", false},
+		{"different hostname", "https://abc.com", "https://xyz.com", false},
+		{"different scheme", "https://abc.com", "http://abc.com", false},
+		{"http port mismatch", "http://abc.com", "http://abc.com:9090", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := isPrefixEqual(mustParse(tc.u1), mustParse(tc.u2))
+			assertEqualF(t, got, tc.expected, tc.name)
+		})
+	}
+}
+
 func getTestError(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ time.Duration) (*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusOK,
