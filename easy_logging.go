@@ -87,7 +87,7 @@ func easyLoggingInitError(err error) error {
 
 func reconfigureEasyLogging(logLevel string, logPath string) error {
 	// don't allow any change if a non-default logger is already being used.
-	if !loggerinternal.IsDefaultLogger(logger) {
+	if _, ok := logger.(loggerinternal.EasyLoggingSupport); ok {
 		return nil // cannot replace custom logger
 	}
 	newLogger := CreateDefaultLogger()
@@ -105,9 +105,6 @@ func reconfigureEasyLogging(logLevel string, logPath string) error {
 	err = loggerinternal.CloseFileOnLoggerReplace(newLogger, file)
 	if err != nil {
 		logger.Errorf("%s", err)
-	}
-	if loggerinternal.IsDefaultLogger(logger) {
-		return SetLogger(newLogger)
 	}
 	return nil
 }
