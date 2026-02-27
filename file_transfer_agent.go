@@ -664,7 +664,7 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfigWithUtil(s3Util s
 	})
 	sfa.useAccelerateEndpoint = ret != nil && ret.Status == "Enabled"
 	if err != nil {
-		logger.WithContext(sfa.sc.ctx).Warnln("An error occurred when getting accelerate config:", err)
+		logger.WithContext(sfa.sc.ctx).Warnf("An error occurred when getting accelerate config: %v", err)
 	}
 	return nil
 }
@@ -1283,7 +1283,7 @@ func (spp *snowflakeProgressPercentage) updateProgress(filename string, startTim
 		text := fmt.Sprintf("\r%v(%.2fMB): [%v] %.2f%% %v ", filename, totalSize, strings.Repeat("#", block)+strings.Repeat("-", barLength-block), progress*100, status)
 		_, err := (*outputStream).Write([]byte(text))
 		if err != nil {
-			logger.Warn("cannot write status of progress. %v", err)
+			logger.Warnf("cannot write status of progress. %v", err)
 		}
 	}
 	return progress == 1.0

@@ -227,7 +227,7 @@ func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec *secureTokenSp
 	}
 	credentialsKey, err := tokenSpec.buildKey()
 	if err != nil {
-		logger.Warn(err)
+		logger.Warnf("cannot build token spec: %v", err)
 		return
 	}
 
@@ -330,7 +330,7 @@ func (ssm *fileBasedSecureStorageManager) unlockFile() {
 func (ssm *fileBasedSecureStorageManager) getCredential(tokenSpec *secureTokenSpec) string {
 	credentialsKey, err := tokenSpec.buildKey()
 	if err != nil {
-		logger.Warn(err)
+		logger.Warnf("cannot build token spec: %v", err)
 		return ""
 	}
 
@@ -417,7 +417,7 @@ func (ssm *fileBasedSecureStorageManager) readTemporaryCacheFile(cacheFile *os.F
 func (ssm *fileBasedSecureStorageManager) deleteCredential(tokenSpec *secureTokenSpec) {
 	credentialsKey, err := tokenSpec.buildKey()
 	if err != nil {
-		logger.Warn(err)
+		logger.Warnf("cannot build token spec: %v", err)
 		return
 	}
 

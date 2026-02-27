@@ -114,15 +114,15 @@ func skipRegistration() bool {
 	return os.Getenv("GOSNOWFLAKE_SKIP_REGISTRATION") != ""
 }
 
-var logger = CreateDefaultLogger()
-
 func init() {
 	if !skipRegistration() {
 		sql.Register("snowflake", &SnowflakeDriver{})
 	}
-	_ = logger.SetLogLevel("error")
+
+	// Set initial log level
+	_ = GetLogger().SetLogLevel("error")
 	if runningOnGithubAction() {
-		_ = logger.SetLogLevel("fatal")
+		_ = GetLogger().SetLogLevel("fatal")
 	}
 	paramsMutex = &sync.Mutex{}
 }

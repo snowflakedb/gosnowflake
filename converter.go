@@ -251,7 +251,6 @@ func snowflakeTypeToGoForMaps[K comparable](ctx context.Context, valueMetadata q
 // valueToString converts arbitrary golang type to a string. This is mainly used in binding data with placeholders
 // in queries.
 func valueToString(v driver.Value, tsmode types.SnowflakeType, params map[string]*string) (bindingValue, error) {
-	logger.Debugf("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
 	isJSONFormat := isJSONFormatType(tsmode)
 	if v == nil {
 		if isJSONFormat {
@@ -965,7 +964,13 @@ func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta query.
 		return nil
 	}
 	structuredTypesEnabled := structuredTypesEnabled(ctx)
-	logger.Debugf("snowflake data type: %v, raw value: %v", srcColumnMeta.Type, *srcValue)
+
+	// Truncate large strings before logging to avoid secret masking performance issues
+	valueForLogging := *srcValue
+	if len(valueForLogging) > 1024 {
+		valueForLogging = valueForLogging[:1024] + fmt.Sprintf("... (%d bytes total)", len(*srcValue))
+	}
+	logger.Debugf("snowflake data type: %v, raw value: %v", srcColumnMeta.Type, valueForLogging)
 	switch srcColumnMeta.Type {
 	case "object":
 		if len(srcColumnMeta.Fields) == 0 || !structuredTypesEnabled {

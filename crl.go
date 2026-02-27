@@ -340,7 +340,7 @@ func (cv *crlValidator) validateCrlAgainstCrlURL(cert *x509.Certificate, crlURL 
 func (cv *crlValidator) validateCrl(crl *x509.RevocationList, parent *x509.Certificate, crlURL string) error {
 	if crl.Issuer.String() != parent.Subject.String() {
 		err := fmt.Errorf("CRL issuer %v does not match parent certificate subject %v for %v", crl.Issuer, parent.Subject, crlURL)
-		logger.Warn(err)
+		logger.Warn(err.Error())
 		return err
 	}
 	if err := crl.CheckSignatureFrom(parent); err != nil {

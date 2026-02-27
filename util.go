@@ -15,27 +15,28 @@ import (
 	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
 )
 
-type contextKey string
+// ContextKey is a type for context keys used in gosnowflake. Using a custom type helps avoid collisions with other context keys.
+type ContextKey string
 
 const (
-	multiStatementCount    contextKey = "MULTI_STATEMENT_COUNT"
-	asyncMode              contextKey = "ASYNC_MODE_QUERY"
-	queryIDChannel         contextKey = "QUERY_ID_CHANNEL"
-	snowflakeRequestIDKey  contextKey = "SNOWFLAKE_REQUEST_ID"
-	fetchResultByID        contextKey = "SF_FETCH_RESULT_BY_ID"
-	filePutStream          contextKey = "STREAMING_PUT_FILE"
-	fileGetStream          contextKey = "STREAMING_GET_FILE"
-	fileTransferOptions    contextKey = "FILE_TRANSFER_OPTIONS"
-	enableDecfloat         contextKey = "ENABLE_DECFLOAT"
-	arrowAlloc             contextKey = "ARROW_ALLOC"
-	queryTag               contextKey = "QUERY_TAG"
-	enableStructuredTypes  contextKey = "ENABLE_STRUCTURED_TYPES"
-	embeddedValuesNullable contextKey = "EMBEDDED_VALUES_NULLABLE"
-	describeOnly           contextKey = "DESCRIBE_ONLY"
-	internalQuery          contextKey = "INTERNAL_QUERY"
-	cancelRetry            contextKey = "CANCEL_RETRY"
-	logQueryText           contextKey = "LOG_QUERY_TEXT"
-	logQueryParameters     contextKey = "LOG_QUERY_PARAMETERS"
+	multiStatementCount    ContextKey = "MULTI_STATEMENT_COUNT"
+	asyncMode              ContextKey = "ASYNC_MODE_QUERY"
+	queryIDChannel         ContextKey = "QUERY_ID_CHANNEL"
+	snowflakeRequestIDKey  ContextKey = "SNOWFLAKE_REQUEST_ID"
+	fetchResultByID        ContextKey = "SF_FETCH_RESULT_BY_ID"
+	filePutStream          ContextKey = "STREAMING_PUT_FILE"
+	fileGetStream          ContextKey = "STREAMING_GET_FILE"
+	fileTransferOptions    ContextKey = "FILE_TRANSFER_OPTIONS"
+	enableDecfloat         ContextKey = "ENABLE_DECFLOAT"
+	arrowAlloc             ContextKey = "ARROW_ALLOC"
+	queryTag               ContextKey = "QUERY_TAG"
+	enableStructuredTypes  ContextKey = "ENABLE_STRUCTURED_TYPES"
+	embeddedValuesNullable ContextKey = "EMBEDDED_VALUES_NULLABLE"
+	describeOnly           ContextKey = "DESCRIBE_ONLY"
+	internalQuery          ContextKey = "INTERNAL_QUERY"
+	cancelRetry            ContextKey = "CANCEL_RETRY"
+	logQueryText           ContextKey = "LOG_QUERY_TEXT"
+	logQueryParameters     ContextKey = "LOG_QUERY_PARAMETERS"
 )
 
 var (

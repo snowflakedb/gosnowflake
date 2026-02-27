@@ -48,7 +48,7 @@ const (
 type resultType string
 
 const (
-	snowflakeResultType contextKey = "snowflakeResultType"
+	snowflakeResultType ContextKey = "snowflakeResultType"
 	execResultType      resultType = "exec"
 	queryResultType     resultType = "query"
 )
@@ -287,7 +287,7 @@ func (sc *snowflakeConn) cleanup() {
 }
 
 func (sc *snowflakeConn) Close() (err error) {
-	logger.WithContext(sc.ctx).Infoln("Close")
+	logger.WithContext(sc.ctx).Info("Closing connection")
 	if err := sc.telemetry.sendBatch(); err != nil {
 		logger.WithContext(sc.ctx).Warnf("error while sending telemetry. %v", err)
 	}
@@ -296,10 +296,13 @@ func (sc *snowflakeConn) Close() (err error) {
 	defer sc.cleanup()
 
 	if sc.cfg != nil && !sc.cfg.ServerSessionKeepAlive {
+		logger.WithContext(sc.ctx).Debug("Closing session since ServerSessionKeepAlive is false")
 		// we have to replace context with background, otherwise we can use a one that is cancelled or timed out
 		if err = sc.rest.FuncCloseSession(context.Background(), sc.rest, sc.rest.RequestTimeout); err != nil {
-			logger.WithContext(sc.ctx).Error(err)
+			logger.WithContext(sc.ctx).Errorf("error while closing session: %v", err)
 		}
+	} else {
+		logger.WithContext(sc.ctx).Info("Skipping session close since ServerSessionKeepAlive is true")
 	}
 	return nil
 }

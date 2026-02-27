@@ -33,7 +33,7 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 	} else {
 		credentialsKey, err := tokenSpec.buildKey()
 		if err != nil {
-			logger.Warn(err)
+			logger.Warnf("cannot build token spec: %v", err)
 			return
 		}
 		switch runtime.GOOS {
@@ -69,7 +69,7 @@ func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec
 	cred := ""
 	credentialsKey, err := tokenSpec.buildKey()
 	if err != nil {
-		logger.Warn(err)
+		logger.Warnf("cannot build token spec: %v", err)
 		return ""
 	}
 	switch runtime.GOOS {
@@ -105,7 +105,7 @@ func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec
 func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenSpec) {
 	credentialsKey, err := tokenSpec.buildKey()
 	if err != nil {
-		logger.Warn(err)
+		logger.Warnf("cannot build token spec: %v", err)
 		return
 	}
 	switch runtime.GOOS {

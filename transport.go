@@ -95,7 +95,7 @@ func (tf *transportFactory) createProxy(transportConfig *transportConfig) func(*
 
 // createBaseTransport creates a base HTTP transport with the given configuration
 func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig, tlsConfig *tls.Config) *http.Transport {
-	logger.Debug("Create a new Base Transport with transportConfig %v", transportConfig.String())
+	logger.Debugf("Create a new Base Transport with transportConfig %v", transportConfig.String())
 	dialer := &net.Dialer{
 		Timeout:   transportConfig.DialTimeout,
 		KeepAlive: transportConfig.KeepAlive,

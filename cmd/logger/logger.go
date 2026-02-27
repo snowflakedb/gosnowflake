@@ -23,7 +23,7 @@ func main() {
 	_ = testlog.SetLogLevel("debug")
 	testlog.SetOutput(buf)
 	testlog.SetOutput(buf2)
-	sf.SetLogger(&testlog)
+	sf.SetLogger(testlog)
 
 	var mylog2 = sf.GetLogger()
 	mylog2.Debug("test debug log is shown")
