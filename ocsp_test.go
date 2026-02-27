@@ -242,6 +242,7 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 }
 
 func TestOcspCacheClearer(t *testing.T) {
+	initOCSPCache()
 	origValue := os.Getenv(ocspResponseCacheClearingIntervalInSecondsEnv)
 	defer func() {
 		StopOCSPCacheClearer()
