@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -890,9 +889,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		logger.Warn("duplicated insecureMode and disableOCSPChecks. disableOCSPChecks takes precedence")
 		paramsSlice = append(paramsSlice[:insecureModeIdx-1], paramsSlice[insecureModeIdx+1:]...)
 	}
-	if slices.Contains(paramsSlice, "token") && slices.Contains(paramsSlice, "tokenFilePath") {
-		return errors.New("token and tokenFilePath cannot be specified at the same time")
-	}
 	for _, v := range paramsSlice {
 		param := strings.SplitN(v, "=", 2)
 		if len(param) != 2 {
@@ -1043,10 +1039,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.Token = value
 		case "tokenFilePath":
 			cfg.TokenFilePath = value
-			cfg.Token, err = readToken(value)
-			if err != nil {
-				return
-			}
 		case "tlsConfigName":
 			cfg.TLSConfigName = value
 		case "workloadIdentityProvider":
