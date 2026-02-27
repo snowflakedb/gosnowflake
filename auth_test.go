@@ -723,6 +723,11 @@ func TestUnitAuthenticateWithConfigMFA(t *testing.T) {
 // but on Wiremock only first will be served with correct response (simulating a user confirming MFA only once).
 // The remaining threads should return error.
 func TestMfaParallelLogin(t *testing.T) {
+	logger.SetLogLevel("trace")
+	defer logger.SetLogLevel("error")
+	//var err error
+	//credentialsStorage, err = newFileBasedSecureStorageManager()
+	//assertNilF(t, err)
 	skipOnMissingHome(t)
 	skipOnMac(t, "interactive keyring access not available on macOS runners")
 	cfg := wiremock.connectionConfig()
