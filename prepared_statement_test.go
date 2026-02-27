@@ -7,7 +7,7 @@ import (
 // TestPreparedStatement creates a basic prepared statement, inserting values
 // after the statement has been prepared
 func TestPreparedStatement(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table test_prep_statement(c1 INTEGER, c2 FLOAT, c3 BOOLEAN, c4 STRING)")
 		defer dbt.mustExec(deleteTableSQL)
 

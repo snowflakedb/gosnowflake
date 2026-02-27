@@ -240,7 +240,7 @@ func TestWithStreamDownloader(t *testing.T) {
 	var idx int
 	var v string
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec(forceJSON)
 		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
 		defer rows.Close()
@@ -267,7 +267,7 @@ func TestWithStreamDownloaderMultistatementLargeResultSet(t *testing.T) {
 	cnt := 0
 	var v string
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(ctx, fmt.Sprintf("SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT=>%v));SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows, numrows))
 		defer rows.Close()
 
@@ -663,7 +663,7 @@ func TestQueryArrowStreamDescribeOnly(t *testing.T) {
 }
 
 func TestRetainChunkWOHighPrecision(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		var rows driver.Rows
 		var err error
 
