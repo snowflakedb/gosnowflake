@@ -126,7 +126,7 @@ func (util *snowflakeGcsClient) getFileHeader(ctx context.Context, meta *fileMet
 			var encryptData *encryptionData
 			err := json.Unmarshal([]byte(resp.Header.Get(gcsMetadataEncryptionDataProp)), &encryptData)
 			if err != nil {
-				logger.Error(err)
+				return nil, fmt.Errorf("cannot unmarshal encryption data: %v", err)
 			}
 			if encryptData != nil {
 				encryptionMeta = &encryptMetadata{

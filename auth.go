@@ -423,7 +423,7 @@ func authenticate(
 		return nil, err
 	}
 	if !respd.Success {
-		logger.WithContext(ctx).Errorln("Authentication FAILED")
+		logger.WithContext(ctx).Error("Authentication FAILED")
 		sc.rest.TokenAccessor.SetTokens("", "", -1)
 		if sessionParameters[clientRequestMfaToken] == true {
 			credentialsStorage.deleteCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))

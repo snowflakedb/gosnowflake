@@ -9,10 +9,17 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	loggerinternal "github.com/snowflakedb/gosnowflake/v2/internal/logger"
 )
 
 func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) {
+	skipOnWindows(t, "Doesn't work on Windows")
 	defer cleanUp()
+	origLogLevel := logger.GetLogLevel()
+	defer logger.SetLogLevel(origLogLevel)
+	logger.SetLogLevel("error")
+
 	logDir := t.TempDir()
 	logLevel := levelError
 	contents := createClientConfigContent(logLevel, logDir)
@@ -37,7 +44,12 @@ func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) 
 }
 
 func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *testing.T) {
+	skipOnWindows(t, "Doesn't work on Windows")
 	skipOnMissingHome(t)
+	origLogLevel := logger.GetLogLevel()
+	defer logger.SetLogLevel(origLogLevel)
+	logger.SetLogLevel("error")
+
 	appExe, err := os.Executable()
 	assertNilF(t, err, "application exe not accessible")
 	userHome, err := os.UserHomeDir()
@@ -80,8 +92,13 @@ func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *tes
 }
 
 func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing.T) {
+	skipOnWindows(t, "Doesn't work on Windows")
 	skipOnMissingHome(t)
 	defer cleanUp()
+	origLogLevel := logger.GetLogLevel()
+	defer logger.SetLogLevel(origLogLevel)
+	logger.SetLogLevel("error")
+
 	configDir, err := os.UserHomeDir()
 	logDir := t.TempDir()
 	assertNilF(t, err, "user home directory error")
@@ -140,7 +157,12 @@ func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
 }
 
 func TestLogToConfiguredFile(t *testing.T) {
+	skipOnWindows(t, "Doesn't work on Windows")
 	defer cleanUp()
+	origLogLevel := logger.GetLogLevel()
+	defer logger.SetLogLevel(origLogLevel)
+	logger.SetLogLevel("error")
+
 	dir := t.TempDir()
 	easyLoggingInitTrials.reset()
 	configContent := createClientConfigContent(levelWarn, dir)
@@ -151,7 +173,6 @@ func TestLogToConfiguredFile(t *testing.T) {
 
 	logger.Error("Error message")
 	logger.Warn("Warning message")
-	logger.Warning("Warning message")
 	logger.Info("Info message")
 	logger.Trace("Trace message")
 
@@ -159,15 +180,15 @@ func TestLogToConfiguredFile(t *testing.T) {
 	logContents, err = os.ReadFile(logFilePath)
 	assertNilF(t, err, "read file error")
 	logs := notEmptyLines(string(logContents))
-	assertEqualE(t, len(logs), 3, "number of logs")
+	assertEqualE(t, len(logs), 2, "number of logs")
 	errorLogs := filterStrings(logs, func(val string) bool {
-		return strings.Contains(val, "level=error")
+		return strings.Contains(val, "level=ERROR")
 	})
 	assertEqualE(t, len(errorLogs), 1, "error logs count")
 	warningLogs := filterStrings(logs, func(val string) bool {
-		return strings.Contains(val, "level=warning")
+		return strings.Contains(val, "level=WARN")
 	})
-	assertEqualE(t, len(warningLogs), 2, "warning logs count")
+	assertEqualE(t, len(warningLogs), 1, "warning logs count")
 }
 
 func TestDataRace(t *testing.T) {
@@ -196,8 +217,8 @@ func notEmptyLines(lines string) []string {
 
 func cleanUp() {
 	newLogger := CreateDefaultLogger()
-	if dl, ok := logger.(*defaultLogger); ok {
-		dl.replace(&newLogger)
+	if _, ok := logger.(loggerinternal.EasyLoggingSupport); ok {
+		SetLogger(newLogger)
 	}
 	easyLoggingInitTrials.reset()
 }

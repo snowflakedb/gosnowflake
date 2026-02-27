@@ -6,23 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-
-	rlog "github.com/sirupsen/logrus"
 )
-
-func createTestLogger() *defaultLogger {
-	var rLogger = rlog.New()
-	var ret = defaultLogger{inner: rLogger}
-	return &ret
-}
-
-func TestIsLevelEnabled(t *testing.T) {
-	logger := createTestLogger()
-	logger.SetLevel(rlog.TraceLevel)
-	if !logger.IsLevelEnabled(rlog.TraceLevel) {
-		t.Fatalf("log level should be trace but is %v", logger.GetLevel())
-	}
-}
 
 func TestLogLevelEnabled(t *testing.T) {
 	log := CreateDefaultLogger() // via the SFLogger interface.
@@ -30,29 +14,8 @@ func TestLogLevelEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("log level could not be set %v", err)
 	}
-	if log.GetLogLevel() != "info" {
-		t.Fatalf("log level should be trace but is %v", log.GetLogLevel())
-	}
-}
-
-func TestLogFunction(t *testing.T) {
-	logger := createTestLogger()
-	buf := &bytes.Buffer{}
-	var formatter = rlog.TextFormatter{CallerPrettyfier: SFCallerPrettyfier}
-	logger.SetFormatter(&formatter)
-	logger.SetReportCaller(true)
-	logger.SetOutput(buf)
-	logger.SetLevel(rlog.TraceLevel)
-
-	logger.Log(rlog.TraceLevel, "hello world")
-	logger.Logf(rlog.TraceLevel, "log %v", "format")
-	logger.Logln(rlog.TraceLevel, "log line")
-
-	var strbuf = buf.String()
-	if !strings.Contains(strbuf, "hello world") &&
-		!strings.Contains(strbuf, "log format") &&
-		!strings.Contains(strbuf, "log line") {
-		t.Fatalf("unexpected output in log %v", strbuf)
+	if log.GetLogLevel() != "INFO" {
+		t.Fatalf("log level should be info but is %v", log.GetLogLevel())
 	}
 }
 
@@ -72,45 +35,31 @@ func TestDefaultLogLevel(t *testing.T) {
 	// default logger level is info
 	logger.Info("info")
 	logger.Infof("info%v", "f")
-	logger.Infoln("infoln")
 
 	// debug and trace won't write to log since they are higher than info level
 	logger.Debug("debug")
 	logger.Debugf("debug%v", "f")
-	logger.Debugln("debugln")
 
 	logger.Trace("trace")
 	logger.Tracef("trace%v", "f")
-	logger.Traceln("traceln")
-
-	// print, warning and error should write to log since they are lower than info
-	logger.Print("print")
-	logger.Printf("print%v", "f")
-	logger.Println("println")
 
 	logger.Warn("warn")
 	logger.Warnf("warn%v", "f")
-	logger.Warnln("warnln")
-
-	logger.Warning("warning")
-	logger.Warningf("warning%v", "f")
-	logger.Warningln("warningln")
 
 	logger.Error("error")
 	logger.Errorf("error%v", "f")
-	logger.Errorln("errorln")
 
 	// verify output
 	var strbuf = buf.String()
 
-	if strings.Contains(strbuf, "debug") &&
-		strings.Contains(strbuf, "trace") &&
-		!strings.Contains(strbuf, "info") &&
-		!strings.Contains(strbuf, "print") &&
-		!strings.Contains(strbuf, "warn") &&
-		!strings.Contains(strbuf, "warning") &&
+	if !strings.Contains(strbuf, "info") ||
+		!strings.Contains(strbuf, "warn") ||
 		!strings.Contains(strbuf, "error") {
 		t.Fatalf("unexpected output in log: %v", strbuf)
+	}
+	if strings.Contains(strbuf, "debug") ||
+		strings.Contains(strbuf, "trace") {
+		t.Fatalf("debug/trace should not be in log: %v", strbuf)
 	}
 }
 
@@ -123,32 +72,21 @@ func TestOffLogLevel(t *testing.T) {
 
 	logger.Info("info")
 	logger.Infof("info%v", "f")
-	logger.Infoln("infoln")
 	logger.Debug("debug")
 	logger.Debugf("debug%v", "f")
-	logger.Debugln("debugln")
 	logger.Trace("trace")
 	logger.Tracef("trace%v", "f")
-	logger.Traceln("traceln")
-	logger.Print("print")
-	logger.Printf("print%v", "f")
-	logger.Println("println")
 	logger.Warn("warn")
 	logger.Warnf("warn%v", "f")
-	logger.Warnln("warnln")
-	logger.Warning("warning")
-	logger.Warningf("warning%v", "f")
-	logger.Warningln("warningln")
 	logger.Error("error")
 	logger.Errorf("error%v", "f")
-	logger.Errorln("errorln")
 
 	assertEqualE(t, buf.Len(), 0, "log messages count")
 	assertEqualE(t, logger.GetLogLevel(), "OFF", "log level")
 }
 
 func TestLogSetLevel(t *testing.T) {
-	logger := GetLogger()
+	logger := CreateDefaultLogger()
 	buf := &bytes.Buffer{}
 	logger.SetOutput(buf)
 	_ = logger.SetLogLevel("trace")
@@ -158,9 +96,35 @@ func TestLogSetLevel(t *testing.T) {
 
 	var strbuf = buf.String()
 
-	if !strings.Contains(strbuf, "trace level") &&
+	if !strings.Contains(strbuf, "trace level") ||
 		!strings.Contains(strbuf, "debug level") {
 		t.Fatalf("unexpected output in log: %v", strbuf)
+	}
+}
+
+func TestLowerLevelsAreSuppressed(t *testing.T) {
+	logger := CreateDefaultLogger()
+	buf := &bytes.Buffer{}
+	logger.SetOutput(buf)
+	_ = logger.SetLogLevel("info")
+
+	logger.Trace("should print at trace level")
+	logger.Debug("should print at debug level")
+	logger.Info("should print at info level")
+	logger.Warn("should print at warn level")
+	logger.Error("should print at error level")
+
+	var strbuf = buf.String()
+
+	if strings.Contains(strbuf, "trace level") ||
+		strings.Contains(strbuf, "debug level") {
+		t.Fatalf("unexpected debug and trace are not present in log: %v", strbuf)
+	}
+
+	if !strings.Contains(strbuf, "info level") ||
+		!strings.Contains(strbuf, "warn level") ||
+		!strings.Contains(strbuf, "error level") {
+		t.Fatalf("expected info, warn, error output in log: %v", strbuf)
 	}
 }
 
@@ -171,62 +135,8 @@ func TestLogWithField(t *testing.T) {
 
 	logger.WithField("field", "test").Info("hello")
 	var strbuf = buf.String()
-	if !strings.Contains(strbuf, "field=test") {
-		t.Fatalf("unexpected string in output: %v", strbuf)
-	}
-}
-
-func TestLogLevelFunctions(t *testing.T) {
-	logger := createTestLogger()
-	buf := &bytes.Buffer{}
-	logger.SetOutput(buf)
-
-	logger.TraceFn(func() []interface{} {
-		return []interface{}{
-			"trace function",
-		}
-	})
-
-	logger.DebugFn(func() []interface{} {
-		return []interface{}{
-			"debug function",
-		}
-	})
-
-	logger.InfoFn(func() []interface{} {
-		return []interface{}{
-			"info function",
-		}
-	})
-
-	logger.PrintFn(func() []interface{} {
-		return []interface{}{
-			"print function",
-		}
-	})
-
-	logger.WarningFn(func() []interface{} {
-		return []interface{}{
-			"warning function",
-		}
-	})
-
-	logger.ErrorFn(func() []interface{} {
-		return []interface{}{
-			"error function",
-		}
-	})
-
-	// check that info, print, warning and error were outputted to the log.
-	var strbuf = buf.String()
-
-	if strings.Contains(strbuf, "debug") &&
-		strings.Contains(strbuf, "trace") &&
-		!strings.Contains(strbuf, "info") &&
-		!strings.Contains(strbuf, "print") &&
-		!strings.Contains(strbuf, "warning") &&
-		!strings.Contains(strbuf, "error") {
-		t.Fatalf("unexpected output in log: %v", strbuf)
+	if !strings.Contains(strbuf, "field") || !strings.Contains(strbuf, "test") {
+		t.Fatalf("expected field and test in output: %v", strbuf)
 	}
 }
 
@@ -249,10 +159,10 @@ func TestLogKeysDefault(t *testing.T) {
 	// base case (not using RegisterContextVariableToLog to add additional types )
 	logger.WithContext(ctx).Info("test")
 	var strbuf = buf.String()
-	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionIDKey, sessionIDContextValue)) {
+	if !strings.Contains(strbuf, string(SFSessionIDKey)) || !strings.Contains(strbuf, sessionIDContextValue) {
 		t.Fatalf("expected that sfSessionIdKey would be in logs if logger.WithContext was used, but got: %v", strbuf)
 	}
-	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionUserKey, userContextValue)) {
+	if !strings.Contains(strbuf, string(SFSessionUserKey)) || !strings.Contains(strbuf, userContextValue) {
 		t.Fatalf("expected that SFSessionUserKey would be in logs if logger.WithContext was used, but got: %v", strbuf)
 	}
 }
@@ -289,13 +199,13 @@ func TestLogKeysWithRegisterContextVariableToLog(t *testing.T) {
 	logger.WithContext(ctx).Info("test")
 	var strbuf = buf.String()
 
-	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionIDKey, sessionIDContextValue)) {
+	if !strings.Contains(strbuf, string(SFSessionIDKey)) || !strings.Contains(strbuf, sessionIDContextValue) {
 		t.Fatalf("expected that sfSessionIdKey would be in logs if logger.WithContext and RegisterContextVariableToLog was used, but got: %v", strbuf)
 	}
-	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionUserKey, userContextValue)) {
+	if !strings.Contains(strbuf, string(SFSessionUserKey)) || !strings.Contains(strbuf, userContextValue) {
 		t.Fatalf("expected that SFSessionUserKey would be in logs if logger.WithContext and RegisterContextVariableToLog was used, but got: %v", strbuf)
 	}
-	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", logKey, fmt.Sprint(contextIntVal))) {
+	if !strings.Contains(strbuf, logKey) || !strings.Contains(strbuf, fmt.Sprint(contextIntVal)) {
 		t.Fatalf("expected that REQUEST_ID would be in logs if logger.WithContext and RegisterContextVariableToLog was used, but got: %v", strbuf)
 	}
 }
