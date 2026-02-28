@@ -541,11 +541,15 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 	case AuthTypeJwt:
 		requestMain.Authenticator = AuthTypeJwt.String()
 
-		jwtTokenString, err := prepareJWTToken(sc.cfg)
-		if err != nil {
-			return nil, err
+		if sc.cfg.Token != "" {
+			requestMain.Token = sc.cfg.Token
+		} else {
+			jwtTokenString, err := prepareJWTToken(sc.cfg)
+			if err != nil {
+				return nil, err
+			}
+			requestMain.Token = jwtTokenString
 		}
-		requestMain.Token = jwtTokenString
 	case AuthTypePat:
 		logger.WithContext(sc.ctx).Info("Programmatic access token")
 		requestMain.Authenticator = AuthTypePat.String()
