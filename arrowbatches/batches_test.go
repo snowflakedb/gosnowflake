@@ -41,8 +41,11 @@ func repoRoot(t *testing.T) string {
 		t.Fatalf("failed to get working directory: %v", err)
 	}
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+		if _, err = os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			return dir
+		}
+		if !os.IsNotExist(err) {
+			t.Fatalf("failed to stat go.mod in %q: %v", dir, err)
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
@@ -97,7 +100,7 @@ func testConfig(t *testing.T) *sf.Config {
 	}
 	cfg, err := sf.GetConfigFromEnv(configParams)
 	if err != nil {
-		t.Skipf("Snowflake config not available: %v", err)
+		t.Fatalf("failed to get config from environment: %v", err)
 	}
 	if isJWT {
 		privKeyPath := os.Getenv("SNOWFLAKE_TEST_PRIVATE_KEY")
