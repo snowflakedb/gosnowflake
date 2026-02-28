@@ -2,9 +2,14 @@ package gosnowflake_test
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/pem"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -18,6 +23,51 @@ import (
 	"github.com/snowflakedb/gosnowflake/v2/arrowbatches"
 )
 
+func arrowTestRepoRoot(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	for {
+		if _, err = os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		if !os.IsNotExist(err) {
+			t.Fatalf("failed to stat go.mod in %q: %v", dir, err)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("could not find repository root (no go.mod found)")
+		}
+		dir = parent
+	}
+}
+
+func arrowTestReadPrivateKey(t *testing.T, path string) *rsa.PrivateKey {
+	t.Helper()
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(arrowTestRepoRoot(t), path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read private key file %q: %v", path, err)
+	}
+	block, _ := pem.Decode(data)
+	if block == nil {
+		t.Fatalf("failed to decode PEM block from %q", path)
+	}
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		t.Fatalf("failed to parse private key from %q: %v", path, err)
+	}
+	rsaKey, ok := key.(*rsa.PrivateKey)
+	if !ok {
+		t.Fatalf("private key in %q is not RSA (got %T)", path, key)
+	}
+	return rsaKey
+}
+
 // arrowTestConn manages a Snowflake connection for arrow batch tests.
 type arrowTestConn struct {
 	db   *sql.DB
@@ -26,17 +76,31 @@ type arrowTestConn struct {
 
 func openArrowTestConn(t *testing.T) *arrowTestConn {
 	t.Helper()
-	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
+	configParams := []*sf.ConfigParam{
 		{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
 		{Name: "User", EnvName: "SNOWFLAKE_TEST_USER", FailOnMissing: true},
-		{Name: "Password", EnvName: "SNOWFLAKE_TEST_PASSWORD", FailOnMissing: true},
 		{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
 		{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
 		{Name: "Protocol", EnvName: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
 		{Name: "Warehouse", EnvName: "SNOWFLAKE_TEST_WAREHOUSE", FailOnMissing: false},
-	})
+	}
+	isJWT := os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT"
+	if !isJWT {
+		configParams = append(configParams,
+			&sf.ConfigParam{Name: "Password", EnvName: "SNOWFLAKE_TEST_PASSWORD", FailOnMissing: true},
+		)
+	}
+	cfg, err := sf.GetConfigFromEnv(configParams)
 	if err != nil {
-		t.Skipf("Snowflake config not available: %v", err)
+		t.Fatalf("failed to get config from environment: %v", err)
+	}
+	if isJWT {
+		privKeyPath := os.Getenv("SNOWFLAKE_TEST_PRIVATE_KEY")
+		if privKeyPath == "" {
+			t.Fatal("SNOWFLAKE_TEST_PRIVATE_KEY must be set for JWT authentication")
+		}
+		cfg.PrivateKey = arrowTestReadPrivateKey(t, privKeyPath)
+		cfg.Authenticator = sf.AuthTypeJwt
 	}
 	tz := "UTC"
 	if cfg.Params == nil {
