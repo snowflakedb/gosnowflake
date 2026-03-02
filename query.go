@@ -29,7 +29,7 @@ type execRequest struct {
 	Parameters   map[string]interface{}       `json:"parameters,omitempty"`
 	Bindings     map[string]execBindParameter `json:"bindings,omitempty"`
 	BindStage    string                       `json:"bindStage,omitempty"`
-	QueryContext requestQueryContext          `json:"queryContextDTO,omitempty"`
+	QueryContext requestQueryContext          `json:"queryContextDTO"`
 }
 
 type requestQueryContext struct {
@@ -37,7 +37,7 @@ type requestQueryContext struct {
 }
 
 type requestQueryContextEntry struct {
-	Context   contextData `json:"context,omitempty"`
+	Context   contextData `json:"context"`
 	ID        int         `json:"id"`
 	Priority  int         `json:"priority"`
 	Timestamp int64       `json:"timestamp,omitempty"`
@@ -64,7 +64,7 @@ type execResponseStageInfo struct {
 	Region                string                  `json:"region,omitempty"`
 	StorageAccount        string                  `json:"storageAccount,omitempty"`
 	IsClientSideEncrypted bool                    `json:"isClientSideEncrypted,omitempty"`
-	Creds                 execResponseCredentials `json:"creds,omitempty"`
+	Creds                 execResponseCredentials `json:"creds"`
 	PresignedURL          string                  `json:"presignedUrl,omitempty"`
 	EndPoint              string                  `json:"endPoint,omitempty"`
 	UseS3RegionalURL      bool                    `json:"useS3RegionalUrl,omitempty"`
@@ -108,7 +108,7 @@ type execResponseData struct {
 	AsyncRows   *snowflakeRows   `json:"asyncRows,omitempty"`
 
 	// file transfer response data
-	UploadInfo              execResponseStageInfo `json:"uploadInfo,omitempty"`
+	UploadInfo              execResponseStageInfo `json:"uploadInfo"`
 	LocalLocation           string                `json:"localLocation,omitempty"`
 	SrcLocations            []string              `json:"src_locations,omitempty"`
 	Parallel                int64                 `json:"parallel,omitempty"`
@@ -117,9 +117,9 @@ type execResponseData struct {
 	Overwrite               bool                  `json:"overwrite,omitempty"`
 	SourceCompression       string                `json:"sourceCompression,omitempty"`
 	ShowEncryptionParameter bool                  `json:"clientShowEncryptionParameter,omitempty"`
-	EncryptionMaterial      encryptionWrapper     `json:"encryptionMaterial,omitempty"`
+	EncryptionMaterial      encryptionWrapper     `json:"encryptionMaterial"`
 	PresignedURLs           []string              `json:"presignedUrls,omitempty"`
-	StageInfo               execResponseStageInfo `json:"stageInfo,omitempty"`
+	StageInfo               execResponseStageInfo `json:"stageInfo"`
 	Command                 string                `json:"command,omitempty"`
 	Kind                    string                `json:"kind,omitempty"`
 	Operation               string                `json:"operation,omitempty"`
