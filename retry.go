@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -404,9 +405,9 @@ func isRetryableError(ctx context.Context, req *http.Request, res *http.Response
 }
 
 func isRetryableStatus(statusCode int) bool {
-	return (statusCode >= 500 && statusCode < 600) || contains(clientErrorsStatusCodesEligibleForRetry, statusCode)
+	return (statusCode >= 500 && statusCode < 600) || slices.Contains(clientErrorsStatusCodesEligibleForRetry, statusCode)
 }
 
 func isLoginRequest(req *http.Request) bool {
-	return contains(authEndpoints, req.URL.Path)
+	return slices.Contains(authEndpoints, req.URL.Path)
 }
