@@ -276,8 +276,8 @@ func assertNotContains(t *testing.T, output, unexpected string) {
 
 func assertJSONFormat(t *testing.T, output string) {
 	t.Helper()
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(strings.TrimSpace(output), "\n")
+	for line := range lines {
 		if line == "" {
 			continue
 		}
