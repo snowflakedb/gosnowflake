@@ -127,12 +127,12 @@ func goroutineID() int {
 		return -1
 	}
 
-	i := bytes.IndexByte(buf, ' ')
-	if i < 0 {
+	before, _, ok := bytes.Cut(buf, []byte{' '})
+	if !ok {
 		return -2
 	}
 
-	goid, err := strconv.Atoi(string(buf[:i]))
+	goid, err := strconv.Atoi(string(before))
 	if err != nil {
 		logger.Tracef("goroutineID err: %v", err)
 		return -3
