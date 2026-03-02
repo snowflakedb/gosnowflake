@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/config"
 	"net/http"
 	"net/url"
 	"strings"
@@ -89,7 +90,7 @@ func TestUnitAuthenticateByExternalBrowser(t *testing.T) {
 	application := "testapp"
 	account := "testaccount"
 	user := "u"
-	timeout := defaultExternalBrowserTimeout
+	timeout := time.Duration(config.DefaultExternalBrowserTimeout)
 	sr := &snowflakeRestful{
 		Protocol:         "https",
 		Host:             "abc.com",

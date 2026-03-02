@@ -23,3 +23,6 @@ linters:
       - linters:
           - staticcheck
         text: "QF1001"
+      - linters:
+          - staticcheck
+        text: "SA1019: .+\\.(LoginTimeout|RequestTimeout|JWTExpireTimeout|ClientTimeout|JWTClientTimeout|ExternalBrowserTimeout|CloudStorageTimeout|Tracing) is deprecated"

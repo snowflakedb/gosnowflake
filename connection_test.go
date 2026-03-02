@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"math/big"
 	"strconv"
 
@@ -823,7 +824,7 @@ func TestExecWithServerSideError(t *testing.T) {
 		t.Error("expected a server side error")
 	}
 	sfe := err.(*SnowflakeError)
-	errUnknownError := errUnknownError()
+	errUnknownError := errors2.ErrUnknownError()
 	if sfe.Number != -1 || sfe.SQLState != "-1" || sfe.QueryID != "-1" {
 		t.Errorf("incorrect snowflake error. expected: %v, got: %v", errUnknownError, *sfe)
 	}
@@ -1083,7 +1084,7 @@ func TestGetTransport(t *testing.T) {
 	}
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := newTransportFactory(test.cfg, nil).createTransport(test.cfg.transportConfigFor(transportTypeSnowflake))
+			result, err := newTransportFactory(test.cfg, nil).createTransport(transportConfigFor(transportTypeSnowflake))
 			assertNilE(t, err)
 			if test.transportCheck != nil {
 				test.transportCheck(t, castToTransport(result))
@@ -1102,7 +1103,7 @@ func TestGetCRLTransport(t *testing.T) {
 			DisableOCSPChecks:       true,
 		}
 		transportFactory := newTransportFactory(crlCfg, nil)
-		crlRoundTripper, err := transportFactory.createTransport(crlCfg.transportConfigFor(transportTypeCRL))
+		crlRoundTripper, err := transportFactory.createTransport(transportConfigFor(transportTypeCRL))
 		assertNilF(t, err)
 		transport := castToTransport(crlRoundTripper)
 		assertNotNilF(t, transport, "Expected http.Transport")

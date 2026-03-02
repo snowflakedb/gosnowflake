@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/config"
+	sferrors "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
 	"math/big"
 	"net/http"
@@ -46,19 +48,13 @@ var (
 // OCSPFailOpenMode is OCSP fail open mode. OCSPFailOpenTrue by default and may
 // set to ocspModeFailClosed for fail closed mode
 // Deprecated: will be moved to Config/DSN in the future releases.
-type OCSPFailOpenMode uint32
+type OCSPFailOpenMode = config.OCSPFailOpenMode
 
 const (
-	ocspFailOpenNotSet OCSPFailOpenMode = iota
 	// OCSPFailOpenTrue represents OCSP fail open mode.
-	OCSPFailOpenTrue
+	OCSPFailOpenTrue = config.OCSPFailOpenTrue
 	// OCSPFailOpenFalse represents OCSP fail closed mode.
-	OCSPFailOpenFalse
-)
-const (
-	ocspModeFailOpen   = "FAIL_OPEN"
-	ocspModeFailClosed = "FAIL_CLOSED"
-	ocspModeInsecure   = "INSECURE"
+	OCSPFailOpenFalse = config.OCSPFailOpenFalse
 )
 
 const (
@@ -188,7 +184,7 @@ func newOcspValidator(cfg *Config) *ocspValidator {
 		logger.Debugf("Using PrivateLink host (%v), setting up OCSP cache server to %v", cfg.Host, cacheServerURL)
 		retryURL = fmt.Sprintf("http://ocsp.%v/retry/", cfg.Host) + "%v/%v"
 		logger.Debugf("Using PrivateLink retry proxy %v", retryURL)
-	} else if !strings.HasSuffix(cfg.Host, defaultDomain) {
+	} else if !strings.HasSuffix(cfg.Host, config.DefaultDomain) {
 		cacheServerURL = fmt.Sprintf("http://ocsp.%v/%v", cfg.Host, cacheFileBaseName)
 		logger.Debugf("Using not global host (%v), setting up OCSP cache server to %v", cfg.Host, cacheServerURL)
 	} else {
@@ -366,7 +362,7 @@ func validateOCSP(ocspRes *ocsp.Response) *ocspStatus {
 			code: ocspInvalidValidity,
 			err: &SnowflakeError{
 				Number:      ErrOCSPInvalidValidity,
-				Message:     errMsgOCSPInvalidValidity,
+				Message:     sferrors.ErrMsgOCSPInvalidValidity,
 				MessageArgs: []interface{}{ocspRes.ProducedAt, ocspRes.ThisUpdate, ocspRes.NextUpdate},
 			},
 		}
@@ -386,7 +382,7 @@ func returnOCSPStatus(ocspRes *ocsp.Response) *ocspStatus {
 			code: ocspStatusRevoked,
 			err: &SnowflakeError{
 				Number:      ErrOCSPStatusRevoked,
-				Message:     errMsgOCSPStatusRevoked,
+				Message:     sferrors.ErrMsgOCSPStatusRevoked,
 				MessageArgs: []interface{}{ocspRes.RevocationReason, ocspRes.RevokedAt},
 			},
 		}
@@ -395,7 +391,7 @@ func returnOCSPStatus(ocspRes *ocsp.Response) *ocspStatus {
 			code: ocspStatusUnknown,
 			err: &SnowflakeError{
 				Number:  ErrOCSPStatusUnknown,
-				Message: errMsgOCSPStatusUnknown,
+				Message: sferrors.ErrMsgOCSPStatusUnknown,
 			},
 		}
 	default:
@@ -632,7 +628,7 @@ func (ov *ocspValidator) getRevocationStatus(ctx context.Context, subject, issue
 			code: ocspNoServer,
 			err: &SnowflakeError{
 				Number:      ErrOCSPNoOCSPResponderURL,
-				Message:     errMsgOCSPNoOCSPResponderURL,
+				Message:     sferrors.ErrMsgOCSPNoOCSPResponderURL,
 				MessageArgs: []interface{}{subject.Subject},
 			},
 		}

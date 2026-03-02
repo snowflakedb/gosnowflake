@@ -233,12 +233,12 @@ func (scd *snowflakeArrowStreamChunkDownloader) NextResultSet(ctx context.Contex
 		if err != nil {
 			logger.WithContext(ctx).Errorf("error while parsing code: %v", err)
 		}
-		return (&SnowflakeError{
+		return exceptionTelemetry(&SnowflakeError{
 			Number:   code,
 			SQLState: resp.Data.SQLState,
 			Message:  resp.Message,
 			QueryID:  resp.Data.QueryID,
-		}).exceptionTelemetry(scd.sc)
+		}, scd.sc)
 	}
 	scd.ChunkMetas = resp.Data.Chunks
 	scd.Total = resp.Data.Total

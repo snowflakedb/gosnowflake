@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"strconv"
 	"strings"
 )
@@ -31,12 +32,12 @@ func (sc *snowflakeConn) handleMultiExec(
 	data execResponseData) (
 	driver.Result, error) {
 	if data.ResultIDs == "" {
-		return nil, (&SnowflakeError{
+		return nil, exceptionTelemetry(&SnowflakeError{
 			Number:   ErrNoResultIDs,
 			SQLState: data.SQLState,
-			Message:  errMsgNoResultIDs,
+			Message:  errors.ErrMsgNoResultIDs,
 			QueryID:  data.QueryID,
-		}).exceptionTelemetry(sc)
+		}, sc)
 	}
 	var updatedRows int64
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
@@ -57,12 +58,12 @@ func (sc *snowflakeConn) handleMultiExec(
 				if err != nil {
 					return nil, err
 				}
-				return nil, (&SnowflakeError{
+				return nil, exceptionTelemetry(&SnowflakeError{
 					Number:   code,
 					SQLState: childData.Data.SQLState,
 					Message:  childData.Message,
 					QueryID:  childData.Data.QueryID,
-				}).exceptionTelemetry(sc)
+				}, sc)
 			}
 			count, err := updateRows(childData.Data)
 			if err != nil {
@@ -87,12 +88,12 @@ func (sc *snowflakeConn) handleMultiQuery(
 	data execResponseData,
 	rows *snowflakeRows) error {
 	if data.ResultIDs == "" {
-		return (&SnowflakeError{
+		return exceptionTelemetry(&SnowflakeError{
 			Number:   ErrNoResultIDs,
 			SQLState: data.SQLState,
-			Message:  errMsgNoResultIDs,
+			Message:  errors.ErrMsgNoResultIDs,
 			QueryID:  data.QueryID,
-		}).exceptionTelemetry(sc)
+		}, sc)
 	}
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
 	for _, child := range childResults {

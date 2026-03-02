@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"strconv"
 	"sync"
 	"time"
@@ -32,7 +33,7 @@ func LocationWithOffsetString(offsets string) (loc *time.Location, err error) {
 		return nil, &SnowflakeError{
 			Number:      ErrInvalidOffsetStr,
 			SQLState:    SQLStateInvalidDataTimeFormat,
-			Message:     errMsgInvalidOffsetStr,
+			Message:     errors.ErrMsgInvalidOffsetStr,
 			MessageArgs: []interface{}{offsets},
 		}
 	}
@@ -40,7 +41,7 @@ func LocationWithOffsetString(offsets string) (loc *time.Location, err error) {
 		return nil, &SnowflakeError{
 			Number:      ErrInvalidOffsetStr,
 			SQLState:    SQLStateInvalidDataTimeFormat,
-			Message:     errMsgInvalidOffsetStr,
+			Message:     errors.ErrMsgInvalidOffsetStr,
 			MessageArgs: []interface{}{offsets},
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/config"
 	"net"
 	"net/http"
 	"net/url"
@@ -113,18 +114,18 @@ func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig
 }
 
 // createOCSPTransport creates a transport with OCSP validation
-func (tf *transportFactory) createOCSPTransport(transportConfig *transportConfig) *http.Transport {
+func (tf *transportFactory) createOCSPTransport(transportConfig *transportConfig) (*http.Transport, error) {
 	// Chain OCSP verification with custom TLS config
 	ov := newOcspValidator(tf.config)
-	tlsConfig := tf.config.tlsConfig
-	if tlsConfig != nil {
+	tlsConfig, ok := config.GetTLSConfig(tf.config.TLSConfigName)
+	if ok && tlsConfig != nil {
 		tlsConfig.VerifyPeerCertificate = tf.chainVerificationCallbacks(tlsConfig.VerifyPeerCertificate, ov.verifyPeerCertificateSerial)
 	} else {
 		tlsConfig = &tls.Config{
 			VerifyPeerCertificate: ov.verifyPeerCertificateSerial,
 		}
 	}
-	return tf.createBaseTransport(transportConfig, tlsConfig)
+	return tf.createBaseTransport(transportConfig, tlsConfig), nil
 }
 
 // createNoRevocationTransport creates a transport without certificate revocation checking
@@ -140,7 +141,7 @@ func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 	allowCertificatesWithoutCrlURL := tf.config.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue
 	client := &http.Client{
 		Timeout:   cmp.Or(tf.config.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
-		Transport: tf.createNoRevocationTransport(tf.config.transportConfigFor(transportTypeCRL)),
+		Transport: tf.createNoRevocationTransport(transportConfigFor(transportTypeCRL)),
 	}
 	return newCrlValidator(
 		tf.config.CertRevocationCheckMode,
@@ -181,8 +182,8 @@ func (tf *transportFactory) createTransport(transportConfig *transportConfig) (h
 		}
 		crlCacheCleaner.startPeriodicCacheCleanup()
 		// Chain CRL verification with custom TLS config
-		tlsConfig := tf.config.tlsConfig
-		if tlsConfig != nil {
+		tlsConfig, ok := config.GetTLSConfig(tf.config.TLSConfigName)
+		if ok && tlsConfig != nil {
 			crlVerify := crlValidator.verifyPeerCertificates
 			tlsConfig.VerifyPeerCertificate = tf.chainVerificationCallbacks(tlsConfig.VerifyPeerCertificate, crlVerify)
 		} else {
@@ -201,7 +202,7 @@ func (tf *transportFactory) createTransport(transportConfig *transportConfig) (h
 	}
 
 	logger.Debug("createTransport: will perform OCSP validation")
-	return tf.createOCSPTransport(transportConfig), nil
+	return tf.createOCSPTransport(transportConfig)
 }
 
 // validateRevocationConfig checks for conflicting revocation settings

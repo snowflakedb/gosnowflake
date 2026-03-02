@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"errors"
 	"fmt"
+	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
 	"os"
 	"path"
@@ -80,7 +81,7 @@ func initEasyLogging(clientConfigFileInput string) error {
 func easyLoggingInitError(err error) error {
 	return &SnowflakeError{
 		Number:      ErrCodeClientConfigFailed,
-		Message:     errMsgClientConfigFailed,
+		Message:     errors2.ErrMsgClientConfigFailed,
 		MessageArgs: []interface{}{err.Error()},
 	}
 }

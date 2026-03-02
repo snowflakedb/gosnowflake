@@ -13,6 +13,7 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
+	config "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
 
 // ContextKey is a type for context keys used in gosnowflake. Using a custom type helps avoid collisions with other context keys.
@@ -218,12 +219,7 @@ func toNamedValues(values []driver.Value) []driver.NamedValue {
 }
 
 // TokenAccessor manages the session token and master token
-type TokenAccessor interface {
-	GetTokens() (token string, masterToken string, sessionID int64)
-	SetTokens(token string, masterToken string, sessionID int64)
-	Lock() error
-	Unlock()
-}
+type TokenAccessor = config.TokenAccessor
 
 type simpleTokenAccessor struct {
 	token        string

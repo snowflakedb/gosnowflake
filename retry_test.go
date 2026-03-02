@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -541,7 +542,7 @@ func TestIsRetryable(t *testing.T) {
 			ctx:      context.Background(),
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
 			res:      nil,
-			err:      errUnknownError(),
+			err:      errors.ErrUnknownError(),
 			expected: true,
 		},
 		{

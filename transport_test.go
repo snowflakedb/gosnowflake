@@ -4,19 +4,23 @@ import (
 	"crypto/tls"
 	"net/http"
 	"testing"
+
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
 
 func TestTransportFactoryErrorHandling(t *testing.T) {
+	tlsConfig := &tls.Config{InsecureSkipVerify: true}
+	assertNilF(t, RegisterTLSConfig("TestTransportFactoryErrorHandlingTlsConfig", tlsConfig))
 	// Test CreateCustomTLSTransport with conflicting OCSP and CRL settings
 	conflictingConfig := &Config{
 		DisableOCSPChecks:       false,
 		CertRevocationCheckMode: CertRevocationCheckEnabled,
-		tlsConfig:               &tls.Config{InsecureSkipVerify: true},
+		TLSConfigName:           "TestTransportFactoryErrorHandlingTlsConfig",
 	}
 
 	factory := newTransportFactory(conflictingConfig, nil)
 
-	transport, err := factory.createTransport(conflictingConfig.transportConfigFor(transportTypeSnowflake))
+	transport, err := factory.createTransport(transportConfigFor(transportTypeSnowflake))
 	assertNotNilF(t, err, "Expected error for conflicting OCSP and CRL configuration")
 	assertNilF(t, transport, "Expected nil transport when error occurs")
 	expectedError := "both OCSP and CRL cannot be enabled at the same time, please disable one of them"
@@ -32,22 +36,24 @@ func TestCreateStandardTransportErrorHandling(t *testing.T) {
 
 	factory := newTransportFactory(conflictingConfig, nil)
 
-	transport, err := factory.createTransport(conflictingConfig.transportConfigFor(transportTypeSnowflake))
+	transport, err := factory.createTransport(transportConfigFor(transportTypeSnowflake))
 	assertNotNilF(t, err, "Expected error for conflicting OCSP and CRL configuration")
 	assertNilF(t, transport, "Expected nil transport when error occurs")
 }
 
 func TestCreateCustomTLSTransportSuccess(t *testing.T) {
+	tlsConfig := &tls.Config{InsecureSkipVerify: true}
+	assertNilF(t, RegisterTLSConfig("TestCreateCustomTLSTransportSuccessTlsConfig", tlsConfig))
 	// Test successful creation with valid config
 	validConfig := &Config{
 		DisableOCSPChecks:       true,
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
-		tlsConfig:               &tls.Config{InsecureSkipVerify: true},
+		TLSConfigName:           "TestCreateCustomTLSTransportSuccessTlsConfig",
 	}
 
 	factory := newTransportFactory(validConfig, nil)
 
-	transport, err := factory.createTransport(validConfig.transportConfigFor(transportTypeSnowflake))
+	transport, err := factory.createTransport(transportConfigFor(transportTypeSnowflake))
 	assertNilF(t, err, "Unexpected error")
 	assertNotNilF(t, transport, "Expected non-nil transport for valid configuration")
 }
@@ -61,7 +67,7 @@ func TestCreateStandardTransportSuccess(t *testing.T) {
 
 	factory := newTransportFactory(validConfig, nil)
 
-	transport, err := factory.createTransport(validConfig.transportConfigFor(transportTypeSnowflake))
+	transport, err := factory.createTransport(transportConfigFor(transportTypeSnowflake))
 	assertNilF(t, err, "Unexpected error")
 	assertNotNilF(t, transport, "Expected non-nil transport for valid configuration")
 }
@@ -72,15 +78,16 @@ func TestDirectTLSConfigUsage(t *testing.T) {
 		InsecureSkipVerify: true,
 		ServerName:         "custom.example.com",
 	}
+	assertNilF(t, RegisterTLSConfig("TestDirectTLSConfigUsageTlsConfig", customTLS))
 
 	config := &Config{
 		DisableOCSPChecks:       true,
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
-		tlsConfig:               customTLS, // Direct TLS config
+		TLSConfigName:           "TestDirectTLSConfigUsageTlsConfig",
 	}
 
 	factory := newTransportFactory(config, nil)
-	transport, err := factory.createTransport(config.transportConfigFor(transportTypeSnowflake))
+	transport, err := factory.createTransport(transportConfigFor(transportTypeSnowflake))
 
 	assertNilF(t, err, "Unexpected error")
 	assertNotNilF(t, transport, "Expected non-nil transport")
@@ -90,9 +97,7 @@ func TestRegisteredTLSConfigUsage(t *testing.T) {
 	// Test registered TLS config approach through DSN parsing
 
 	// Clean up any existing registry
-	tlsConfigLock.Lock()
-	tlsConfigRegistry = make(map[string]*tls.Config)
-	tlsConfigLock.Unlock()
+	sfconfig.ResetTLSConfigRegistry()
 
 	// Register a custom TLS config
 	customTLS := &tls.Config{
@@ -114,7 +119,7 @@ func TestRegisteredTLSConfigUsage(t *testing.T) {
 	config.CertRevocationCheckMode = CertRevocationCheckDisabled
 
 	factory := newTransportFactory(config, nil)
-	transport, err := factory.createTransport(config.transportConfigFor(transportTypeSnowflake))
+	transport, err := factory.createTransport(transportConfigFor(transportTypeSnowflake))
 
 	assertNilF(t, err, "Unexpected error")
 	assertNotNilF(t, transport, "Expected non-nil transport")
@@ -128,15 +133,16 @@ func TestDirectTLSConfigOnly(t *testing.T) {
 		InsecureSkipVerify: true,
 		ServerName:         "direct.example.com",
 	}
+	assertNilF(t, RegisterTLSConfig("TestDirectTLSConfigOnlyTlsConfig", directTLS))
 
 	config := &Config{
 		DisableOCSPChecks:       true,
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
-		tlsConfig:               directTLS, // Direct config
+		TLSConfigName:           "TestDirectTLSConfigOnlyTlsConfig",
 	}
 
 	factory := newTransportFactory(config, nil)
-	transport, err := factory.createTransport(config.transportConfigFor(transportTypeSnowflake))
+	transport, err := factory.createTransport(transportConfigFor(transportTypeSnowflake))
 
 	assertNilF(t, err, "Unexpected error")
 	assertNotNilF(t, transport, "Expected non-nil transport")

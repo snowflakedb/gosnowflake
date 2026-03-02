@@ -1,0 +1,359 @@
+package errors
+
+import "fmt"
+
+// SnowflakeError is a error type including various Snowflake specific information.
+type SnowflakeError struct {
+	Number         int
+	SQLState       string
+	QueryID        string
+	Message        string
+	MessageArgs    []interface{}
+	IncludeQueryID bool // TODO: populate this in connection
+}
+
+func (se *SnowflakeError) Error() string {
+	message := se.Message
+	if len(se.MessageArgs) > 0 {
+		message = fmt.Sprintf(se.Message, se.MessageArgs...)
+	}
+	if se.SQLState != "" {
+		if se.IncludeQueryID {
+			return fmt.Sprintf("%06d (%s): %s: %s", se.Number, se.SQLState, se.QueryID, message)
+		}
+		return fmt.Sprintf("%06d (%s): %s", se.Number, se.SQLState, message)
+	}
+	if se.IncludeQueryID {
+		return fmt.Sprintf("%06d: %s: %s", se.Number, se.QueryID, message)
+	}
+	return fmt.Sprintf("%06d: %s", se.Number, message)
+}
+
+// Snowflake Server Error code
+const (
+	QueryNotExecutingCode       = "000605"
+	QueryInProgressCode         = "333333"
+	QueryInProgressAsyncCode    = "333334"
+	SessionExpiredCode          = "390112"
+	InvalidOAuthAccessTokenCode = "390303"
+	ExpiredOAuthAccessTokenCode = "390318"
+)
+
+// Driver return errors
+const (
+	/* connection */
+
+	// ErrCodeEmptyAccountCode is an error code for the case where a DSN doesn't include account parameter
+	ErrCodeEmptyAccountCode = 260000
+	// ErrCodeEmptyUsernameCode is an error code for the case where a DSN doesn't include user parameter
+	ErrCodeEmptyUsernameCode = 260001
+	// ErrCodeEmptyPasswordCode is an error code for the case where a DSN doesn't include password parameter
+	ErrCodeEmptyPasswordCode = 260002
+	// ErrCodeFailedToParseHost is an error code for the case where a DSN includes an invalid host name
+	ErrCodeFailedToParseHost = 260003
+	// ErrCodeFailedToParsePort is an error code for the case where a DSN includes an invalid port number
+	ErrCodeFailedToParsePort = 260004
+	// ErrCodeIdpConnectionError is an error code for the case where a IDP connection failed
+	ErrCodeIdpConnectionError = 260005
+	// ErrCodeSSOURLNotMatch is an error code for the case where a SSO URL doesn't match
+	ErrCodeSSOURLNotMatch = 260006
+	// ErrCodeServiceUnavailable is an error code for the case where service is unavailable.
+	ErrCodeServiceUnavailable = 260007
+	// ErrCodeFailedToConnect is an error code for the case where a DB connection failed due to wrong account name
+	ErrCodeFailedToConnect = 260008
+	// ErrCodeRegionOverlap is an error code for the case where a region is specified despite an account region present
+	ErrCodeRegionOverlap = 260009
+	// ErrCodePrivateKeyParseError is an error code for the case where the private key is not parsed correctly
+	ErrCodePrivateKeyParseError = 260010
+	// ErrCodeFailedToParseAuthenticator is an error code for the case where a DNS includes an invalid authenticator
+	ErrCodeFailedToParseAuthenticator = 260011
+	// ErrCodeClientConfigFailed is an error code for the case where clientConfigFile is invalid or applying client configuration fails
+	ErrCodeClientConfigFailed = 260012
+	// ErrCodeTomlFileParsingFailed is an error code for the case where parsing the toml file is failed because of invalid value.
+	ErrCodeTomlFileParsingFailed = 260013
+	// ErrCodeFailedToFindDSNInToml is an error code for the case where the DSN does not exist in the toml file.
+	ErrCodeFailedToFindDSNInToml = 260014
+	// ErrCodeInvalidFilePermission is an error code for the case where the user does not have 0600 permission to the toml file.
+	ErrCodeInvalidFilePermission = 260015
+	// ErrCodeEmptyPasswordAndToken is an error code for the case where a DSN do includes neither password nor token
+	ErrCodeEmptyPasswordAndToken = 260016
+	// ErrCodeEmptyOAuthParameters is an error code for the case where the client ID or client secret are not provided for OAuth flows.
+	ErrCodeEmptyOAuthParameters = 260017
+	// ErrMissingAccessATokenButRefreshTokenPresent is an error code for the case when access token is not found in cache, but the refresh token is present.
+	ErrMissingAccessATokenButRefreshTokenPresent = 260018
+	// ErrCodeMissingTLSConfig is an error code for the case where the TLS config is missing.
+	ErrCodeMissingTLSConfig = 260019
+
+	/* network */
+
+	// ErrFailedToPostQuery is an error code for the case where HTTP POST failed.
+	ErrFailedToPostQuery = 261000
+	// ErrFailedToRenewSession is an error code for the case where session renewal failed.
+	ErrFailedToRenewSession = 261001
+	// ErrFailedToCancelQuery is an error code for the case where cancel query failed.
+	ErrFailedToCancelQuery = 261002
+	// ErrFailedToCloseSession is an error code for the case where close session failed.
+	ErrFailedToCloseSession = 261003
+	// ErrFailedToAuth is an error code for the case where authentication failed for unknown reason.
+	ErrFailedToAuth = 261004
+	// ErrFailedToAuthSAML is an error code for the case where authentication via SAML failed for unknown reason.
+	ErrFailedToAuthSAML = 261005
+	// ErrFailedToAuthOKTA is an error code for the case where authentication via OKTA failed for unknown reason.
+	ErrFailedToAuthOKTA = 261006
+	// ErrFailedToGetSSO is an error code for the case where authentication via OKTA failed for unknown reason.
+	ErrFailedToGetSSO = 261007
+	// ErrFailedToParseResponse is an error code for when we cannot parse an external browser response from Snowflake.
+	ErrFailedToParseResponse = 261008
+	// ErrFailedToGetExternalBrowserResponse is an error code for when there's an error reading from the open socket.
+	ErrFailedToGetExternalBrowserResponse = 261009
+	// ErrFailedToHeartbeat is an error code when a heartbeat fails.
+	ErrFailedToHeartbeat = 261010
+
+	/* rows */
+
+	// ErrFailedToGetChunk is an error code for the case where it failed to get chunk of result set
+	ErrFailedToGetChunk = 262000
+	// ErrNonArrowResponseInArrowBatches is an error code for case where ArrowBatches mode is enabled, but response is not Arrow-based
+	ErrNonArrowResponseInArrowBatches = 262001
+
+	/* transaction*/
+
+	// ErrNoReadOnlyTransaction is an error code for the case where readonly mode is specified.
+	ErrNoReadOnlyTransaction = 263000
+	// ErrNoDefaultTransactionIsolationLevel is an error code for the case where non default isolation level is specified.
+	ErrNoDefaultTransactionIsolationLevel = 263001
+
+	/* file transfer */
+
+	// ErrInvalidStageFs is an error code denoting an invalid stage in the file system
+	ErrInvalidStageFs = 264001
+	// ErrFailedToDownloadFromStage is an error code denoting the failure to download a file from the stage
+	ErrFailedToDownloadFromStage = 264002
+	// ErrFailedToUploadToStage is an error code denoting the failure to upload a file to the stage
+	ErrFailedToUploadToStage = 264003
+	// ErrInvalidStageLocation is an error code denoting an invalid stage location
+	ErrInvalidStageLocation = 264004
+	// ErrLocalPathNotDirectory is an error code denoting a local path that is not a directory
+	ErrLocalPathNotDirectory = 264005
+	// ErrFileNotExists is an error code denoting the file to be transferred does not exist
+	ErrFileNotExists = 264006
+	// ErrCompressionNotSupported is an error code denoting the user specified compression type is not supported
+	ErrCompressionNotSupported = 264007
+	// ErrInternalNotMatchEncryptMaterial is an error code denoting the encryption material specified does not match
+	ErrInternalNotMatchEncryptMaterial = 264008
+	// ErrCommandNotRecognized is an error code denoting the PUT/GET command was not recognized
+	ErrCommandNotRecognized = 264009
+	// ErrFailedToConvertToS3Client is an error code denoting the failure of an interface to s3.Client conversion
+	ErrFailedToConvertToS3Client = 264010
+	// ErrNotImplemented is an error code denoting the file transfer feature is not implemented
+	ErrNotImplemented = 264011
+	// ErrInvalidPadding is an error code denoting the invalid padding of decryption key
+	ErrInvalidPadding = 264012
+
+	/* binding */
+
+	// ErrBindSerialization is an error code for a failed serialization of bind variables
+	ErrBindSerialization = 265001
+	// ErrBindUpload is an error code for the uploading process of bind elements to the stage
+	ErrBindUpload = 265002
+
+	/* async */
+
+	// ErrAsync is an error code for an unknown async error
+	ErrAsync = 266001
+
+	/* multi-statement */
+
+	// ErrNoResultIDs is an error code for empty result IDs for multi statement queries
+	ErrNoResultIDs = 267001
+
+	/* converter */
+
+	// ErrInvalidTimestampTz is an error code for the case where a returned TIMESTAMP_TZ internal value is invalid
+	ErrInvalidTimestampTz = 268000
+	// ErrInvalidOffsetStr is an error code for the case where an offset string is invalid. The input string must
+	// consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes
+	ErrInvalidOffsetStr = 268001
+	// ErrInvalidBinaryHexForm is an error code for the case where a binary data in hex form is invalid.
+	ErrInvalidBinaryHexForm = 268002
+	// ErrTooHighTimestampPrecision is an error code for the case where cannot convert Snowflake timestamp to arrow.Timestamp
+	ErrTooHighTimestampPrecision = 268003
+	// ErrNullValueInArray is an error code for the case where there are null values in an array without arrayValuesNullable set to true
+	ErrNullValueInArray = 268004
+	// ErrNullValueInMap is an error code for the case where there are null values in a map without mapValuesNullable set to true
+	ErrNullValueInMap = 268005
+
+	/* OCSP */
+
+	// ErrOCSPStatusRevoked is an error code for the case where the certificate is revoked.
+	ErrOCSPStatusRevoked = 269001
+	// ErrOCSPStatusUnknown is an error code for the case where the certificate revocation status is unknown.
+	ErrOCSPStatusUnknown = 269002
+	// ErrOCSPInvalidValidity is an error code for the case where the OCSP response validity is invalid.
+	ErrOCSPInvalidValidity = 269003
+	// ErrOCSPNoOCSPResponderURL is an error code for the case where the OCSP responder URL is not attached.
+	ErrOCSPNoOCSPResponderURL = 269004
+
+	/* query Status*/
+
+	// ErrQueryStatus when check the status of a query, receive error or no status
+	ErrQueryStatus = 279001
+	// ErrQueryIDFormat the query ID given to fetch its result is not valid
+	ErrQueryIDFormat = 279101
+	// ErrQueryReportedError server side reports the query failed with error
+	ErrQueryReportedError = 279201
+	// ErrQueryIsRunning the query is still running
+	ErrQueryIsRunning = 279301
+
+	/* GS error code */
+
+	// ErrSessionGone is an GS error code for the case that session is already closed
+	ErrSessionGone = 390111
+	// ErrRoleNotExist is a GS error code for the case that the role specified does not exist
+	ErrRoleNotExist = 390189
+	// ErrObjectNotExistOrAuthorized is a GS error code for the case that the server-side object specified does not exist
+	ErrObjectNotExistOrAuthorized = 390201
+)
+
+// Error message templates
+const (
+	ErrMsgFailedToParseHost                  = "failed to parse a host name. host: %v"
+	ErrMsgFailedToParsePort                  = "failed to parse a port number. port: %v"
+	ErrMsgFailedToParseAuthenticator         = "failed to parse an authenticator: %v"
+	ErrMsgInvalidOffsetStr                   = "offset must be a string consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes: %v"
+	ErrMsgInvalidByteArray                   = "invalid byte array: %v"
+	ErrMsgIdpConnectionError                 = "failed to verify URLs. authenticator: %v, token URL:%v, SSO URL:%v"
+	ErrMsgSSOURLNotMatch                     = "SSO URL didn't match. expected: %v, got: %v"
+	ErrMsgFailedToGetChunk                   = "failed to get a chunk of result sets. idx: %v"
+	ErrMsgFailedToPostQuery                  = "failed to POST. HTTP: %v, URL: %v"
+	ErrMsgFailedToRenew                      = "failed to renew session. HTTP: %v, URL: %v"
+	ErrMsgFailedToCancelQuery                = "failed to cancel query. HTTP: %v, URL: %v"
+	ErrMsgFailedToCloseSession               = "failed to close session. HTTP: %v, URL: %v"
+	ErrMsgFailedToAuth                       = "failed to auth for unknown reason. HTTP: %v, URL: %v"
+	ErrMsgFailedToAuthSAML                   = "failed to auth via SAML for unknown reason. HTTP: %v, URL: %v"
+	ErrMsgFailedToAuthOKTA                   = "failed to auth via OKTA for unknown reason. HTTP: %v, URL: %v"
+	ErrMsgFailedToGetSSO                     = "failed to auth via OKTA for unknown reason. HTTP: %v, URL: %v"
+	ErrMsgFailedToParseResponse              = "failed to parse a response from Snowflake. Response: %v"
+	ErrMsgFailedToGetExternalBrowserResponse = "failed to get an external browser response from Snowflake, err: %s"
+	ErrMsgNoReadOnlyTransaction              = "no readonly mode is supported"
+	ErrMsgNoDefaultTransactionIsolationLevel = "no default isolation transaction level is supported"
+	ErrMsgServiceUnavailable                 = "service is unavailable. check your connectivity. you may need a proxy server. HTTP: %v, URL: %v"
+	ErrMsgFailedToConnect                    = "failed to connect to db. verify account name is correct. HTTP: %v, URL: %v"
+	ErrMsgOCSPStatusRevoked                  = "OCSP revoked: reason:%v, at:%v"
+	ErrMsgOCSPStatusUnknown                  = "OCSP unknown"
+	ErrMsgOCSPInvalidValidity                = "invalid validity: producedAt: %v, thisUpdate: %v, nextUpdate: %v"
+	ErrMsgOCSPNoOCSPResponderURL             = "no OCSP server is attached to the certificate. %v"
+	ErrMsgBindColumnMismatch                 = "column %v has a different number of binds (%v) than column 1 (%v)"
+	ErrMsgNotImplemented                     = "not implemented"
+	ErrMsgFeatureNotSupported                = "feature is not supported: %v"
+	ErrMsgCommandNotRecognized               = "%v command not recognized"
+	ErrMsgLocalPathNotDirectory              = "the local path is not a directory: %v"
+	ErrMsgFileNotExists                      = "file does not exist: %v"
+	ErrMsgFailToReadDataFromBuffer           = "failed to read data from buffer. err: %v"
+	ErrMsgInvalidStageFs                     = "destination location type is not valid: %v"
+	ErrMsgInternalNotMatchEncryptMaterial    = "number of downloading files doesn't match the encryption materials. files=%v, encmat=%v"
+	ErrMsgFailedToConvertToS3Client          = "failed to convert interface to s3 client"
+	ErrMsgNoResultIDs                        = "no result IDs returned with the multi-statement query"
+	ErrMsgQueryStatus                        = "server ErrorCode=%s, ErrorMessage=%s"
+	ErrMsgInvalidPadding                     = "invalid padding on input"
+	ErrMsgClientConfigFailed                 = "client configuration failed: %v"
+	ErrMsgNullValueInArray                   = "for handling null values in arrays use WithArrayValuesNullable(ctx)"
+	ErrMsgNullValueInMap                     = "for handling null values in maps use WithMapValuesNullable(ctx)"
+	ErrMsgFailedToParseTomlFile              = "failed to parse toml file. the params %v occurred error with value %v"
+	ErrMsgFailedToFindDSNInTomlFile          = "failed to find DSN in toml file."
+	ErrMsgInvalidWritablePermissionToFile    = "file '%v' is writable by group or others — this poses a security risk because it allows unauthorized users to modify sensitive settings. Your Permission: %v"
+	ErrMsgInvalidExecutablePermissionToFile  = "file '%v' is executable — this poses a security risk because the file could be misused as a script or executed unintentionally. Your Permission: %v"
+	ErrMsgNonArrowResponseInArrowBatches     = "arrow batches enabled, but the response is not Arrow based"
+	ErrMsgMissingTLSConfig                   = "TLS config not found: %v"
+)
+
+// ErrEmptyAccount is returned if a DSN doesn't include account parameter.
+func ErrEmptyAccount() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrCodeEmptyAccountCode,
+		Message: "account is empty",
+	}
+}
+
+// ErrEmptyUsername is returned if a DSN doesn't include user parameter.
+func ErrEmptyUsername() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrCodeEmptyUsernameCode,
+		Message: "user is empty",
+	}
+}
+
+// ErrEmptyPassword is returned if a DSN doesn't include password parameter.
+func ErrEmptyPassword() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrCodeEmptyPasswordCode,
+		Message: "password is empty",
+	}
+}
+
+// ErrEmptyPasswordAndToken is returned if a DSN includes neither password nor token.
+func ErrEmptyPasswordAndToken() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrCodeEmptyPasswordAndToken,
+		Message: "both password and token are empty",
+	}
+}
+
+// ErrEmptyOAuthParameters is returned if OAuth is used but required fields are missing.
+func ErrEmptyOAuthParameters() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrCodeEmptyOAuthParameters,
+		Message: "client ID or client secret are empty",
+	}
+}
+
+// ErrRegionConflict is returned if a DSN's implicit and explicit region parameters conflict.
+func ErrRegionConflict() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrCodeRegionOverlap,
+		Message: "two regions specified",
+	}
+}
+
+// ErrFailedToParseAuthenticator is returned if a DSN includes an invalid authenticator.
+func ErrFailedToParseAuthenticator() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrCodeFailedToParseAuthenticator,
+		Message: "failed to parse an authenticator",
+	}
+}
+
+// ErrUnknownError is returned if the server side returns an error without meaningful message.
+func ErrUnknownError() *SnowflakeError {
+	return &SnowflakeError{
+		Number:   -1,
+		SQLState: "-1",
+		Message:  "an unknown server side error occurred",
+		QueryID:  "-1",
+	}
+}
+
+// ErrNullValueInArrayError is returned for null values in array without arrayValuesNullable.
+func ErrNullValueInArrayError() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrNullValueInArray,
+		Message: ErrMsgNullValueInArray,
+	}
+}
+
+// ErrNullValueInMapError is returned for null values in map without mapValuesNullable.
+func ErrNullValueInMapError() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrNullValueInMap,
+		Message: ErrMsgNullValueInMap,
+	}
+}
+
+// ErrNonArrowResponseForArrowBatches is returned when arrow batches mode is enabled but response is not Arrow-based.
+func ErrNonArrowResponseForArrowBatches(queryID string) *SnowflakeError {
+	return &SnowflakeError{
+		QueryID: queryID,
+		Number:  ErrNonArrowResponseInArrowBatches,
+		Message: ErrMsgNonArrowResponseInArrowBatches,
+	}
+}

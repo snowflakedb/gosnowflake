@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/config"
 	"net/http"
 	"net/url"
 	"os"
@@ -650,7 +651,7 @@ func TestUnitAuthenticateJWT(t *testing.T) {
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = AuthTypeJwt
-	sc.cfg.JWTExpireTimeout = defaultJWTTimeout
+	sc.cfg.JWTExpireTimeout = time.Duration(config.DefaultJWTTimeout)
 	sc.cfg.PrivateKey = localTestKey
 	sc.rest = sr
 
@@ -686,7 +687,7 @@ func TestUnitAuthenticateUsernamePasswordMfa(t *testing.T) {
 	}
 
 	sr.FuncPostAuth = postAuthCheckUsernamePasswordMfaToken
-	sc.cfg.mfaToken = "mockedMfaToken"
+	sc.mfaToken = "mockedMfaToken"
 	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
@@ -915,7 +916,7 @@ func TestUnitAuthenticateWithConfigExternalBrowserWithFailedSAMLResponse(t *test
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = AuthTypeExternalBrowser
-	sc.cfg.ExternalBrowserTimeout = defaultExternalBrowserTimeout
+	sc.cfg.ExternalBrowserTimeout = time.Duration(config.DefaultExternalBrowserTimeout)
 	sc.rest = sr
 	sc.ctx = context.Background()
 	err = authenticateWithConfig(sc)
@@ -939,7 +940,7 @@ func TestUnitAuthenticateExternalBrowser(t *testing.T) {
 	}
 
 	sr.FuncPostAuth = postAuthCheckExternalBrowserToken
-	sc.cfg.idToken = "mockedIDToken"
+	sc.idToken = "mockedIDToken"
 	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
@@ -1234,15 +1235,15 @@ func TestWithOauthAuthorizationCodeFlowManual(t *testing.T) {
 	for _, provider := range []string{"OKTA", "SNOWFLAKE"} {
 		t.Run(provider, func(t *testing.T) {
 			cfg, err := GetConfigFromEnv([]*ConfigParam{
-				{"OAuthClientId", "SNOWFLAKE_TEST_OAUTH_" + provider + "_CLIENT_ID", true},
-				{"OAuthClientSecret", "SNOWFLAKE_TEST_OAUTH_" + provider + "_CLIENT_SECRET", true},
-				{"OAuthAuthorizationURL", "SNOWFLAKE_TEST_OAUTH_" + provider + "_AUTHORIZATION_URL", false},
-				{"OAuthTokenRequestURL", "SNOWFLAKE_TEST_OAUTH_" + provider + "_TOKEN_REQUEST_URL", false},
-				{"OAuthRedirectURI", "SNOWFLAKE_TEST_OAUTH_" + provider + "_REDIRECT_URI", false},
-				{"OAuthScope", "SNOWFLAKE_TEST_OAUTH_" + provider + "_SCOPE", false},
-				{"User", "SNOWFLAKE_TEST_OAUTH_" + provider + "_USER", true},
-				{"Role", "SNOWFLAKE_TEST_OAUTH_" + provider + "_ROLE", true},
-				{"Account", "SNOWFLAKE_TEST_ACCOUNT", true},
+				{Name: "OAuthClientId", EnvName: "SNOWFLAKE_TEST_OAUTH_" + provider + "_CLIENT_ID", FailOnMissing: true},
+				{Name: "OAuthClientSecret", EnvName: "SNOWFLAKE_TEST_OAUTH_" + provider + "_CLIENT_SECRET", FailOnMissing: true},
+				{Name: "OAuthAuthorizationURL", EnvName: "SNOWFLAKE_TEST_OAUTH_" + provider + "_AUTHORIZATION_URL", FailOnMissing: false},
+				{Name: "OAuthTokenRequestURL", EnvName: "SNOWFLAKE_TEST_OAUTH_" + provider + "_TOKEN_REQUEST_URL", FailOnMissing: false},
+				{Name: "OAuthRedirectURI", EnvName: "SNOWFLAKE_TEST_OAUTH_" + provider + "_REDIRECT_URI", FailOnMissing: false},
+				{Name: "OAuthScope", EnvName: "SNOWFLAKE_TEST_OAUTH_" + provider + "_SCOPE", FailOnMissing: false},
+				{Name: "User", EnvName: "SNOWFLAKE_TEST_OAUTH_" + provider + "_USER", FailOnMissing: true},
+				{Name: "Role", EnvName: "SNOWFLAKE_TEST_OAUTH_" + provider + "_ROLE", FailOnMissing: true},
+				{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
 			})
 			assertNilF(t, err)
 			cfg.Authenticator = AuthTypeOAuthAuthorizationCode
@@ -1272,11 +1273,11 @@ func TestWithOauthAuthorizationCodeFlowManual(t *testing.T) {
 func TestWithOAuthClientCredentialsFlowManual(t *testing.T) {
 	t.Skip("manual test")
 	cfg, err := GetConfigFromEnv([]*ConfigParam{
-		{"OAuthClientId", "SNOWFLAKE_TEST_OAUTH_OKTA_CLIENT_ID", true},
-		{"OAuthClientSecret", "SNOWFLAKE_TEST_OAUTH_OKTA_CLIENT_SECRET", true},
-		{"OAuthTokenRequestURL", "SNOWFLAKE_TEST_OAUTH_OKTA_TOKEN_REQUEST_URL", true},
-		{"Role", "SNOWFLAKE_TEST_OAUTH_OKTA_ROLE", true},
-		{"Account", "SNOWFLAKE_TEST_ACCOUNT", true},
+		{Name: "OAuthClientId", EnvName: "SNOWFLAKE_TEST_OAUTH_OKTA_CLIENT_ID", FailOnMissing: true},
+		{Name: "OAuthClientSecret", EnvName: "SNOWFLAKE_TEST_OAUTH_OKTA_CLIENT_SECRET", FailOnMissing: true},
+		{Name: "OAuthTokenRequestURL", EnvName: "SNOWFLAKE_TEST_OAUTH_OKTA_TOKEN_REQUEST_URL", FailOnMissing: true},
+		{Name: "Role", EnvName: "SNOWFLAKE_TEST_OAUTH_OKTA_ROLE", FailOnMissing: true},
+		{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
 	})
 	assertNilF(t, err)
 	cfg.Authenticator = AuthTypeOAuthClientCredentials

@@ -1,15 +1,17 @@
-package gosnowflake
+package config
 
 import (
 	"encoding/base64"
 	"errors"
 	"os"
 	path "path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
-	toml "github.com/BurntSushi/toml"
+	"github.com/BurntSushi/toml"
+	sferrors "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 )
 
 const (
@@ -27,20 +29,20 @@ const (
 // LoadConnectionConfig returns connection configs loaded from the toml file.
 // By default, SNOWFLAKE_HOME(toml file path) is os.snowflakeHome/.snowflake
 // and SNOWFLAKE_DEFAULT_CONNECTION_NAME(DSN) is 'default'
-func loadConnectionConfig() (*Config, error) {
+func LoadConnectionConfig() (*Config, error) {
 	logger.Trace("Loading connection configuration from the local files.")
 	cfg := &Config{
 		Params:        make(map[string]*string),
 		Authenticator: AuthTypeSnowflake, // Default to snowflake
 	}
 	dsn := getConnectionDSN(os.Getenv(snowflakeConnectionName))
-	snowflakeConfigDir, err := getTomlFilePath(os.Getenv(snowflakeHome))
+	snowflakeConfigDir, err := GetTomlFilePath(os.Getenv(snowflakeHome))
 	if err != nil {
 		return nil, err
 	}
 	logger.Debugf("Looking for connection file in directory %v", snowflakeConfigDir)
 	tomlFilePath := path.Join(snowflakeConfigDir, "connections.toml")
-	err = validateFilePermission(tomlFilePath)
+	err = ValidateFilePermission(tomlFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -51,9 +53,9 @@ func loadConnectionConfig() (*Config, error) {
 	}
 	dsnMap, exist := tomlInfo[dsn]
 	if !exist {
-		return nil, &SnowflakeError{
-			Number:  ErrCodeFailedToFindDSNInToml,
-			Message: errMsgFailedToFindDSNInTomlFile,
+		return nil, &sferrors.SnowflakeError{
+			Number:  sferrors.ErrCodeFailedToFindDSNInToml,
+			Message: sferrors.ErrMsgFailedToFindDSNInTomlFile,
 		}
 	}
 	connectionConfig, ok := dsnMap.(map[string]interface{})
@@ -61,27 +63,29 @@ func loadConnectionConfig() (*Config, error) {
 		return nil, err
 	}
 	logger.Trace("Trying to parse the config file")
-	err = parseToml(cfg, connectionConfig)
+	err = ParseToml(cfg, connectionConfig)
 	if err != nil {
 		return nil, err
 	}
-	err = fillMissingConfigParameters(cfg)
+	err = FillMissingConfigParameters(cfg)
 	if err != nil {
 		return nil, err
 	}
 	return cfg, err
 }
 
-func parseToml(cfg *Config, connectionMap map[string]interface{}) error {
+// ParseToml parses a TOML connection map into a Config.
+func ParseToml(cfg *Config, connectionMap map[string]interface{}) error {
 	for key, value := range connectionMap {
-		if err := handleSingleParam(cfg, key, value); err != nil {
+		if err := HandleSingleParam(cfg, key, value); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func handleSingleParam(cfg *Config, key string, value interface{}) error {
+// HandleSingleParam processes a single TOML parameter into a Config.
+func HandleSingleParam(cfg *Config, key string, value interface{}) error {
 	var err error
 
 	// We normalize the key to handle both snake_case and camelCase.
@@ -112,23 +116,23 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 	case "passcode":
 		cfg.Passcode, err = parseString(value)
 	case "port":
-		cfg.Port, err = parseInt(value)
+		cfg.Port, err = ParseInt(value)
 	case "passcodeinpassword":
-		cfg.PasscodeInPassword, err = parseBool(value)
+		cfg.PasscodeInPassword, err = ParseBool(value)
 	case "clienttimeout":
-		cfg.ClientTimeout, err = parseDuration(value)
+		cfg.ClientTimeout, err = ParseDuration(value)
 	case "jwtclienttimeout":
-		cfg.JWTClientTimeout, err = parseDuration(value)
+		cfg.JWTClientTimeout, err = ParseDuration(value)
 	case "logintimeout":
-		cfg.LoginTimeout, err = parseDuration(value)
+		cfg.LoginTimeout, err = ParseDuration(value)
 	case "requesttimeout":
-		cfg.RequestTimeout, err = parseDuration(value)
+		cfg.RequestTimeout, err = ParseDuration(value)
 	case "jwttimeout":
-		cfg.JWTExpireTimeout, err = parseDuration(value)
+		cfg.JWTExpireTimeout, err = ParseDuration(value)
 	case "externalbrowsertimeout":
-		cfg.ExternalBrowserTimeout, err = parseDuration(value)
+		cfg.ExternalBrowserTimeout, err = ParseDuration(value)
 	case "maxretrycount":
-		cfg.MaxRetryCount, err = parseInt(value)
+		cfg.MaxRetryCount, err = ParseInt(value)
 	case "application":
 		cfg.Application, err = parseString(value)
 	case "authenticator":
@@ -137,11 +141,11 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		if err = checkParsingError(err, key, value); err != nil {
 			return err
 		}
-		err = determineAuthenticatorType(cfg, v)
+		err = DetermineAuthenticatorType(cfg, v)
 	case "disableocspchecks":
-		cfg.DisableOCSPChecks, err = parseBool(value)
+		cfg.DisableOCSPChecks, err = ParseBool(value)
 	case "ocspfailopen":
-		var vv ConfigBool
+		var vv Bool
 		vv, err = parseConfigBool(value)
 		if err := checkParsingError(err, key, value); err != nil {
 			return err
@@ -157,12 +161,12 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		}
 		block, decodeErr := base64.URLEncoding.DecodeString(v)
 		if decodeErr != nil {
-			return &SnowflakeError{
-				Number:  ErrCodePrivateKeyParseError,
+			return &sferrors.SnowflakeError{
+				Number:  sferrors.ErrCodePrivateKeyParseError,
 				Message: "Base64 decode failed",
 			}
 		}
-		cfg.PrivateKey, err = parsePKCS8PrivateKey(block)
+		cfg.PrivateKey, err = ParsePKCS8PrivateKey(block)
 	case "validatedefaultparameters":
 		cfg.ValidateDefaultParameters, err = parseConfigBool(value)
 	case "clientrequestmfatoken":
@@ -172,13 +176,13 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 	case "tracing":
 		cfg.Tracing, err = parseString(value)
 	case "logquerytext":
-		cfg.LogQueryText, err = parseBool(value)
+		cfg.LogQueryText, err = ParseBool(value)
 	case "logqueryparameters":
-		cfg.LogQueryParameters, err = parseBool(value)
+		cfg.LogQueryParameters, err = ParseBool(value)
 	case "tmpdirpath":
 		cfg.TmpDirPath, err = parseString(value)
 	case "disablequerycontextcache":
-		cfg.DisableQueryContextCache, err = parseBool(value)
+		cfg.DisableQueryContextCache, err = ParseBool(value)
 	case "includeretryreason":
 		cfg.IncludeRetryReason, err = parseConfigBool(value)
 	case "clientconfigfile":
@@ -211,13 +215,13 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 			return err
 		}
 	case "connectiondiagnosticsenabled":
-		cfg.ConnectionDiagnosticsEnabled, err = parseBool(value)
+		cfg.ConnectionDiagnosticsEnabled, err = ParseBool(value)
 	case "connectiondiagnosticsallowlistfile":
 		cfg.ConnectionDiagnosticsAllowlistFile, err = parseString(value)
 	case "proxyhost":
 		cfg.ProxyHost, err = parseString(value)
 	case "proxyport":
-		cfg.ProxyPort, err = parseInt(value)
+		cfg.ProxyPort, err = ParseInt(value)
 	case "proxyuser":
 		cfg.ProxyUser, err = parseString(value)
 	case "proxypassword":
@@ -238,9 +242,9 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 
 func checkParsingError(err error, key string, value interface{}) error {
 	if err != nil {
-		err = &SnowflakeError{
-			Number:      ErrCodeTomlFileParsingFailed,
-			Message:     errMsgFailedToParseTomlFile,
+		err = &sferrors.SnowflakeError{
+			Number:      sferrors.ErrCodeTomlFileParsingFailed,
+			Message:     sferrors.ErrMsgFailedToParseTomlFile,
 			MessageArgs: []interface{}{key, value},
 		}
 		logger.Errorf("Parsed key: %s, value: %v is not an option for the connection config", key, value)
@@ -250,7 +254,8 @@ func checkParsingError(err error, key string, value interface{}) error {
 	return nil
 }
 
-func parseInt(i interface{}) (int, error) {
+// ParseInt parses an interface value to int.
+func ParseInt(i interface{}) (int, error) {
 	v, ok := i.(string)
 	if !ok {
 		num, ok := i.(int)
@@ -262,7 +267,8 @@ func parseInt(i interface{}) (int, error) {
 	return strconv.Atoi(v)
 }
 
-func parseBool(i interface{}) (bool, error) {
+// ParseBool parses an interface value to bool.
+func ParseBool(i interface{}) (bool, error) {
 	v, ok := i.(string)
 	if !ok {
 		vv, ok := i.(bool)
@@ -274,21 +280,22 @@ func parseBool(i interface{}) (bool, error) {
 	return strconv.ParseBool(v)
 }
 
-func parseConfigBool(i interface{}) (ConfigBool, error) {
-	vv, err := parseBool(i)
+func parseConfigBool(i interface{}) (Bool, error) {
+	vv, err := ParseBool(i)
 	if err != nil {
-		return ConfigBoolFalse, err
+		return BoolFalse, err
 	}
 	if vv {
-		return ConfigBoolTrue, nil
+		return BoolTrue, nil
 	}
-	return ConfigBoolFalse, nil
+	return BoolFalse, nil
 }
 
-func parseDuration(i interface{}) (time.Duration, error) {
+// ParseDuration parses an interface value to time.Duration.
+func ParseDuration(i interface{}) (time.Duration, error) {
 	v, ok := i.(string)
 	if !ok {
-		num, err := parseInt(i)
+		num, err := ParseInt(i)
 		if err != nil {
 			return time.Duration(0), err
 		}
@@ -298,7 +305,8 @@ func parseDuration(i interface{}) (time.Duration, error) {
 	return parseTimeout(v)
 }
 
-func readToken(tokenPath string) (string, error) {
+// ReadToken reads a token from the given path (or default path if empty).
+func ReadToken(tokenPath string) (string, error) {
 	if tokenPath == "" {
 		tokenPath = defaultTokenPath
 	}
@@ -309,7 +317,7 @@ func readToken(tokenPath string) (string, error) {
 			return "", err
 		}
 	}
-	err := validateFilePermission(tokenPath)
+	err := ValidateFilePermission(tokenPath)
 	if err != nil {
 		return "", err
 	}
@@ -336,7 +344,8 @@ func parseStrings(i interface{}) ([]string, error) {
 	return strings.Split(s, ","), nil
 }
 
-func getTomlFilePath(filePath string) (string, error) {
+// GetTomlFilePath returns the path to the TOML file directory.
+func GetTomlFilePath(filePath string) (string, error) {
 	if len(filePath) == 0 {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
@@ -358,8 +367,9 @@ func getConnectionDSN(dsn string) string {
 	return "default"
 }
 
-func validateFilePermission(filePath string) error {
-	if isWindows {
+// ValidateFilePermission checks that a file does not have overly permissive permissions.
+func ValidateFilePermission(filePath string) error {
+	if runtime.GOOS == "windows" {
 		return nil
 	}
 
@@ -377,17 +387,17 @@ func validateFilePermission(filePath string) error {
 	}
 
 	if permission&executableFilePermission != 0 {
-		return &SnowflakeError{
-			Number:      ErrCodeInvalidFilePermission,
-			Message:     errMsgInvalidExecutablePermissionToFile,
+		return &sferrors.SnowflakeError{
+			Number:      sferrors.ErrCodeInvalidFilePermission,
+			Message:     sferrors.ErrMsgInvalidExecutablePermissionToFile,
 			MessageArgs: []interface{}{filePath, permission},
 		}
 	}
 
 	if permission&othersCanWriteFilePermission != 0 {
-		return &SnowflakeError{
-			Number:      ErrCodeInvalidFilePermission,
-			Message:     errMsgInvalidWritablePermissionToFile,
+		return &sferrors.SnowflakeError{
+			Number:      sferrors.ErrCodeInvalidFilePermission,
+			Message:     sferrors.ErrMsgInvalidWritablePermissionToFile,
 			MessageArgs: []interface{}{filePath, permission},
 		}
 	}

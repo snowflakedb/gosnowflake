@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/pem"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/config"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -133,7 +134,7 @@ func TestCreateDiagnosticClient(t *testing.T) {
 			config: &Config{
 				ClientTimeout: 0,
 			},
-			expectedTimeout: defaultClientTimeout,
+			expectedTimeout: time.Duration(config.DefaultClientTimeout),
 		},
 		{
 			name: "Diagnostic Client with custom timeout",

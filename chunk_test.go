@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
 	"strings"
 	"sync"
@@ -353,7 +354,7 @@ func testWithArrowBatchesButReturningJSON(t *testing.T, async bool) {
 		assertNotNilF(t, err)
 		var se *SnowflakeError
 		assertTrueE(t, errors.As(err, &se))
-		assertEqualE(t, se.Message, errMsgNonArrowResponseInArrowBatches)
+		assertEqualE(t, se.Message, errors2.ErrMsgNonArrowResponseInArrowBatches)
 		assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
 
 		v := make([]driver.Value, 1)
@@ -420,7 +421,7 @@ func TestWithArrowBatchesMultistatementWithJSONResponse(t *testing.T) {
 			var se *SnowflakeError
 			assertTrueF(t, errors.As(err, &se))
 			assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
-			assertEqualE(t, se.Message, errMsgNonArrowResponseInArrowBatches)
+			assertEqualE(t, se.Message, errors2.ErrMsgNonArrowResponseInArrowBatches)
 			resultSetIdx++
 		}
 		assertEqualF(t, resultSetIdx, 2)
