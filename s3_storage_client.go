@@ -359,9 +359,9 @@ func (util *snowflakeS3Client) extractBucketNameAndPath(location string) (*s3Loc
 	bucketName := stageLocation
 	s3Path := ""
 
-	if idx := strings.Index(stageLocation, "/"); idx >= 0 {
-		bucketName = stageLocation[0:idx]
-		s3Path = stageLocation[idx+1:]
+	if before, after, ok := strings.Cut(stageLocation, "/"); ok {
+		bucketName = before
+		s3Path = after
 		if s3Path != "" && !strings.HasSuffix(s3Path, "/") {
 			s3Path += "/"
 		}
