@@ -356,7 +356,7 @@ func TestUnitTokenAccessorRenewSessionContention(t *testing.T) {
 	var renewalsDone sync.WaitGroup
 	var renewalError error
 	numRoutines := 50
-	for i := 0; i < numRoutines; i++ {
+	for range numRoutines {
 		renewalsDone.Add(1)
 		renewalsStart.Add(1)
 		go func() {

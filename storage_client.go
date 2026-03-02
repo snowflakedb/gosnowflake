@@ -75,7 +75,7 @@ func (rsu *remoteStorageUtil) uploadOneFile(ctx context.Context, meta *fileMetad
 	maxRetry := defaultMaxRetry
 	logger.Debugf(
 		"Started Uploading. File: %v, location: %v", meta.realSrcFileName, meta.stageInfo.Location)
-	for retry := 0; retry < maxRetry; retry++ {
+	for retry := range maxRetry {
 		timer = time.Now()
 		if !meta.overwrite {
 			header, err := utilClass.getFileHeader(ctx, meta, meta.dstFileName)
@@ -137,14 +137,14 @@ func (rsu *remoteStorageUtil) uploadOneFile(ctx context.Context, meta *fileMetad
 func (rsu *remoteStorageUtil) uploadOneFileWithRetry(ctx context.Context, meta *fileMetadata) error {
 	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType, rsu.cfg)
 	retryOuter := true
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		// retry
 		if err := rsu.uploadOneFile(ctx, meta); err != nil {
 			return err
 		}
 		retryInner := true
 		if meta.resStatus == uploaded || meta.resStatus == skipped {
-			for j := 0; j < 10; j++ {
+			for range 10 {
 				status := meta.resStatus
 				if _, err := utilClass.getFileHeader(ctx, meta, meta.dstFileName); err != nil {
 					logger.Warnf("error while getting file %v header. %v", meta.dstFileSize, err)
@@ -212,7 +212,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(ctx context.Context, meta *fileMet
 	maxRetry := defaultMaxRetry
 
 	timer := time.Now()
-	for retry := 0; retry < maxRetry; retry++ {
+	for range maxRetry {
 		tempDownloadFile := fullDstFileName + ".tmp"
 		defer func() {
 			// Clean up temp file if it still exists

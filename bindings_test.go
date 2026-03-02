@@ -231,7 +231,7 @@ func TestBindingTimePtrInStruct(t *testing.T) {
 		dbt.mustExec("CREATE OR REPLACE TABLE timeStructTest (id int, tz timestamp_tz)")
 
 		runInsertQuery := false
-		for i := 0; i < 2; i++ {
+		for range 2 {
 			if !runInsertQuery {
 				_, err := dbt.exec("INSERT INTO timeStructTest(id,tz) VALUES(?, ?)", testStruct.id, testStruct.timeVal)
 				if err != nil {
@@ -280,7 +280,7 @@ func TestBindingTimeInStruct(t *testing.T) {
 		dbt.mustExec("CREATE OR REPLACE TABLE timeStructTest (id int, tz timestamp_tz)")
 
 		runInsertQuery := false
-		for i := 0; i < 2; i++ {
+		for range 2 {
 			if !runInsertQuery {
 				_, err := dbt.exec("INSERT INTO timeStructTest(id,tz) VALUES(?, ?)", testStruct.id, testStruct.timeVal)
 				if err != nil {
@@ -832,7 +832,7 @@ func TestBulkArrayBinding(t *testing.T) {
 		dateArr := make([]time.Time, numRows)
 		timeArr := make([]time.Time, numRows)
 		binArr := make([][]byte, numRows)
-		for i := 0; i < numRows; i++ {
+		for i := range numRows {
 			intArr[i] = i
 			strArr[i] = "test" + strconv.Itoa(i)
 			ltzArr[i] = now
@@ -966,7 +966,7 @@ func TestBindingsWithSameValue(t *testing.T) {
 		boolAnyArr := make([]bool, numRows)
 		doubleAnyArr := make([]float64, numRows)
 
-		for i := 0; i < numRows; i++ {
+		for i := range numRows {
 			intArr[i] = i
 			intAnyArr[i] = i
 
@@ -1007,7 +1007,7 @@ func TestBindingsWithSameValue(t *testing.T) {
 		var d, bd, id float64
 
 		timeFormat := "15:04:05"
-		for k := 0; k < numRows; k++ {
+		for k := range numRows {
 			assertTrueF(t, insertRows.Next())
 			assertNilF(t, insertRows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b, &d))
 
@@ -1072,7 +1072,7 @@ func TestBulkArrayBindingTimeWithPrecision(t *testing.T) {
 		millisecondsArr := make([]time.Time, numRows)
 		microsecondsArr := make([]time.Time, numRows)
 		nanosecondsArr := make([]time.Time, numRows)
-		for i := 0; i < numRows; i++ {
+		for i := range numRows {
 			secondsArr[i] = someTimeWithSeconds
 			millisecondsArr[i] = someTimeWithMilliseconds
 			microsecondsArr[i] = someTimeWithMicroseconds
@@ -1106,7 +1106,7 @@ func TestBulkArrayMultiPartBinding(t *testing.T) {
 	randomIter := rand.Intn(3) + 2
 	randomStrings := make([]string, rowCount)
 	str := randomString(30)
-	for i := 0; i < rowCount; i++ {
+	for i := range rowCount {
 		randomStrings[i] = str
 	}
 	tempTableName := fmt.Sprintf("test_table_%v", randomString(5))
@@ -1116,7 +1116,7 @@ func TestBulkArrayMultiPartBinding(t *testing.T) {
 		dbt.mustExec(fmt.Sprintf("CREATE TABLE %s (C VARCHAR(64) NOT NULL)", tempTableName))
 		defer dbt.mustExec("drop table " + tempTableName)
 
-		for i := 0; i < randomIter; i++ {
+		for range randomIter {
 			dbt.mustExecContext(ctx,
 				fmt.Sprintf("INSERT INTO %s VALUES (?)", tempTableName),
 				mustArray(&randomStrings))
@@ -1559,7 +1559,7 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 				assertEqualF(t, len(columnTypes), expectedNumCols)
 
 				// verify the column metadata: name, type and length
-				for colIdx := 0; colIdx < expectedNumCols; colIdx++ {
+				for colIdx := range expectedNumCols {
 					colName := columnTypes[colIdx].Name()
 					assertEqualF(t, colName, columnMeta[colIdx].columnName)
 
