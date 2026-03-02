@@ -176,6 +176,8 @@ func (c *Config) getToken() (string, error) {
 	return c.Token, nil
 }
 
+var errTokenConfigConflict = errors.New("token and tokenFilePath cannot be specified at the same time")
+
 // Validate enables testing if config is correct.
 // A driver client may call it manually, but it is also called during opening first connection.
 func (c *Config) Validate() error {
@@ -188,7 +190,7 @@ func (c *Config) Validate() error {
 		return errors.New("WorkloadIdentityImpersonationPath is not supported for Azure")
 	}
 	if c.Token != "" && c.TokenFilePath != "" {
-		return errors.New("token and tokenFilePath cannot be specified at the same time")
+		return errTokenConfigConflict
 	}
 	return nil
 }
@@ -1013,10 +1015,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.Token = value
 		case "tokenFilePath":
 			cfg.TokenFilePath = value
-			cfg.Token, err = readToken(value)
-			if err != nil {
-				return
-			}
 		case "tlsConfigName":
 			cfg.TLSConfigName = value
 		case "workloadIdentityProvider":
