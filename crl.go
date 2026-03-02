@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -193,11 +194,11 @@ func (cv *crlValidator) validateChains(chains [][]*x509.Certificate) []crlValida
 	crlValidationResults := make([]crlValidationResult, len(chains))
 	for i, chain := range chains {
 		crlValidationResults[i] = crlUnrevoked
-		chainStr := ""
+		var chainStr strings.Builder
 		for _, cert := range chain {
-			chainStr += fmt.Sprintf("%v -> ", cert.Subject)
+			fmt.Fprintf(&chainStr, "%v -> ", cert.Subject)
 		}
-		logger.Debugf("validating certificate chain %d: %s", i, chainStr)
+		logger.Debugf("validating certificate chain %d: %s", i, chainStr.String())
 		for j, cert := range chain {
 			if j == len(chain)-1 {
 				logger.Debugf("skipping root certificate %v for CRL validation", cert.Subject)
