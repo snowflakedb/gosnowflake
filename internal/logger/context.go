@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"sync"
 )
 
@@ -52,9 +53,7 @@ func GetClientLogContextHooks() map[string]ClientLogContextHook {
 	defer contextConfigMu.RUnlock()
 
 	hooksCopy := make(map[string]ClientLogContextHook, len(clientLogContextHooks))
-	for k, v := range clientLogContextHooks {
-		hooksCopy[k] = v
-	}
+	maps.Copy(hooksCopy, clientLogContextHooks)
 	return hooksCopy
 }
 
