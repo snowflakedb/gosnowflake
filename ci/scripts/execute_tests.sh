@@ -33,7 +33,7 @@ if [[ "$SEQUENTIAL_TESTS" == "true" ]] ; then
           pkg_path="./$pkg_path"
         fi
         echo "=== Testing package: $pkg_path ===" >&2
-        go test $GO_TEST_PARAMS -timeout 90m -race -v "$pkg_path"
+        GODEBUG=$TEST_GO_DEBUG go test $GO_TEST_PARAMS -timeout 90m -race -v "$pkg_path"
       done
     ) | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml
   else
@@ -49,7 +49,7 @@ if [[ "$SEQUENTIAL_TESTS" == "true" ]] ; then
         fi
         echo "=== Testing package: $pkg_path ===" >&2
         # Note: -coverprofile only works with single package, use -coverpkg for multiple
-        go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile="${pkg_path//\//_}_coverage.txt" -covermode=atomic -v "$pkg_path"
+        GODEBUG=$TEST_GO_DEBUG go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile="${pkg_path//\//_}_coverage.txt" -covermode=atomic -v "$pkg_path"
         if [[ $? -ne 0 ]]; then
           FAILED=1
           echo "[ERROR] Package $pkg_path tests failed" >&2
@@ -69,10 +69,10 @@ else
   # Test all packages with ./... (parallel, faster, but buffered per package)
   if [[ -n "$JENKINS_HOME" ]]; then
     export WORKSPACE=${WORKSPACE:-/mnt/workspace}
-    go test $GO_TEST_PARAMS -timeout 90m -race -v ./... | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml
+    GODEBUG=$TEST_GO_DEBUG go test $GO_TEST_PARAMS -timeout 90m -race -v ./... | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml
   else
     set +e
-    go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile=coverage.txt -covermode=atomic -v ./... | tee test-output.txt
+    GODEBUG=$TEST_GO_DEBUG go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile=coverage.txt -covermode=atomic -v ./... | tee test-output.txt
     TEST_EXIT_CODE=$?
     cat test-output.txt | go-junit-report > test-report.junit.xml
     exit $TEST_EXIT_CODE

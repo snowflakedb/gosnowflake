@@ -42,6 +42,7 @@ Bug fixes:
 New features:
 
 - Added support for Go 1.26, dropped support for Go 1.23 (snowflakedb/gosnowflake#1707).
+- Added support for FIPS-only mode (snowflakedb/gosnowflake#1496).
 
 Bug fixes:
 
