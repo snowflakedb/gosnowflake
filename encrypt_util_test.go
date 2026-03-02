@@ -205,7 +205,7 @@ func generateKLinesOfNByteRows(numLines int, numBytes int, tmpDir string) (strin
 		return "", err
 	}
 
-	for j := 0; j < numLines; j++ {
+	for range numLines {
 		str := randomString(numBytes - 1) // \n is the last character
 		rec := fmt.Sprintf("%v\n", str)
 		if _, err = f.Write([]byte(rec)); err != nil {
@@ -217,13 +217,13 @@ func generateKLinesOfNByteRows(numLines int, numBytes int, tmpDir string) (strin
 }
 
 func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string, error) {
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fname := path.Join(tmpDir, "file"+strconv.FormatInt(int64(i), 10))
 		f, err := os.Create(fname)
 		if err != nil {
 			return "", err
 		}
-		for j := 0; j < k; j++ {
+		for range k {
 			num := rand.Float64() * 10000
 			min := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
 			max := time.Date(2070, 1, 0, 0, 0, 0, 0, time.UTC).Unix()

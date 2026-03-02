@@ -72,7 +72,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 		credentialsStorage.setCredential(accessTokenSpec, "access-token-123")
 		wiremock.registerMappings(t, newWiremockMapping("auth/oauth2/authorization_code/successful_flow.json"))
 		authCodeProvider := &nonInteractiveAuthorizationCodeProvider{t: t}
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg, &snowflakeConn{})
 			assertNilF(t, err)
 			client.authorizationCodeProviderFactory = func() authorizationCodeProvider {
@@ -214,7 +214,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 		skipOnMissingHome(t)
 		crt.reset()
 		credentialsStorage.setCredential(cacheTokenSpec, "access-token-123")
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			client, err := newOauthClient(context.Background(), cfgFactory(), &snowflakeConn{})
 			assertNilF(t, err)
 			token, err := client.authenticateByOAuthClientCredentials()

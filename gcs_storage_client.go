@@ -581,7 +581,7 @@ func (util *snowflakeGcsClient) downloadInPartsForFile(
 	results := make(chan downloadPart, numParts)
 
 	// Start worker pool with maxConcurrency workers
-	for i := int64(0); i < maxConcurrency; i++ {
+	for range maxConcurrency {
 		go func() {
 			for job := range jobs {
 				data, err := util.downloadRangeBytes(ctx, downloadURL, gcsHeaders, accessToken, meta, client, job.start, job.end)
@@ -591,7 +591,7 @@ func (util *snowflakeGcsClient) downloadInPartsForFile(
 	}
 
 	// Send all jobs to workers
-	for i := int64(0); i < numParts; i++ {
+	for i := range numParts {
 		start := i * partSize
 		end := start + partSize - 1
 		if end >= fileSize {
@@ -603,7 +603,7 @@ func (util *snowflakeGcsClient) downloadInPartsForFile(
 
 	// Collect results and store in order
 	parts := make([][]byte, numParts)
-	for i := int64(0); i < numParts; i++ {
+	for range numParts {
 		result := <-results
 		if result.err != nil {
 			return result.err

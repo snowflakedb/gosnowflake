@@ -144,11 +144,11 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 	numRows := len(column)
 	csvRows := make([][]byte, 0)
 	rows := make([][]interface{}, 0)
-	for rowIdx := 0; rowIdx < numRows; rowIdx++ {
+	for range numRows {
 		rows = append(rows, make([]interface{}, numColumns))
 	}
 
-	for rowIdx := 0; rowIdx < numRows; rowIdx++ {
+	for rowIdx := range numRows {
 		if column[rowIdx] == nil {
 			rows[rowIdx][0] = column[rowIdx]
 		} else {
@@ -168,7 +168,7 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 				MessageArgs: []interface{}{colIdx, iNumRows, numRows},
 			}).exceptionTelemetry(bu.sc)
 		}
-		for rowIdx := 0; rowIdx < numRows; rowIdx++ {
+		for rowIdx := range numRows {
 			// length of column = number of rows
 			if column[rowIdx] == nil {
 				rows[rowIdx][colIdx] = column[rowIdx]
@@ -186,7 +186,7 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 func (bu *bindUploader) createCSVRecord(data []interface{}) []byte {
 	var b strings.Builder
 	b.Grow(1024)
-	for i := 0; i < len(data); i++ {
+	for i := range data {
 		if i > 0 {
 			b.WriteString(",")
 		}

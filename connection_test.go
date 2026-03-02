@@ -411,7 +411,7 @@ func TestServiceName(t *testing.T) {
 	}
 
 	expectServiceName := serviceNameStub
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		_, err := sc.exec(context.Background(), "", false, /* noResult */
 			false /* isInternal */, false /* describeOnly */, nil)
 		assertNilF(t, err)
@@ -843,10 +843,10 @@ func TestConcurrentReadOnParams(t *testing.T) {
 
 	var successCount, failureCount int32
 	wg := sync.WaitGroup{}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		wg.Add(1)
 		go func() {
-			for c := 0; c < 10; c++ {
+			for range 10 {
 				func() {
 					stmt, err := db.PrepareContext(context.Background(), "SELECT table_schema FROM information_schema.columns WHERE table_schema = ? LIMIT 1")
 					if err != nil || stmt == nil {
@@ -909,7 +909,7 @@ func TestErrorReportingOnConcurrentFails(t *testing.T) {
 	var wg sync.WaitGroup
 	n := 5
 	wg.Add(3 * n)
-	for i := 0; i < n; i++ {
+	for range n {
 		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_ABC", "TABLE_ABC", t, &wg)
 		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_DEF", "TABLE_DEF", t, &wg)
 		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_GHI", "TABLE_GHI", t, &wg)

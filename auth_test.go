@@ -972,7 +972,7 @@ func TestUsernamePasswordMfaCaching(t *testing.T) {
 	}
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		// should only be prompted to authenticate first time around.
 		_, err := db.Query("select current_user()")
 		if err != nil {
@@ -1000,7 +1000,7 @@ func TestUsernamePasswordMfaCachingWithPasscode(t *testing.T) {
 	}
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		// should only be prompted to authenticate first time around.
 		_, err := db.Query("select current_user()")
 		if err != nil {
@@ -1024,7 +1024,7 @@ func TestUsernamePasswordMfaCachingWithPasscodeInPassword(t *testing.T) {
 	config.PasscodeInPassword = true
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		// should only be prompted to authenticate first time around.
 		_, err := db.Query("select current_user()")
 		if err != nil {
@@ -1052,7 +1052,7 @@ func TestDisableUsernamePasswordMfaCaching(t *testing.T) {
 	config.ClientRequestMfaToken = ConfigBoolFalse
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		// should be prompted to authenticate 3 times.
 		_, err := db.Query("select current_user()")
 		if err != nil {
@@ -1079,7 +1079,7 @@ func TestExternalBrowserCaching(t *testing.T) {
 	}
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		// should only be prompted to authenticate first time around.
 		_, err := db.Query("select current_user()")
 		if err != nil {
@@ -1105,7 +1105,7 @@ func TestDisableExternalBrowserCaching(t *testing.T) {
 	config.ClientStoreTemporaryCredential = ConfigBoolFalse
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		// should be prompted to authenticate 3 times.
 		_, err := db.Query("select current_user()")
 		if err != nil {

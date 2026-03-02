@@ -134,7 +134,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 		scd.Chunks = make(map[int][]chunkRowType)
 		scd.ChunksChan = make(chan int, chunkMetaLen)
 		scd.ChunksError = make(chan *chunkError, chunkDownloadWorkers)
-		for i := 0; i < chunkMetaLen; i++ {
+		for i := range chunkMetaLen {
 			chunk := scd.ChunkMetas[i]
 			logger.WithContext(scd.ctx).Debugf("Result Format: %v, add chunk to channel ChunksChan: %v, URL: %v, RowCount: %v, UncompressedSize: %v, ChunkResultFormat: %v",
 				scd.getQueryResultFormat(), i+1, chunk.URL, chunk.RowCount, chunk.UncompressedSize, scd.QueryResultFormat)

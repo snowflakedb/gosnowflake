@@ -752,7 +752,7 @@ func (ov *ocspValidator) canEarlyExitForOCSP(results []*ocspStatus, verifiedChai
 
 func (ov *ocspValidator) validateWithCacheForAllCertificates(verifiedChains []*x509.Certificate) bool {
 	n := len(verifiedChains) - 1
-	for j := 0; j < n; j++ {
+	for j := range n {
 		subject := verifiedChains[j]
 		issuer := verifiedChains[j+1]
 		status, _, _ := ov.validateWithCache(subject, issuer)
@@ -827,7 +827,7 @@ func (ov *ocspValidator) getAllRevocationStatus(ctx context.Context, verifiedCha
 	}
 	n := len(verifiedChains) - 1
 	results := make([]*ocspStatus, n)
-	for j := 0; j < n; j++ {
+	for j := range n {
 		results[j] = ov.getRevocationStatus(ctx, verifiedChains[j], verifiedChains[j+1])
 		if !isValidOCSPStatus(results[j].code) {
 			return results

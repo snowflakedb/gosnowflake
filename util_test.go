@@ -72,7 +72,7 @@ func TestSimpleTokenAccessorGetTokensSynchronization(t *testing.T) {
 	accessor := getSimpleTokenAccessor()
 	var wg sync.WaitGroup
 	failed := false
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		wg.Add(1)
 		go func() {
 			// set a random session and token

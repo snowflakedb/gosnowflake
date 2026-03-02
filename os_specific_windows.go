@@ -1,12 +1,11 @@
-// go:build windows
-
 package gosnowflake
 
 import (
 	"errors"
 	"fmt"
-	"golang.org/x/sys/windows/registry"
 	"os"
+
+	"golang.org/x/sys/windows/registry"
 )
 
 var osVersion = getWindowsOSVersion()

@@ -162,7 +162,7 @@ func ScanSnowflakeParameter(rows *sql.Rows) (*SnowflakeParameter, error) {
 	colNum := len(columns)
 	p := SnowflakeParameter{}
 	cols := make([]interface{}, colNum)
-	for i := 0; i < colNum; i++ {
+	for i := range colNum {
 		cols[i] = populateSnowflakeParameter(columns[i], &p)
 	}
 	err = rows.Scan(cols...)

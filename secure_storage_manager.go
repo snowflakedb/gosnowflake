@@ -301,7 +301,7 @@ func (ssm *fileBasedSecureStorageManager) lockFile() error {
 	}
 
 	locked := false
-	for i := 0; i < numRetries; i++ {
+	for range numRetries {
 		err := os.Mkdir(lockPath, 0700)
 		if err != nil {
 			if errors.Is(err, os.ErrExist) {

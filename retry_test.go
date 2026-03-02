@@ -126,7 +126,7 @@ func TestRequestGUID(t *testing.T) {
 	// empty url
 	testURL = &url.URL{}
 	ridReplacer = newRequestGUIDReplace(testURL)
-	for i := 0; i < retryTime; i++ {
+	for range retryTime {
 		actualURL = ridReplacer.replace()
 		if actualURL.String() != "" {
 			t.Fatalf("empty url not replaced by an empty one, got %s", actualURL)
@@ -138,7 +138,7 @@ func TestRequestGUID(t *testing.T) {
 		Path: "/" + requestIDKey + "=123-1923-9?param2=value",
 	}
 	ridReplacer = newRequestGUIDReplace(testURL)
-	for i := 0; i < retryTime; i++ {
+	for range retryTime {
 		actualURL = ridReplacer.replace()
 
 		if actualURL != testURL {
@@ -154,7 +154,7 @@ func TestRequestGUID(t *testing.T) {
 		Path: prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix,
 	}
 	ridReplacer = newRequestGUIDReplace(testURL)
-	for i := 0; i < retryTime; i++ {
+	for range retryTime {
 		actualURL = ridReplacer.replace()
 		if (!strings.HasPrefix(actualURL.Path, prefix)) ||
 			(!strings.HasSuffix(actualURL.Path, suffix)) ||
@@ -170,7 +170,7 @@ func TestRequestGUID(t *testing.T) {
 		Path: prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix,
 	}
 	ridReplacer = newRequestGUIDReplace(testURL)
-	for i := 0; i < retryTime; i++ {
+	for range retryTime {
 		actualURL = ridReplacer.replace()
 		if (!strings.HasPrefix(actualURL.Path, prefix)) ||
 			(!strings.HasSuffix(actualURL.Path, suffix)) ||
@@ -186,7 +186,7 @@ func TestRequestGUID(t *testing.T) {
 		Path: prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix,
 	}
 	ridReplacer = newRequestGUIDReplace(testURL)
-	for i := 0; i < retryTime; i++ {
+	for range retryTime {
 		actualURL = ridReplacer.replace()
 		if (!strings.HasPrefix(actualURL.Path, prefix)) ||
 			(!strings.HasSuffix(actualURL.Path, suffix)) ||
