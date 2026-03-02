@@ -2309,7 +2309,7 @@ func TestTimePrecision(t *testing.T) {
 func initPoolWithSize(t *testing.T, db *sql.DB, poolSize int) {
 	wg := sync.WaitGroup{}
 	wg.Add(poolSize)
-	for i := 0; i < poolSize; i++ {
+	for range poolSize {
 		go func(wg *sync.WaitGroup) {
 			defer wg.Done()
 			time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
@@ -2324,7 +2324,7 @@ func initPoolWithSizeAndReturnErrors(db *sql.DB, poolSize int) []error {
 	wg.Add(poolSize)
 	errMu := sync.Mutex{}
 	var errs []error
-	for i := 0; i < poolSize; i++ {
+	for i := range poolSize {
 		go func(wg *sync.WaitGroup) {
 			defer wg.Done()
 			// Wiremock handles incoming request in parallel, in non-atomic way.

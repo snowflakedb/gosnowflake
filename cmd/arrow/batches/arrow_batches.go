@@ -94,7 +94,7 @@ func main() {
 	sampleRecordsPerBatch := make([][]sampleRecord, len(batches))
 
 	var waitGroup sync.WaitGroup
-	for workerID := 0; workerID < maxWorkers; workerID++ {
+	for workerID := range maxWorkers {
 		waitGroup.Add(1)
 		go func(waitGroup *sync.WaitGroup, batchIDs chan int, workerId int) {
 			defer waitGroup.Done()
@@ -111,7 +111,7 @@ func main() {
 		}(&waitGroup, batchIds, workerID)
 	}
 
-	for batchID := 0; batchID < len(batches); batchID++ {
+	for batchID := range batches {
 		batchIds <- batchID
 	}
 	close(batchIds)

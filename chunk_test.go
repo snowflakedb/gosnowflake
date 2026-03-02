@@ -39,7 +39,7 @@ func TestBadChunkData(t *testing.T) {
 
 	testDecodeErr(t, `[["\uQQQQ"]]`)
 
-	for b := byte(0); b < ' '; b++ {
+	for b := range byte(' ') {
 		testDecodeErr(t, string([]byte{
 			'[', '[', '"', b, '"', ']', ']',
 		}))
@@ -236,7 +236,7 @@ func TestEnableArrowBatches(t *testing.T) {
 				}
 			}(&wg, chunks)
 		}
-		for j := 0; j < numBatches; j++ {
+		for j := range numBatches {
 			chunks <- j
 		}
 		close(chunks)
@@ -312,7 +312,7 @@ func TestWithArrowBatchesAsync(t *testing.T) {
 				}
 			}(&wg, chunks)
 		}
-		for j := 0; j < numBatches; j++ {
+		for j := range numBatches {
 			chunks <- j
 		}
 		close(chunks)

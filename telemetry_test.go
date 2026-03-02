@@ -21,7 +21,7 @@ func TestTelemetryAddLog(t *testing.T) {
 		}
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		randNum := r.Int() % 10000
-		for i := 0; i < randNum; i++ {
+		for range randNum {
 			if err := st.addLog(&telemetryData{
 				Message: map[string]string{
 					typeKey:    "client_telemetry_type",
