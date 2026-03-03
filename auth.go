@@ -473,7 +473,12 @@ func newAuthRequestClientEnvironment() authRequestClientEnvironment {
 		coreVersion, err = mc.FullVersion()
 		if err != nil {
 			logger.Debugf("Minicore loading failed. %v", err)
-			coreLoadError = "Failed to load binary"
+			var mcErr *miniCoreError
+			if errors.As(err, &mcErr) {
+				coreLoadError = fmt.Sprintf("Failed to load binary: %v", mcErr.errorType)
+			} else {
+				coreLoadError = "Failed to load binary: unknown"
+			}
 		}
 	} else {
 		// Minicore not loaded yet - this is expected during startup
