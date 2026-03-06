@@ -1511,6 +1511,18 @@ There are two ways to disable minicore:
 When minicore is disabled (either at runtime or compile time), the driver continues to work
 normally but without the additional functionality provided by the native library.
 
+## Static Linking
+
+On Linux, if the binary is fully statically linked (e.g., built with
+-linkmode external -extldflags '-static'), the driver automatically detects this
+and skips minicore loading. Calling dlopen from a statically linked glibc binary
+would crash with SIGFPE, so the driver inspects the ELF header for a dynamic
+linker (PT_INTERP) and gracefully skips minicore if none is found.
+
+When minicore is disabled (either at runtime, at compile time, or automatically
+due to static linking), the driver continues to work normally but without the
+additional functionality provided by the native library.
+
 # Connectivity diagnostics
 
 ==> Relevant configuration

@@ -5,7 +5,10 @@ package gosnowflake
 import (
 	"database/sql"
 	"os"
+	"runtime"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestMiniCoreLoadSuccess(t *testing.T) {
@@ -104,6 +107,35 @@ func TestMiniCoreNotInitialized(t *testing.T) {
 	_, err := core.FullVersion()
 	assertNotNilF(t, err)
 	assertStringContainsE(t, err.Error(), "minicore is not supported on")
+}
+
+func TestMiniCoreLoadLogsVersion(t *testing.T) {
+	minicoreLoadLogs.mu.Lock()
+	minicoreLoadLogs.logs = nil
+	minicoreLoadLogs.startTime = time.Now()
+	minicoreLoadLogs.mu.Unlock()
+
+	mcl := newMiniCoreLoader()
+	core := mcl.loadCore()
+	assertNotNilF(t, core)
+
+	v, err := core.FullVersion()
+	assertNilF(t, err)
+	minicoreDebugf("Minicore loading completed, version: %s", v)
+
+	minicoreLoadLogs.mu.Lock()
+	joined := strings.Join(minicoreLoadLogs.logs, "\n")
+	minicoreLoadLogs.mu.Unlock()
+
+	assertStringContainsE(t, joined, "Minicore loading completed, version: 0.0.1")
+}
+
+func TestIsDynamicallyLinked(t *testing.T) {
+	dynLinked, err := isDynamicallyLinked()
+	if runtime.GOOS == "linux" {
+		assertNilF(t, err, "should be able to read /proc/self/exe")
+	}
+	assertTrueF(t, dynLinked, "go test binaries should be dynamically linked")
 }
 
 func TestMiniCoreLoadedE2E(t *testing.T) {

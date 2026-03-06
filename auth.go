@@ -191,6 +191,7 @@ type authRequestClientEnvironment struct {
 	CoreLoadError           string            `json:"CORE_LOAD_ERROR,omitempty"`
 	CoreFileName            string            `json:"CORE_FILE_NAME,omitempty"`
 	CgoEnabled              bool              `json:"CGO_ENABLED,omitempty"`
+	IsDynamicallyLinked     *bool             `json:"IS_DYNAMICALLY_LINKED,omitempty"`
 }
 
 type authRequestData struct {
@@ -473,7 +474,12 @@ func newAuthRequestClientEnvironment() authRequestClientEnvironment {
 		coreVersion, err = mc.FullVersion()
 		if err != nil {
 			logger.Debugf("Minicore loading failed. %v", err)
-			coreLoadError = "Failed to load binary"
+			var mcErr *miniCoreError
+			if errors.As(err, &mcErr) {
+				coreLoadError = fmt.Sprintf("Failed to load binary: %v", mcErr.errorType)
+			} else {
+				coreLoadError = "Failed to load binary: unknown"
+			}
 		}
 	} else {
 		// Minicore not loaded yet - this is expected during startup
@@ -481,16 +487,26 @@ func newAuthRequestClientEnvironment() authRequestClientEnvironment {
 		coreLoadError = "Minicore is still loading"
 		logger.Debugf("Minicore not yet loaded for client environment telemetry")
 	}
+
+	// Detect if the binary is dynamically linked
+	var isDynLinked *bool
+	if dynLinked, err := isDynamicallyLinked(); err != nil {
+		logger.Debugf("cannot determine linking mode: %v", err)
+	} else {
+		isDynLinked = &dynLinked
+	}
+
 	return authRequestClientEnvironment{
-		Os:            runtime.GOOS,
-		OsVersion:     osVersion,
-		OsDetails:     internalos.GetOsDetails(),
-		Isa:           runtime.GOARCH,
-		GoVersion:     runtime.Version(),
-		CoreVersion:   coreVersion,
-		CoreFileName:  getMiniCoreFileName(),
-		CoreLoadError: coreLoadError,
-		CgoEnabled:    compilation.CgoEnabled,
+		Os:                  runtime.GOOS,
+		OsVersion:           osVersion,
+		OsDetails:           internalos.GetOsDetails(),
+		Isa:                 runtime.GOARCH,
+		GoVersion:           runtime.Version(),
+		CoreVersion:         coreVersion,
+		CoreFileName:        getMiniCoreFileName(),
+		CoreLoadError:       coreLoadError,
+		CgoEnabled:          compilation.CgoEnabled,
+		IsDynamicallyLinked: isDynLinked,
 	}
 }
 
