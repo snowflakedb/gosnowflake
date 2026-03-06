@@ -6,7 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/v2/internal/config"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 	"net"
 	"net/http"
 	"net/url"
@@ -117,7 +117,7 @@ func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig
 func (tf *transportFactory) createOCSPTransport(transportConfig *transportConfig) (*http.Transport, error) {
 	// Chain OCSP verification with custom TLS config
 	ov := newOcspValidator(tf.config)
-	tlsConfig, ok := config.GetTLSConfig(tf.config.TLSConfigName)
+	tlsConfig, ok := sfconfig.GetTLSConfig(tf.config.TLSConfigName)
 	if ok && tlsConfig != nil {
 		tlsConfig.VerifyPeerCertificate = tf.chainVerificationCallbacks(tlsConfig.VerifyPeerCertificate, ov.verifyPeerCertificateSerial)
 	} else {
@@ -182,7 +182,7 @@ func (tf *transportFactory) createTransport(transportConfig *transportConfig) (h
 		}
 		crlCacheCleaner.startPeriodicCacheCleanup()
 		// Chain CRL verification with custom TLS config
-		tlsConfig, ok := config.GetTLSConfig(tf.config.TLSConfigName)
+		tlsConfig, ok := sfconfig.GetTLSConfig(tf.config.TLSConfigName)
 		if ok && tlsConfig != nil {
 			crlVerify := crlValidator.verifyPeerCertificates
 			tlsConfig.VerifyPeerCertificate = tf.chainVerificationCallbacks(tlsConfig.VerifyPeerCertificate, crlVerify)

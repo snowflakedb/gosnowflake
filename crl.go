@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	config "github.com/snowflakedb/gosnowflake/v2/internal/config"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
 
 const snowflakeCrlCacheValidityTimeEnv = "SNOWFLAKE_CRL_CACHE_VALIDITY_TIME"
@@ -124,16 +124,16 @@ func initCrlCacheCleaner() {
 }
 
 // CertRevocationCheckMode defines the modes for certificate revocation checks.
-type CertRevocationCheckMode = config.CertRevocationCheckMode
+type CertRevocationCheckMode = sfconfig.CertRevocationCheckMode
 
 const (
 	// CertRevocationCheckDisabled means that certificate revocation checks are disabled.
-	CertRevocationCheckDisabled = config.CertRevocationCheckDisabled
+	CertRevocationCheckDisabled = sfconfig.CertRevocationCheckDisabled
 	// CertRevocationCheckAdvisory means that certificate revocation checks are advisory, and the driver will not fail if the checks end with error (cannot verify revocation status).
 	// Driver will fail only if a certicate is revoked.
-	CertRevocationCheckAdvisory = config.CertRevocationCheckAdvisory
+	CertRevocationCheckAdvisory = sfconfig.CertRevocationCheckAdvisory
 	// CertRevocationCheckEnabled means that every certificate revocation check must pass, otherwise the driver will fail.
-	CertRevocationCheckEnabled = config.CertRevocationCheckEnabled
+	CertRevocationCheckEnabled = sfconfig.CertRevocationCheckEnabled
 )
 
 type crlValidationResult int

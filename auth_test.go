@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/v2/internal/config"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 	"net/http"
 	"net/url"
 	"os"
@@ -651,7 +651,7 @@ func TestUnitAuthenticateJWT(t *testing.T) {
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = AuthTypeJwt
-	sc.cfg.JWTExpireTimeout = time.Duration(config.DefaultJWTTimeout)
+	sc.cfg.JWTExpireTimeout = time.Duration(sfconfig.DefaultJWTTimeout)
 	sc.cfg.PrivateKey = localTestKey
 	sc.rest = sr
 
@@ -916,7 +916,7 @@ func TestUnitAuthenticateWithConfigExternalBrowserWithFailedSAMLResponse(t *test
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = AuthTypeExternalBrowser
-	sc.cfg.ExternalBrowserTimeout = time.Duration(config.DefaultExternalBrowserTimeout)
+	sc.cfg.ExternalBrowserTimeout = time.Duration(sfconfig.DefaultExternalBrowserTimeout)
 	sc.rest = sr
 	sc.ctx = context.Background()
 	err = authenticateWithConfig(sc)

@@ -3,7 +3,7 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
-	"github.com/snowflakedb/gosnowflake/v2/internal/config"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
 
 // InternalSnowflakeDriver is the interface for an internal Snowflake driver
@@ -27,7 +27,7 @@ func NewConnector(driver InternalSnowflakeDriver, config Config) driver.Connecto
 // Connect creates a new connection.
 func (t Connector) Connect(ctx context.Context) (driver.Conn, error) {
 	cfg := t.cfg
-	err := config.FillMissingConfigParameters(&cfg)
+	err := sfconfig.FillMissingConfigParameters(&cfg)
 	if err != nil {
 		return nil, err
 	}

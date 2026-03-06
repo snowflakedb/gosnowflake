@@ -7,7 +7,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/v2/internal/config"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 	"io"
 	"net"
 	"net/http"
@@ -52,7 +52,7 @@ func createDiagnosticClient(cfg *Config) *http.Client {
 
 	clientTimeout := cfg.ClientTimeout
 	if clientTimeout == 0 {
-		clientTimeout = time.Duration(config.DefaultClientTimeout)
+		clientTimeout = time.Duration(sfconfig.DefaultClientTimeout)
 	}
 
 	return &http.Client{

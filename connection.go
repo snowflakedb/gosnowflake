@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"net/http"
 	"net/url"
@@ -607,15 +608,8 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		return nil, err
 	}
 
-	describeProxy := func(cfg *Config) string {
-		if cfg.ProxyHost != "" {
-			return fmt.Sprintf("proxyHost: %v, proxyPort: %v proxyUser: %v, proxyPassword %v, proxyProtocol: %v, noProxy: %v", cfg.ProxyHost, cfg.ProxyPort, cfg.ProxyUser, cfg.ProxyPassword != "", cfg.ProxyProtocol, cfg.NoProxy)
-		}
-		return "proxy was not configured"
-	}
-
 	logger.Debugf("Building snowflakeConn: %v", fmt.Sprintf("host: %v, account: %v, user: %v, password existed: %v, role: %v, database: %v, schema: %v, warehouse: %v, %v",
-		config.Host, config.Account, config.User, config.Password != "", config.Role, config.Database, config.Schema, config.Warehouse, describeProxy(&config)))
+		config.Host, config.Account, config.User, config.Password != "", config.Role, config.Database, config.Schema, config.Warehouse, sfconfig.DescribeProxy(&config)))
 	telemetry := &snowflakeTelemetry{}
 
 	transportFactory := newTransportFactory(&config, telemetry)

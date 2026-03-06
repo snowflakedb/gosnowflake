@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/v2/internal/config"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 	"io"
 	"net/http"
@@ -405,7 +405,7 @@ func TestDownloadChunkInvalidResponseBody(t *testing.T) {
 	}
 	scd := &snowflakeChunkDownloader{
 		sc: &snowflakeConn{
-			rest: &snowflakeRestful{RequestTimeout: config.DefaultRequestTimeout},
+			rest: &snowflakeRestful{RequestTimeout: sfconfig.DefaultRequestTimeout},
 		},
 		ctx:                context.Background(),
 		ChunkMetas:         cm,
@@ -447,7 +447,7 @@ func TestDownloadChunkErrorStatus(t *testing.T) {
 	}
 	scd := &snowflakeChunkDownloader{
 		sc: &snowflakeConn{
-			rest: &snowflakeRestful{RequestTimeout: config.DefaultRequestTimeout},
+			rest: &snowflakeRestful{RequestTimeout: sfconfig.DefaultRequestTimeout},
 		},
 		ctx:                context.Background(),
 		ChunkMetas:         cm,
