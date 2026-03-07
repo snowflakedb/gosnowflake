@@ -9,7 +9,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"database/sql"
-	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"net/http"
@@ -17,22 +16,6 @@ import (
 	"testing"
 	"time"
 )
-
-// helper function to generate PKCS8 encoded base64 string of a private key
-func generatePKCS8StringSupress(key *rsa.PrivateKey) string {
-	// Error would only be thrown when the private key type is not supported
-	// We would be safe as long as we are using rsa.PrivateKey
-	tmpBytes, _ := x509.MarshalPKCS8PrivateKey(key)
-	privKeyPKCS8 := base64.URLEncoding.EncodeToString(tmpBytes)
-	return privKeyPKCS8
-}
-
-// helper function to generate PKCS1 encoded base64 string of a private key
-func generatePKCS1String(key *rsa.PrivateKey) string {
-	tmpBytes := x509.MarshalPKCS1PrivateKey(key)
-	privKeyPKCS1 := base64.URLEncoding.EncodeToString(tmpBytes)
-	return privKeyPKCS1
-}
 
 // helper function to set up private key for testing
 func setupPrivateKey() {

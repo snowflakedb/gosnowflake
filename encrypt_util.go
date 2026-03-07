@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
 	"os"
 	"strconv"
@@ -506,7 +507,7 @@ func paddingTrim(src []byte) ([]byte, error) {
 			len(src), n)
 		return nil, &SnowflakeError{
 			Number:  ErrInvalidPadding,
-			Message: errMsgInvalidPadding,
+			Message: errors.ErrMsgInvalidPadding,
 		}
 	}
 	return src[:len(src)-n], nil

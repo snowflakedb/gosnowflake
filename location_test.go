@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"errors"
 	"fmt"
+	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"reflect"
 	"testing"
 	"time"
@@ -36,7 +37,7 @@ func TestWithOffsetString(t *testing.T) {
 			tt: "",
 			err: &SnowflakeError{
 				Number:      ErrInvalidOffsetStr,
-				Message:     errMsgInvalidOffsetStr,
+				Message:     errors2.ErrMsgInvalidOffsetStr,
 				MessageArgs: []interface{}{"1200"},
 			},
 		},
@@ -45,7 +46,7 @@ func TestWithOffsetString(t *testing.T) {
 			tt: "",
 			err: &SnowflakeError{
 				Number:      ErrInvalidOffsetStr,
-				Message:     errMsgInvalidOffsetStr,
+				Message:     errors2.ErrMsgInvalidOffsetStr,
 				MessageArgs: []interface{}{"x1200"},
 			},
 		},
@@ -54,7 +55,7 @@ func TestWithOffsetString(t *testing.T) {
 			tt: "",
 			err: &SnowflakeError{
 				Number:      ErrInvalidOffsetStr,
-				Message:     errMsgInvalidOffsetStr,
+				Message:     errors2.ErrMsgInvalidOffsetStr,
 				MessageArgs: []interface{}{"+12001"},
 			},
 		},
@@ -63,7 +64,7 @@ func TestWithOffsetString(t *testing.T) {
 			tt: "",
 			err: &SnowflakeError{
 				Number:      ErrInvalidOffsetStr,
-				Message:     errMsgInvalidOffsetStr,
+				Message:     errors2.ErrMsgInvalidOffsetStr,
 				MessageArgs: []interface{}{"x12001"},
 			},
 		},

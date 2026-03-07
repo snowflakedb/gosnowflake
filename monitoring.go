@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"net/url"
 	"strconv"
 	"time"
@@ -170,43 +171,43 @@ func (sc *snowflakeConn) checkQueryStatus(
 
 	if !statusResp.Success || len(statusResp.Data.Queries) == 0 {
 		logger.WithContext(ctx).Errorf("status query returned not-success or no status returned.")
-		return nil, (&SnowflakeError{
+		return nil, exceptionTelemetry(&SnowflakeError{
 			Number:  ErrQueryStatus,
 			Message: "status query returned not-success or no status returned. Please retry",
-		}).exceptionTelemetry(sc)
+		}, sc)
 	}
 
 	queryRet := statusResp.Data.Queries[0]
 	if queryRet.ErrorCode != "" {
-		return &queryRet, (&SnowflakeError{
+		return &queryRet, exceptionTelemetry(&SnowflakeError{
 			Number:         ErrQueryStatus,
-			Message:        errMsgQueryStatus,
+			Message:        errors.ErrMsgQueryStatus,
 			MessageArgs:    []interface{}{queryRet.ErrorCode, queryRet.ErrorMessage},
 			IncludeQueryID: true,
 			QueryID:        qid,
-		}).exceptionTelemetry(sc)
+		}, sc)
 	}
 
 	// returned errorCode is 0. Now check what is the returned status of the query.
 	qStatus := strToQueryStatus(queryRet.Status)
 	if qStatus.isError() {
-		return &queryRet, (&SnowflakeError{
+		return &queryRet, exceptionTelemetry(&SnowflakeError{
 			Number: ErrQueryReportedError,
 			Message: fmt.Sprintf("%s: status from server: [%s]",
 				queryRet.ErrorMessage, queryRet.Status),
 			IncludeQueryID: true,
 			QueryID:        qid,
-		}).exceptionTelemetry(sc)
+		}, sc)
 	}
 
 	if qStatus.isRunning() {
-		return &queryRet, (&SnowflakeError{
+		return &queryRet, exceptionTelemetry(&SnowflakeError{
 			Number: ErrQueryIsRunning,
 			Message: fmt.Sprintf("%s: status from server: [%s]",
 				queryRet.ErrorMessage, queryRet.Status),
 			IncludeQueryID: true,
 			QueryID:        qid,
-		}).exceptionTelemetry(sc)
+		}, sc)
 	}
 	//success
 	return &queryRet, nil
@@ -256,12 +257,12 @@ func (sc *snowflakeConn) rowsForRunningQuery(
 		if err != nil {
 			return err
 		}
-		return (&SnowflakeError{
+		return exceptionTelemetry(&SnowflakeError{
 			Number:   code,
 			SQLState: resp.Data.SQLState,
 			Message:  resp.Message,
 			QueryID:  resp.Data.QueryID,
-		}).exceptionTelemetry(sc)
+		}, sc)
 	}
 	rows.addDownloader(populateChunkDownloader(ctx, sc, resp.Data))
 	return nil

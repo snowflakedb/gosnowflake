@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -44,7 +46,7 @@ func TestConnector(t *testing.T) {
 	if connection != &conn {
 		t.Fatalf("Connection mismatch %s", connection)
 	}
-	assertNilF(t, fillMissingConfigParameters(config))
+	assertNilF(t, sfconfig.FillMissingConfigParameters(config))
 	if reflect.DeepEqual(config, mock.config) {
 		t.Fatalf("Config should be equal, expected %v, actual %v", config, mock.config)
 	}
@@ -61,7 +63,7 @@ func TestConnectorWithMissingConfig(t *testing.T) {
 		Password: "p",
 		Account:  "",
 	}
-	expectedErr := errEmptyAccount()
+	expectedErr := errors.ErrEmptyAccount()
 
 	connector := NewConnector(&mock, config)
 	_, err := connector.Connect(context.Background())

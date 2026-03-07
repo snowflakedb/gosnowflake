@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 	"io"
 	"math"
@@ -219,12 +220,12 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 
 	sfa.initEncryptionMaterial()
 	if len(sfa.data.SrcLocations) == 0 {
-		return (&SnowflakeError{
+		return exceptionTelemetry(&SnowflakeError{
 			Number:   ErrInvalidStageLocation,
 			SQLState: sfa.data.SQLState,
 			QueryID:  sfa.data.QueryID,
 			Message:  "failed to parse location",
-		}).exceptionTelemetry(sfa.sc)
+		}, sfa.sc)
 	}
 	sfa.srcLocations = sfa.data.SrcLocations
 
@@ -247,13 +248,13 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 				sfa.srcFileToEncryptionMaterial[srcFile] = sfa.encryptionMaterial[i]
 			}
 		} else if len(sfa.encryptionMaterial) != 0 {
-			return (&SnowflakeError{
+			return exceptionTelemetry(&SnowflakeError{
 				Number:      ErrInternalNotMatchEncryptMaterial,
 				SQLState:    sfa.data.SQLState,
 				QueryID:     sfa.data.QueryID,
-				Message:     errMsgInternalNotMatchEncryptMaterial,
+				Message:     errors2.ErrMsgInternalNotMatchEncryptMaterial,
 				MessageArgs: []interface{}{len(sfa.data.SrcLocations), len(sfa.encryptionMaterial)},
-			}).exceptionTelemetry(sfa.sc)
+			}, sfa.sc)
 		}
 
 		sfa.localLocation, err = expandUser(sfa.data.LocalLocation)
@@ -261,13 +262,13 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 			return err
 		}
 		if fi, err := os.Stat(sfa.localLocation); err != nil || !fi.IsDir() {
-			return (&SnowflakeError{
+			return exceptionTelemetry(&SnowflakeError{
 				Number:      ErrLocalPathNotDirectory,
 				SQLState:    sfa.data.SQLState,
 				QueryID:     sfa.data.QueryID,
-				Message:     errMsgLocalPathNotDirectory,
+				Message:     errors2.ErrMsgLocalPathNotDirectory,
 				MessageArgs: []interface{}{sfa.localLocation},
-			}).exceptionTelemetry(sfa.sc)
+			}, sfa.sc)
 		}
 	}
 
@@ -284,13 +285,13 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 	}
 
 	if sfa.getStorageClient(sfa.stageLocationType) == nil {
-		return (&SnowflakeError{
+		return exceptionTelemetry(&SnowflakeError{
 			Number:      ErrInvalidStageFs,
 			SQLState:    sfa.data.SQLState,
 			QueryID:     sfa.data.QueryID,
-			Message:     errMsgInvalidStageFs,
+			Message:     errors2.ErrMsgInvalidStageFs,
 			MessageArgs: []interface{}{sfa.stageLocationType},
-		}).exceptionTelemetry(sfa.sc)
+		}, sfa.sc)
 	}
 	return nil
 }
@@ -354,13 +355,13 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 
 		if len(sfa.srcFiles) == 0 {
 			fileName := sfa.data.SrcLocations
-			return (&SnowflakeError{
+			return exceptionTelemetry(&SnowflakeError{
 				Number:      ErrFileNotExists,
 				SQLState:    sfa.data.SQLState,
 				QueryID:     sfa.data.QueryID,
-				Message:     errMsgFileNotExists,
+				Message:     errors2.ErrMsgFileNotExists,
 				MessageArgs: []interface{}{fileName},
-			}).exceptionTelemetry(sfa.sc)
+			}, sfa.sc)
 		}
 		// Handles bulk inserts by checking if sourceStream exists.
 		// - If the file exists locally (PUT command), it saves the stream without loading it into memory.
@@ -373,13 +374,13 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 				buf := new(bytes.Buffer)
 				_, err := buf.ReadFrom(sfa.sourceStream)
 				if err != nil {
-					return (&SnowflakeError{
+					return exceptionTelemetry(&SnowflakeError{
 						Number:      ErrFileNotExists,
 						SQLState:    sfa.data.SQLState,
 						QueryID:     sfa.data.QueryID,
-						Message:     errMsgFailToReadDataFromBuffer,
+						Message:     errors2.ErrMsgFailToReadDataFromBuffer,
 						MessageArgs: []interface{}{fileName},
-					}).exceptionTelemetry(sfa.sc)
+					}, sfa.sc)
 				}
 				sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
 					name:              baseName(fileName),
@@ -405,21 +406,21 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 			for i, fileName := range sfa.srcFiles {
 				fi, err := os.Stat(fileName)
 				if os.IsNotExist(err) {
-					return (&SnowflakeError{
+					return exceptionTelemetry(&SnowflakeError{
 						Number:      ErrFileNotExists,
 						SQLState:    sfa.data.SQLState,
 						QueryID:     sfa.data.QueryID,
-						Message:     errMsgFileNotExists,
+						Message:     errors2.ErrMsgFileNotExists,
 						MessageArgs: []interface{}{fileName},
-					}).exceptionTelemetry(sfa.sc)
+					}, sfa.sc)
 				} else if fi.IsDir() {
-					return (&SnowflakeError{
+					return exceptionTelemetry(&SnowflakeError{
 						Number:      ErrFileNotExists,
 						SQLState:    sfa.data.SQLState,
 						QueryID:     sfa.data.QueryID,
-						Message:     errMsgFileNotExists,
+						Message:     errors2.ErrMsgFileNotExists,
 						MessageArgs: []interface{}{fileName},
-					}).exceptionTelemetry(sfa.sc)
+					}, sfa.sc)
 				}
 				sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
 					name:              baseName(fileName),
@@ -481,13 +482,13 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 	default:
 		userSpecifiedSourceCompression = lookupByMimeSubType(sfa.srcCompression)
 		if userSpecifiedSourceCompression == nil || !userSpecifiedSourceCompression.isSupported {
-			return (&SnowflakeError{
+			return exceptionTelemetry(&SnowflakeError{
 				Number:      ErrCompressionNotSupported,
 				SQLState:    sfa.data.SQLState,
 				QueryID:     sfa.data.QueryID,
-				Message:     errMsgFeatureNotSupported,
+				Message:     errors2.ErrMsgFeatureNotSupported,
 				MessageArgs: []interface{}{userSpecifiedSourceCompression},
-			}).exceptionTelemetry(sfa.sc)
+			}, sfa.sc)
 		}
 		autoDetect = false
 	}
@@ -520,13 +521,13 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 			}
 
 			if currentFileCompressionType != nil && !currentFileCompressionType.isSupported {
-				return (&SnowflakeError{
+				return exceptionTelemetry(&SnowflakeError{
 					Number:      ErrCompressionNotSupported,
 					SQLState:    sfa.data.SQLState,
 					QueryID:     sfa.data.QueryID,
-					Message:     errMsgFeatureNotSupported,
+					Message:     errors2.ErrMsgFeatureNotSupported,
 					MessageArgs: []interface{}{userSpecifiedSourceCompression},
-				}).exceptionTelemetry(sfa.sc)
+				}, sfa.sc)
 			}
 		} else {
 			currentFileCompressionType = userSpecifiedSourceCompression
@@ -539,13 +540,13 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 				meta.requireCompress = false
 				meta.dstFileName = meta.name
 			} else {
-				return (&SnowflakeError{
+				return exceptionTelemetry(&SnowflakeError{
 					Number:      ErrCompressionNotSupported,
 					SQLState:    sfa.data.SQLState,
 					QueryID:     sfa.data.QueryID,
-					Message:     errMsgFeatureNotSupported,
+					Message:     errors2.ErrMsgFeatureNotSupported,
 					MessageArgs: []interface{}{userSpecifiedSourceCompression},
-				}).exceptionTelemetry(sfa.sc)
+				}, sfa.sc)
 			}
 		} else {
 			meta.requireCompress = sfa.autoCompress
@@ -618,13 +619,13 @@ func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() erro
 				}
 			}
 		default:
-			return (&SnowflakeError{
+			return exceptionTelemetry(&SnowflakeError{
 				Number:      ErrCommandNotRecognized,
 				SQLState:    sfa.data.SQLState,
 				QueryID:     sfa.data.QueryID,
-				Message:     errMsgCommandNotRecognized,
+				Message:     errors2.ErrMsgCommandNotRecognized,
 				MessageArgs: []interface{}{sfa.commandType},
-			}).exceptionTelemetry(sfa.sc)
+			}, sfa.sc)
 		}
 	}
 	return nil
@@ -650,12 +651,12 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfigWithUtil(s3Util s
 	}
 	client, ok := s3Cli.(s3BucketAccelerateConfigGetter)
 	if !ok {
-		return (&SnowflakeError{
+		return exceptionTelemetry(&SnowflakeError{
 			Number:   ErrFailedToConvertToS3Client,
 			SQLState: sfa.data.SQLState,
 			QueryID:  sfa.data.QueryID,
-			Message:  errMsgFailedToConvertToS3Client,
-		}).exceptionTelemetry(sfa.sc)
+			Message:  errors2.ErrMsgFailedToConvertToS3Client,
+		}, sfa.sc)
 	}
 	ret, err := withCloudStorageTimeout(sfa.ctx, sfa.sc.cfg, func(ctx context.Context) (*s3.GetBucketAccelerateConfigurationOutput, error) {
 		return client.GetBucketAccelerateConfiguration(ctx, &s3.GetBucketAccelerateConfigurationInput{
@@ -1106,12 +1107,12 @@ func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
 				srcFileSize := meta.srcFileSize
 				dstFileSize := meta.dstFileSize
 				if errorDetails != nil {
-					return nil, (&SnowflakeError{
+					return nil, exceptionTelemetry(&SnowflakeError{
 						Number:   ErrFailedToUploadToStage,
 						SQLState: sfa.data.SQLState,
 						QueryID:  sfa.data.QueryID,
 						Message:  errorDetails.Error(),
-					}).exceptionTelemetry(sfa.sc)
+					}, sfa.sc)
 				}
 				rowset = append(rowset, fileTransferResultType{
 					meta.name,
@@ -1171,12 +1172,12 @@ func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
 				dstFileSize := meta.dstFileSize
 				errorDetails := meta.errorDetails
 				if errorDetails != nil {
-					return nil, (&SnowflakeError{
+					return nil, exceptionTelemetry(&SnowflakeError{
 						Number:   ErrFailedToDownloadFromStage,
 						SQLState: sfa.data.SQLState,
 						QueryID:  sfa.data.QueryID,
 						Message:  errorDetails.Error(),
-					}).exceptionTelemetry(sfa.sc)
+					}, sfa.sc)
 				}
 
 				rowset = append(rowset, fileTransferResultType{
@@ -1216,12 +1217,12 @@ func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
 			return &execResponse{Data: *data, Success: true}, nil
 		}
 	}
-	return nil, (&SnowflakeError{
+	return nil, exceptionTelemetry(&SnowflakeError{
 		Number:   ErrNotImplemented,
 		SQLState: sfa.data.SQLState,
 		QueryID:  sfa.data.QueryID,
-		Message:  errMsgNotImplemented,
-	}).exceptionTelemetry(sfa.sc)
+		Message:  errors2.ErrMsgNotImplemented,
+	}, sfa.sc)
 }
 
 func isFileTransfer(query string) bool {

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
 	"log"
 	"net"
@@ -196,7 +197,7 @@ func getTokenFromResponse(response string) (string, error) {
 		return "", &SnowflakeError{
 			Number:      ErrFailedToParseResponse,
 			SQLState:    SQLStateConnectionRejected,
-			Message:     errMsgFailedToParseResponse,
+			Message:     errors2.ErrMsgFailedToParseResponse,
 			MessageArgs: []interface{}{response},
 		}
 	}
@@ -292,7 +293,7 @@ func doAuthenticateByExternalBrowser(ctx context.Context, sr *snowflakeRestful, 
 					errAccept = &SnowflakeError{
 						Number:      ErrFailedToGetExternalBrowserResponse,
 						SQLState:    SQLStateConnectionRejected,
-						Message:     errMsgFailedToGetExternalBrowserResponse,
+						Message:     errors2.ErrMsgFailedToGetExternalBrowserResponse,
 						MessageArgs: []interface{}{err},
 					}
 				}

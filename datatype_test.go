@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"database/sql/driver"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 	"testing"
 )
@@ -23,11 +24,11 @@ func TestDataTypeMode(t *testing.T) {
 		{tp: DataTypeArray, tmode: types.ArrayType, err: nil},
 		{tp: DataTypeVariant, tmode: types.VariantType, err: nil},
 		{tp: DataTypeFixed, tmode: types.FixedType,
-			err: fmt.Errorf(errMsgInvalidByteArray, DataTypeFixed)},
+			err: fmt.Errorf(errors.ErrMsgInvalidByteArray, DataTypeFixed)},
 		{tp: DataTypeReal, tmode: types.RealType,
-			err: fmt.Errorf(errMsgInvalidByteArray, DataTypeFixed)},
+			err: fmt.Errorf(errors.ErrMsgInvalidByteArray, DataTypeFixed)},
 		{tp: 123, tmode: types.NullType,
-			err: fmt.Errorf(errMsgInvalidByteArray, 123)},
+			err: fmt.Errorf(errors.ErrMsgInvalidByteArray, 123)},
 	}
 	for _, ts := range testcases {
 		t.Run(fmt.Sprintf("%v_%v", ts.tp, ts.tmode), func(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	sferrors "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/snowflakedb/gosnowflake/v2/internal/compilation"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 	internalos "github.com/snowflakedb/gosnowflake/v2/internal/os"
 )
 
@@ -34,34 +36,34 @@ const (
 )
 
 // AuthType indicates the type of authentication in Snowflake
-type AuthType int
+type AuthType = sfconfig.AuthType
 
 const (
 	// AuthTypeSnowflake is the general username password authentication
-	AuthTypeSnowflake AuthType = iota
+	AuthTypeSnowflake = sfconfig.AuthTypeSnowflake
 	// AuthTypeOAuth is the OAuth authentication
-	AuthTypeOAuth
+	AuthTypeOAuth = sfconfig.AuthTypeOAuth
 	// AuthTypeExternalBrowser is to use a browser to access an Fed and perform SSO authentication
-	AuthTypeExternalBrowser
+	AuthTypeExternalBrowser = sfconfig.AuthTypeExternalBrowser
 	// AuthTypeOkta is to use a native okta URL to perform SSO authentication on Okta
-	AuthTypeOkta
+	AuthTypeOkta = sfconfig.AuthTypeOkta
 	// AuthTypeJwt is to use Jwt to perform authentication
-	AuthTypeJwt
+	AuthTypeJwt = sfconfig.AuthTypeJwt
 	// AuthTypeTokenAccessor is to use the provided token accessor and bypass authentication
-	AuthTypeTokenAccessor
+	AuthTypeTokenAccessor = sfconfig.AuthTypeTokenAccessor
 	// AuthTypeUsernamePasswordMFA is to use username and password with mfa
-	AuthTypeUsernamePasswordMFA
+	AuthTypeUsernamePasswordMFA = sfconfig.AuthTypeUsernamePasswordMFA
 	// AuthTypePat is to use programmatic access token
-	AuthTypePat
+	AuthTypePat = sfconfig.AuthTypePat
 	// AuthTypeOAuthAuthorizationCode is to use browser-based OAuth2 flow
-	AuthTypeOAuthAuthorizationCode
+	AuthTypeOAuthAuthorizationCode = sfconfig.AuthTypeOAuthAuthorizationCode
 	// AuthTypeOAuthClientCredentials is to use non-interactive OAuth2 flow
-	AuthTypeOAuthClientCredentials
+	AuthTypeOAuthClientCredentials = sfconfig.AuthTypeOAuthClientCredentials
 	// AuthTypeWorkloadIdentityFederation is to use CSP identity for authentication
-	AuthTypeWorkloadIdentityFederation
+	AuthTypeWorkloadIdentityFederation = sfconfig.AuthTypeWorkloadIdentityFederation
 )
 
-func (authType AuthType) isOauthNativeFlow() bool {
+func isOauthNativeFlow(authType AuthType) bool {
 	return authType == AuthTypeOAuthAuthorizationCode || authType == AuthTypeOAuthClientCredentials
 }
 
@@ -69,101 +71,6 @@ var refreshOAuthTokenErrorCodes = []string{
 	strconv.Itoa(ErrMissingAccessATokenButRefreshTokenPresent),
 	invalidOAuthAccessTokenCode,
 	expiredOAuthAccessTokenCode,
-}
-
-func determineAuthenticatorType(cfg *Config, value string) error {
-	upperCaseValue := strings.ToUpper(value)
-	lowerCaseValue := strings.ToLower(value)
-	if strings.Trim(value, " ") == "" || upperCaseValue == AuthTypeSnowflake.String() {
-		cfg.Authenticator = AuthTypeSnowflake
-		return nil
-	} else if upperCaseValue == AuthTypeOAuth.String() {
-		cfg.Authenticator = AuthTypeOAuth
-		return nil
-	} else if upperCaseValue == AuthTypeJwt.String() {
-		cfg.Authenticator = AuthTypeJwt
-		return nil
-	} else if upperCaseValue == AuthTypeExternalBrowser.String() {
-		cfg.Authenticator = AuthTypeExternalBrowser
-		return nil
-	} else if upperCaseValue == AuthTypeUsernamePasswordMFA.String() {
-		cfg.Authenticator = AuthTypeUsernamePasswordMFA
-		return nil
-	} else if upperCaseValue == AuthTypeTokenAccessor.String() {
-		cfg.Authenticator = AuthTypeTokenAccessor
-		return nil
-	} else if upperCaseValue == AuthTypePat.String() {
-		cfg.Authenticator = AuthTypePat
-		return nil
-	} else if upperCaseValue == AuthTypeOAuthAuthorizationCode.String() {
-		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
-		return nil
-	} else if upperCaseValue == AuthTypeOAuthClientCredentials.String() {
-		cfg.Authenticator = AuthTypeOAuthClientCredentials
-		return nil
-	} else if upperCaseValue == AuthTypeWorkloadIdentityFederation.String() {
-		cfg.Authenticator = AuthTypeWorkloadIdentityFederation
-		return nil
-	} else {
-		// possibly Okta case
-		oktaURLString, err := url.QueryUnescape(lowerCaseValue)
-		if err != nil {
-			return &SnowflakeError{
-				Number:      ErrCodeFailedToParseAuthenticator,
-				Message:     errMsgFailedToParseAuthenticator,
-				MessageArgs: []interface{}{lowerCaseValue},
-			}
-		}
-
-		oktaURL, err := url.Parse(oktaURLString)
-		if err != nil {
-			return &SnowflakeError{
-				Number:      ErrCodeFailedToParseAuthenticator,
-				Message:     errMsgFailedToParseAuthenticator,
-				MessageArgs: []interface{}{oktaURLString},
-			}
-		}
-
-		if oktaURL.Scheme != "https" {
-			return &SnowflakeError{
-				Number:      ErrCodeFailedToParseAuthenticator,
-				Message:     errMsgFailedToParseAuthenticator,
-				MessageArgs: []interface{}{oktaURLString},
-			}
-		}
-		cfg.OktaURL = oktaURL
-		cfg.Authenticator = AuthTypeOkta
-	}
-	return nil
-}
-
-func (authType AuthType) String() string {
-	switch authType {
-	case AuthTypeSnowflake:
-		return "SNOWFLAKE"
-	case AuthTypeOAuth:
-		return "OAUTH"
-	case AuthTypeExternalBrowser:
-		return "EXTERNALBROWSER"
-	case AuthTypeOkta:
-		return "OKTA"
-	case AuthTypeJwt:
-		return "SNOWFLAKE_JWT"
-	case AuthTypeTokenAccessor:
-		return "TOKENACCESSOR"
-	case AuthTypeUsernamePasswordMFA:
-		return "USERNAME_PASSWORD_MFA"
-	case AuthTypePat:
-		return "PROGRAMMATIC_ACCESS_TOKEN"
-	case AuthTypeOAuthAuthorizationCode:
-		return "OAUTH_AUTHORIZATION_CODE"
-	case AuthTypeOAuthClientCredentials:
-		return "OAUTH_CLIENT_CREDENTIALS"
-	case AuthTypeWorkloadIdentityFederation:
-		return "WORKLOAD_IDENTITY"
-	default:
-		return "UNKNOWN"
-	}
 }
 
 // userAgent shows up in User-Agent HTTP header
@@ -296,7 +203,7 @@ func postAuth(
 		return nil, &SnowflakeError{
 			Number:      ErrCodeServiceUnavailable,
 			SQLState:    SQLStateConnectionWasNotEstablished,
-			Message:     errMsgServiceUnavailable,
+			Message:     sferrors.ErrMsgServiceUnavailable,
 			MessageArgs: []interface{}{resp.StatusCode, fullURL},
 		}
 	case http.StatusUnauthorized, http.StatusForbidden:
@@ -304,7 +211,7 @@ func postAuth(
 		return nil, &SnowflakeError{
 			Number:      ErrCodeFailedToConnect,
 			SQLState:    SQLStateConnectionRejected,
-			Message:     errMsgFailedToConnect,
+			Message:     sferrors.ErrMsgFailedToConnect,
 			MessageArgs: []interface{}{resp.StatusCode, fullURL},
 		}
 	}
@@ -318,7 +225,7 @@ func postAuth(
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuth,
 		SQLState:    SQLStateConnectionRejected,
-		Message:     errMsgFailedToAuth,
+		Message:     sferrors.ErrMsgFailedToAuth,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
 }
@@ -431,18 +338,18 @@ func authenticate(
 		if sessionParameters[clientStoreTemporaryCredential] == true && sc.cfg.Authenticator == AuthTypeExternalBrowser {
 			credentialsStorage.deleteCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
-		if sessionParameters[clientStoreTemporaryCredential] == true && sc.cfg.Authenticator.isOauthNativeFlow() {
+		if sessionParameters[clientStoreTemporaryCredential] == true && isOauthNativeFlow(sc.cfg.Authenticator) {
 			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
 		}
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
 			return nil, err
 		}
-		return nil, (&SnowflakeError{
+		return nil, exceptionTelemetry(&SnowflakeError{
 			Number:   code,
 			SQLState: SQLStateConnectionRejected,
 			Message:  respd.Message,
-		}).exceptionTelemetry(sc)
+		}, sc)
 	}
 	logger.WithContext(ctx).Info("Authentication SUCCESS")
 	sc.rest.TokenAccessor.SetTokens(respd.Data.Token, respd.Data.MasterToken, respd.Data.SessionID)
@@ -512,9 +419,9 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 
 	switch sc.cfg.Authenticator {
 	case AuthTypeExternalBrowser:
-		if sc.cfg.idToken != "" {
+		if sc.idToken != "" {
 			requestMain.Authenticator = idTokenAuthenticator
-			requestMain.Token = sc.cfg.idToken
+			requestMain.Token = sc.idToken
 			requestMain.LoginName = sc.cfg.User
 		} else {
 			requestMain.ProofKey = string(proofKey)
@@ -526,7 +433,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Authenticator = AuthTypeOAuth.String()
 		var err error
-		if requestMain.Token, err = sc.cfg.getToken(); err != nil {
+		if requestMain.Token, err = sfconfig.GetToken(sc.cfg); err != nil {
 			return nil, fmt.Errorf("failed to get OAuth token: %w", err)
 		}
 	case AuthTypeOkta:
@@ -556,7 +463,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.Authenticator = AuthTypePat.String()
 		requestMain.LoginName = sc.cfg.User
 		var err error
-		if requestMain.Token, err = sc.cfg.getToken(); err != nil {
+		if requestMain.Token, err = sfconfig.GetToken(sc.cfg); err != nil {
 			return nil, fmt.Errorf("failed to get PAT token: %w", err)
 		}
 	case AuthTypeSnowflake:
@@ -575,8 +482,8 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Password = sc.cfg.Password
 		switch {
-		case sc.cfg.mfaToken != "":
-			requestMain.Token = sc.cfg.mfaToken
+		case sc.mfaToken != "":
+			requestMain.Token = sc.mfaToken
 		case sc.cfg.PasscodeInPassword:
 			requestMain.ExtAuthnDuoMethod = "passcode"
 		case sc.cfg.Passcode != "":
@@ -699,7 +606,7 @@ func prepareJWTToken(config *Config) (string, error) {
 	}
 	hash := sha256.Sum256(pubBytes)
 
-	accountName := extractAccountName(config.Account)
+	accountName := sfconfig.ExtractAccountName(config.Account)
 	userName := strings.ToUpper(config.User)
 
 	issueAtTime := time.Now().UTC()
@@ -758,14 +665,14 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	idTokenLockKey := newIDTokenLockKey(sc.cfg.Host, sc.cfg.User)
 
 	if sc.cfg.Authenticator == AuthTypeExternalBrowser || sc.cfg.Authenticator == AuthTypeOAuthAuthorizationCode || sc.cfg.Authenticator == AuthTypeOAuthClientCredentials {
-		if (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && sc.cfg.ClientStoreTemporaryCredential == configBoolNotSet {
+		if (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && sc.cfg.ClientStoreTemporaryCredential == sfconfig.BoolNotSet {
 			sc.cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		}
 		if sc.cfg.Authenticator == AuthTypeExternalBrowser {
 			if isEligibleForParallelLogin(sc.cfg, sc.cfg.ClientStoreTemporaryCredential) {
 				valueAwaiter := valueAwaitHolder.get(idTokenLockKey)
 				defer valueAwaiter.resumeOne()
-				sc.cfg.idToken, _ = awaitValue(valueAwaiter, func() (string, error) {
+				sc.idToken, _ = awaitValue(valueAwaiter, func() (string, error) {
 					credential := credentialsStorage.getCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
 					return credential, nil
 				}, func(s string, err error) bool {
@@ -774,23 +681,23 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 					return ""
 				})
 			} else if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
-				sc.cfg.idToken = credentialsStorage.getCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
+				sc.idToken = credentialsStorage.getCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
 			}
 		}
 		// Disable console login by default
-		if sc.cfg.DisableConsoleLogin == configBoolNotSet {
+		if sc.cfg.DisableConsoleLogin == sfconfig.BoolNotSet {
 			sc.cfg.DisableConsoleLogin = ConfigBoolTrue
 		}
 	}
 
 	if sc.cfg.Authenticator == AuthTypeUsernamePasswordMFA {
-		if (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && sc.cfg.ClientRequestMfaToken == configBoolNotSet {
+		if (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && sc.cfg.ClientRequestMfaToken == sfconfig.BoolNotSet {
 			sc.cfg.ClientRequestMfaToken = ConfigBoolTrue
 		}
 		if isEligibleForParallelLogin(sc.cfg, sc.cfg.ClientRequestMfaToken) {
 			valueAwaiter := valueAwaitHolder.get(mfaTokenLockKey)
 			defer valueAwaiter.resumeOne()
-			sc.cfg.mfaToken, _ = awaitValue(valueAwaiter, func() (string, error) {
+			sc.mfaToken, _ = awaitValue(valueAwaiter, func() (string, error) {
 				credential := credentialsStorage.getCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
 				return credential, nil
 			}, func(s string, err error) bool {
@@ -799,14 +706,14 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 				return ""
 			})
 		} else if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue {
-			sc.cfg.mfaToken = credentialsStorage.getCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
+			sc.mfaToken = credentialsStorage.getCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
 	}
 
 	logger.WithContext(sc.ctx).Infof("Authenticating via %v", sc.cfg.Authenticator.String())
 	switch sc.cfg.Authenticator {
 	case AuthTypeExternalBrowser:
-		if sc.cfg.idToken == "" {
+		if sc.idToken == "" {
 			samlResponse, proofKey, err = authenticateByExternalBrowser(
 				sc.ctx,
 				sc.rest,

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"html"
 	"io"
 	"net/http"
@@ -113,7 +114,7 @@ func authenticateBySAML(
 		return nil, &SnowflakeError{
 			Number:      ErrCodeIdpConnectionError,
 			SQLState:    SQLStateConnectionRejected,
-			Message:     errMsgIdpConnectionError,
+			Message:     errors.ErrMsgIdpConnectionError,
 			MessageArgs: []interface{}{oktaURL, respd.Data.TokenURL, respd.Data.SSOURL},
 		}
 	}
@@ -160,7 +161,7 @@ func authenticateBySAML(
 			return nil, &SnowflakeError{
 				Number:      ErrCodeSSOURLNotMatch,
 				SQLState:    SQLStateConnectionRejected,
-				Message:     errMsgSSOURLNotMatch,
+				Message:     errors.ErrMsgSSOURLNotMatch,
 				MessageArgs: []interface{}{tgtURL, fullURL},
 			}
 		}
@@ -237,7 +238,7 @@ func postAuthSAML(
 		return nil, &SnowflakeError{
 			Number:      ErrCodeServiceUnavailable,
 			SQLState:    SQLStateConnectionWasNotEstablished,
-			Message:     errMsgServiceUnavailable,
+			Message:     errors.ErrMsgServiceUnavailable,
 			MessageArgs: []interface{}{resp.StatusCode, fullURL},
 		}
 	case http.StatusUnauthorized, http.StatusForbidden:
@@ -245,7 +246,7 @@ func postAuthSAML(
 		return nil, &SnowflakeError{
 			Number:      ErrCodeFailedToConnect,
 			SQLState:    SQLStateConnectionRejected,
-			Message:     errMsgFailedToConnect,
+			Message:     errors.ErrMsgFailedToConnect,
 			MessageArgs: []interface{}{resp.StatusCode, fullURL},
 		}
 	}
@@ -257,7 +258,7 @@ func postAuthSAML(
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuthSAML,
 		SQLState:    SQLStateConnectionRejected,
-		Message:     errMsgFailedToAuthSAML,
+		Message:     errors.ErrMsgFailedToAuthSAML,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
 }
@@ -303,7 +304,7 @@ func postAuthOKTA(
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuthOKTA,
 		SQLState:    SQLStateConnectionRejected,
-		Message:     errMsgFailedToAuthOKTA,
+		Message:     errors.ErrMsgFailedToAuthOKTA,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
 }
@@ -344,7 +345,7 @@ func getSSO(
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToGetSSO,
 		SQLState:    SQLStateConnectionRejected,
-		Message:     errMsgFailedToGetSSO,
+		Message:     errors.ErrMsgFailedToGetSSO,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
 }

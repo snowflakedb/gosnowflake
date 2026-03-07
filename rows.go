@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
 	"reflect"
 	"strings"
@@ -174,7 +175,7 @@ func (rows *snowflakeRows) GetArrowBatches() (*ia.BatchDataInfo, error) {
 	}
 
 	if rows.ChunkDownloader.getQueryResultFormat() != arrowFormat {
-		return nil, errNonArrowResponseForArrowBatches(rows.queryID).exceptionTelemetry(rows.sc)
+		return nil, exceptionTelemetry(errors.ErrNonArrowResponseForArrowBatches(rows.queryID), rows.sc)
 	}
 
 	scd, ok := rows.ChunkDownloader.(*snowflakeChunkDownloader)
