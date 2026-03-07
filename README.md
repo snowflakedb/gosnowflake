@@ -1,6 +1,198 @@
-## Upcoming v2 release
+## Migrating to v2
 
-The v2 release is coming. See the [issue](https://github.com/snowflakedb/gosnowflake/issues/1586) for details!
+**Version 2.0.0 of the Go Snowflake Driver was released on March 3rd, 2026.** This major version includes breaking changes that require code updates when migrating from v1.x.
+
+### Key Changes and Migration Steps
+
+#### 1. Update Import Paths
+
+Update your `go.mod` to use v2:
+
+```sh
+go get -u github.com/snowflakedb/gosnowflake/v2
+```
+
+Update imports in your code:
+
+```go
+// Old (v1)
+import "github.com/snowflakedb/gosnowflake"
+
+// New (v2)
+import "github.com/snowflakedb/gosnowflake/v2"
+```
+
+#### 2. Arrow Batches Moved to Separate Package
+
+Arrow batches functionality has been extracted to reduce binary size (~34MB → ~18MB for non-arrow users).
+
+**Migration:**
+
+```go
+// Old (v1)
+import sf "github.com/snowflakedb/gosnowflake"
+
+rows, _ := db.QueryContext(ctx, query)
+batches, _ := rows.(sf.SnowflakeRows).GetArrowBatches()
+ctx = sf.WithArrowBatchesTimestampOption(ctx, sf.UseOriginalTimestamp)
+
+// New (v2)
+import (
+    "github.com/snowflakedb/gosnowflake/v2"
+    "github.com/snowflakedb/gosnowflake/v2/arrowbatches"
+)
+
+rows, _ := db.QueryContext(ctx, query)
+batches, _ := arrowbatches.GetArrowBatches(rows.(gosnowflake.SnowflakeRows))
+ctx = arrowbatches.WithTimestampOption(ctx, arrowbatches.UseOriginalTimestamp)
+```
+
+**Function mapping:**
+- `sf.WithArrowBatchesTimestampOption` → `arrowbatches.WithTimestampOption`
+- `sf.WithArrowBatchesUtf8Validation` → `arrowbatches.WithUtf8Validation`
+- `sf.ArrowSnowflakeTimestampToTime` → `arrowbatches.ArrowSnowflakeTimestampToTime`
+- `sf.WithOriginalTimestamp` → `arrowbatches.UseOriginalTimestamp`
+
+#### 3. Configuration Struct Changes
+
+**Renamed fields:**
+```go
+// Old (v1)
+config := &gosnowflake.Config{
+    KeepSessionAlive: true,
+    InsecureMode: true,
+    DisableTelemetry: true,
+}
+
+// New (v2)
+config := &gosnowflake.Config{
+    ServerSessionKeepAlive: true,  // Renamed for consistency with other drivers
+    DisableOCSPChecks: true,        // Replaces InsecureMode
+    // DisableTelemetry removed - use CLIENT_TELEMETRY_ENABLED session parameter
+}
+```
+
+**Removed fields:**
+- `ClientIP` - No longer used
+- `MfaToken` and `IdToken` - Now unexported
+- `DisableTelemetry` - Use `CLIENT_TELEMETRY_ENABLED` session parameter instead
+
+#### 4. Logger Changes
+
+The driver now uses Go's standard `log/slog` instead of Logrus:
+
+```go
+// Old (v1) - Logrus
+import "github.com/sirupsen/logrus"
+// Logrus was a dependency
+
+// New (v2) - slog
+import "log/slog"
+
+// Set log level
+_ = gosnowflake.GetLogger().SetLogLevel("debug")
+```
+
+For custom logging, implement the simplified `SFSlogLogger` interface instead of the old `SFLogger` interface.
+
+#### 5. File Transfer Changes
+
+**Configuration options:**
+
+```go
+// Old (v1)
+options := &gosnowflake.SnowflakeFileTransferOptions{
+    RaisePutGetError: true,
+    GetFileToStream: true,
+}
+ctx = gosnowflake.WithFileStream(ctx, stream)
+
+// New (v2)
+// RaisePutGetError removed - errors always raised
+// GetFileToStream removed - use WithFileGetStream instead
+ctx = gosnowflake.WithFilePutStream(ctx, stream)  // Renamed from WithFileStream
+ctx = gosnowflake.WithFileGetStream(ctx, stream)  // For GET operations
+```
+
+#### 6. Context and Function Changes
+
+```go
+// Old (v1)
+ctx, err := gosnowflake.WithMultiStatement(ctx, 0)
+if err != nil {
+    // handle error
+}
+
+// New (v2)
+ctx = gosnowflake.WithMultiStatement(ctx, 0)  // No error returned
+```
+
+```go
+// Old (v1)
+values, _ := gosnowflake.Array(data)
+
+// New (v2)
+values, err := gosnowflake.Array(data)  // Now returns error for unsupported types
+if err != nil {
+    // handle error
+}
+```
+
+#### 7. Nullable Options Combined
+
+```go
+// Old (v1)
+ctx = gosnowflake.WithMapValuesNullable(ctx, true)
+ctx = gosnowflake.WithArrayValuesNullable(ctx, true)
+
+// New (v2)
+ctx = gosnowflake.WithEmbeddedValuesNullable(ctx, true)  // Handles both maps and arrays
+```
+
+#### 8. Session Parameter Changes
+
+**Chunk download workers:**
+
+```go
+// Old (v1)
+gosnowflake.MaxChunkDownloadWorkers = 10  // Global variable
+
+// New (v2)
+// Configure via CLIENT_PREFETCH_THREADS session parameter
+db.Exec("ALTER SESSION SET CLIENT_PREFETCH_THREADS = 10")
+```
+
+#### 9. Transport Configuration
+
+```go
+// Old (v1)
+transport := gosnowflake.SnowflakeTransport(...)
+
+// New (v2)
+// Use Config.Transporter field or RegisterTLSConfig for custom certificates
+config := &gosnowflake.Config{
+    Transporter: yourCustomTransport,
+}
+// Or for just custom root certificates:
+gosnowflake.RegisterTLSConfig(certPool)
+```
+
+#### 10. Environment Variable Fix
+
+If you use the skip registration environment variable:
+
+```sh
+# Old (v1)
+GOSNOWFLAKE_SKIP_REGISTERATION=true  # Note the typo
+
+# New (v2)
+GOSNOWFLAKE_SKIP_REGISTRATION=true  # Typo fixed
+```
+
+### Additional Resources
+
+- Full list of changes: See [CHANGELOG.md](./CHANGELOG.md)
+- Questions or issues: [GitHub Issues](https://github.com/snowflakedb/gosnowflake/issues)
 
 ## Support
 
