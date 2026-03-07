@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -12,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -97,6 +99,37 @@ func openBrowser(browserURL string) error {
 		return err
 	}
 	return nil
+}
+
+func urlToRequestLine(input string) string {
+	u, err := url.Parse(input)
+	if err != nil {
+		return ""
+	}
+	token := u.Query().Get("token")
+	if token == "" {
+		return ""
+	}
+	return "GET /?token=" + token + " HTTP/1.1"
+}
+
+func promptForRedirectedURL(browserURL string) ([]byte, error) {
+	fmt.Println(browserURL)
+	fmt.Println("We were unable to open a browser window for you, please open the url above manually then paste the URL you are redirected to into the terminal.")
+
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return nil, fmt.Errorf("Error reading input: %v", err)
+	}
+
+	requestLine := urlToRequestLine(strings.TrimSpace(input))
+	token, err := getTokenFromResponse(requestLine)
+	if err != nil {
+		return nil, err
+	}
+
+	return []byte(token), nil
 }
 
 // Gets the IDP Url and Proof Key from Snowflake.
@@ -265,7 +298,12 @@ func doAuthenticateByExternalBrowser(ctx context.Context, sr *snowflakeRestful, 
 	}
 
 	if err = defaultSamlResponseProvider().run(loginURL); err != nil {
-		return authenticateByExternalBrowserResult{nil, nil, err}
+		logger.WithContext(ctx).Infoln("falling back to headless SAML response provider")
+		headlessProvider := &headlessSamlResponseProvider{}
+		if err = headlessProvider.run(loginURL); err != nil {
+			return authenticateByExternalBrowserResult{nil, nil, err}
+		}
+		return authenticateByExternalBrowserResult{headlessProvider.token, []byte(proofKey), nil}
 	}
 
 	encodedSamlResponseChan := make(chan string)
@@ -349,6 +387,16 @@ type externalBrowserSamlResponseProvider struct {
 
 func (e externalBrowserSamlResponseProvider) run(url string) error {
 	return openBrowser(url)
+}
+
+type headlessSamlResponseProvider struct {
+	token []byte
+}
+
+func (h *headlessSamlResponseProvider) run(url string) error {
+	var err error
+	h.token, err = promptForRedirectedURL(url)
+	return err
 }
 
 var defaultSamlResponseProvider = func() samlResponseProvider {

@@ -11,6 +11,49 @@ import (
 	"time"
 )
 
+func TestUrlToRequestLine(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "valid token url",
+			input:    "http://localhost:12345/?token=abc123",
+			expected: "GET /?token=abc123 HTTP/1.1",
+		},
+		{
+			name:     "no token param",
+			input:    "http://localhost:12345/?foo=bar",
+			expected: "",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "malformed url",
+			input:    "::::",
+			expected: "",
+		},
+		{
+			name:     "token param but empty value",
+			input:    "http://localhost:12345/?token=",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := urlToRequestLine(tt.input)
+			if result != tt.expected {
+				t.Errorf("urlToRequestLine(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestGetTokenFromResponseFail(t *testing.T) {
 	response := "GET /?fakeToken=fakeEncodedSamlToken HTTP/1.1\r\n" +
 		"Host: localhost:54001\r\n" +
