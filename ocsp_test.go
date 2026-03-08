@@ -31,9 +31,12 @@ func TestOCSP(t *testing.T) {
 		"https://sfcdev2.blob.core.windows.net/",
 	}
 
+	ocspTransport, err := newTransportFactory(&Config{}, nil).createOCSPTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
+	assertNilF(t, err)
+
 	transports := []http.RoundTripper{
 		createTestNoRevocationTransport(),
-		newTransportFactory(&Config{}, nil).createOCSPTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake)),
+		ocspTransport,
 	}
 
 	for _, enabled := range cacheServerEnabled {

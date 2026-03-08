@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 	"io"
 	"net"
 	"net/http"
@@ -51,7 +52,7 @@ func createDiagnosticClient(cfg *Config) *http.Client {
 
 	clientTimeout := cfg.ClientTimeout
 	if clientTimeout == 0 {
-		clientTimeout = defaultClientTimeout
+		clientTimeout = time.Duration(sfconfig.DefaultClientTimeout)
 	}
 
 	return &http.Client{
@@ -96,7 +97,7 @@ func createDiagnosticDialContext() func(ctx context.Context, network, addr strin
 
 // enhance the transport with IP logging
 func createDiagnosticTransport(cfg *Config) *http.Transport {
-	baseTransport, err := newTransportFactory(cfg, &snowflakeTelemetry{enabled: false}).createTransport(cfg.transportConfigFor(transportTypeSnowflake))
+	baseTransport, err := newTransportFactory(cfg, &snowflakeTelemetry{enabled: false}).createTransport(transportConfigFor(transportTypeSnowflake))
 	if err != nil {
 		logger.Fatalf("[createDiagnosticTransport] failed to get the transport from the config: %v", err)
 	}

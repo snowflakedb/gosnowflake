@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -306,7 +307,7 @@ func postRestfulQueryHelper(
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToPostQuery,
 		SQLState:    SQLStateConnectionFailure,
-		Message:     errMsgFailedToPostQuery,
+		Message:     errors2.ErrMsgFailedToPostQuery,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
 }
@@ -360,7 +361,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 	return &SnowflakeError{
 		Number:      ErrFailedToCloseSession,
 		SQLState:    SQLStateConnectionFailure,
-		Message:     errMsgFailedToCloseSession,
+		Message:     errors2.ErrMsgFailedToCloseSession,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
 }
@@ -427,7 +428,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 	return &SnowflakeError{
 		Number:      ErrFailedToRenewSession,
 		SQLState:    SQLStateConnectionFailure,
-		Message:     errMsgFailedToRenew,
+		Message:     errors2.ErrMsgFailedToRenew,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
 }
@@ -516,7 +517,7 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID UUID, time
 	return &SnowflakeError{
 		Number:      ErrFailedToCancelQuery,
 		SQLState:    SQLStateConnectionFailure,
-		Message:     errMsgFailedToCancelQuery,
+		Message:     errors2.ErrMsgFailedToCancelQuery,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
 }

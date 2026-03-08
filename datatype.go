@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 )
 
@@ -76,10 +77,10 @@ func dataTypeMode(v driver.Value) (tsmode types.SnowflakeType, err error) {
 		case bytes.Equal(bd, DataTypeNilMap):
 			tsmode = types.NilMapType
 		default:
-			return types.NullType, fmt.Errorf(errMsgInvalidByteArray, v)
+			return types.NullType, fmt.Errorf(errors.ErrMsgInvalidByteArray, v)
 		}
 	} else {
-		return types.NullType, fmt.Errorf(errMsgInvalidByteArray, v)
+		return types.NullType, fmt.Errorf(errors.ErrMsgInvalidByteArray, v)
 	}
 	return tsmode, nil
 }

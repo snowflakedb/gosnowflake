@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -64,15 +67,16 @@ const (
 // External cancellation should not be supported because the connection
 // may be reused after the original query/request has completed.
 type snowflakeConn struct {
-	ctx  context.Context
-	cfg  *Config
-	rest *snowflakeRestful
-	// Deprecated: this field will be removed in future releases.
-	SequenceCounter     uint64
+	ctx                 context.Context
+	cfg                 *Config
+	rest                *snowflakeRestful
+	sequenceCounter     uint64
 	telemetry           *snowflakeTelemetry
 	internal            InternalClient
 	queryContextCache   *queryContextCache
 	currentTimeProvider currentTimeProvider
+	idToken             string
+	mfaToken            string
 }
 
 var (
@@ -99,7 +103,7 @@ func (sc *snowflakeConn) exec(
 	}
 
 	var err error
-	counter := atomic.AddUint64(&sc.SequenceCounter, 1) // query sequence counter
+	counter := atomic.AddUint64(&sc.sequenceCounter, 1) // query sequence counter
 	_, _, sessionID := safeGetTokens(sc.rest)
 	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
 	queryContext, err := buildQueryContext(sc.queryContextCache)
@@ -167,7 +171,7 @@ func (sc *snowflakeConn) exec(
 	}
 	logger.WithContext(ctx).Debugf("Success: %v, Code: %v", data.Success, code)
 	if !data.Success {
-		err = (populateErrorFields(code, data)).exceptionTelemetry(sc)
+		err = exceptionTelemetry(populateErrorFields(code, data), sc)
 		return nil, err
 	}
 
@@ -253,18 +257,18 @@ func (sc *snowflakeConn) BeginTx(
 	driver.Tx, error) {
 	logger.WithContext(ctx).Debug("BeginTx")
 	if opts.ReadOnly {
-		return nil, (&SnowflakeError{
+		return nil, exceptionTelemetry(&SnowflakeError{
 			Number:   ErrNoReadOnlyTransaction,
 			SQLState: SQLStateFeatureNotSupported,
-			Message:  errMsgNoReadOnlyTransaction,
-		}).exceptionTelemetry(sc)
+			Message:  errors.ErrMsgNoReadOnlyTransaction,
+		}, sc)
 	}
 	if int(opts.Isolation) != int(sql.LevelDefault) {
-		return nil, (&SnowflakeError{
+		return nil, exceptionTelemetry(&SnowflakeError{
 			Number:   ErrNoDefaultTransactionIsolationLevel,
 			SQLState: SQLStateFeatureNotSupported,
-			Message:  errMsgNoDefaultTransactionIsolationLevel,
-		}).exceptionTelemetry(sc)
+			Message:  errors.ErrMsgNoDefaultTransactionIsolationLevel,
+		}, sc)
 	}
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
@@ -345,12 +349,12 @@ func (sc *snowflakeConn) ExecContext(
 			if e != nil {
 				return nil, e
 			}
-			return nil, (&SnowflakeError{
+			return nil, exceptionTelemetry(&SnowflakeError{
 				Number:   code,
 				SQLState: data.Data.SQLState,
 				Message:  err.Error(),
 				QueryID:  data.Data.QueryID,
-			}).exceptionTelemetry(sc)
+			}, sc)
 		}
 		return nil, err
 	}
@@ -434,12 +438,12 @@ func (sc *snowflakeConn) queryContextInternal(
 			if e != nil {
 				return nil, e
 			}
-			return nil, (&SnowflakeError{
+			return nil, exceptionTelemetry(&SnowflakeError{
 				Number:   code,
 				SQLState: data.Data.SQLState,
 				Message:  err.Error(),
 				QueryID:  data.Data.QueryID,
-			}).exceptionTelemetry(sc)
+			}, sc)
 		}
 		return nil, err
 	}
@@ -550,12 +554,12 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 			if e != nil {
 				return nil, e
 			}
-			return nil, (&SnowflakeError{
+			return nil, exceptionTelemetry(&SnowflakeError{
 				Number:   code,
 				SQLState: data.Data.SQLState,
 				Message:  err.Error(),
 				QueryID:  data.Data.QueryID,
-			}).exceptionTelemetry(sc)
+			}, sc)
 		}
 		return nil, err
 	}
@@ -592,7 +596,7 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 // The provided context is used only for establishing the initial connection.
 func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
 	sc := &snowflakeConn{
-		SequenceCounter:     0,
+		sequenceCounter:     0,
 		ctx:                 ctx,
 		cfg:                 &config,
 		queryContextCache:   (&queryContextCache{}).init(),
@@ -604,7 +608,8 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		return nil, err
 	}
 
-	logger.Debugf("Building snowflakeConn: %v", config.describeIdentityAttributes())
+	logger.Debugf("Building snowflakeConn: %v", fmt.Sprintf("host: %v, account: %v, user: %v, password existed: %v, role: %v, database: %v, schema: %v, warehouse: %v, %v",
+		config.Host, config.Account, config.User, config.Password != "", config.Role, config.Database, config.Schema, config.Warehouse, sfconfig.DescribeProxy(&config)))
 	telemetry := &snowflakeTelemetry{}
 
 	transportFactory := newTransportFactory(&config, telemetry)

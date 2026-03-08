@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 	"io"
 	"net/http"
@@ -441,7 +442,7 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 		return &SnowflakeError{
 			Number:      ErrFailedToGetChunk,
 			SQLState:    SQLStateConnectionFailure,
-			Message:     errMsgFailedToGetChunk,
+			Message:     errors2.ErrMsgFailedToGetChunk,
 			MessageArgs: []any{idx},
 		}
 	}

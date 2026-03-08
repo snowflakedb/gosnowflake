@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"testing"
 	"time"
 )
@@ -25,13 +26,13 @@ func TestTransactionOptions(t *testing.T) {
 			t.Fatal("should have failed.")
 		}
 		if driverErr, ok := err.(*SnowflakeError); !ok || driverErr.Number != ErrNoReadOnlyTransaction {
-			t.Fatalf("should have returned Snowflake Error: %v", errMsgNoReadOnlyTransaction)
+			t.Fatalf("should have returned Snowflake Error: %v", errors2.ErrMsgNoReadOnlyTransaction)
 		}
 		if _, err = dbt.conn.BeginTx(context.Background(), &sql.TxOptions{Isolation: 100}); err == nil {
 			t.Fatal("should have failed.")
 		}
 		if driverErr, ok := err.(*SnowflakeError); !ok || driverErr.Number != ErrNoDefaultTransactionIsolationLevel {
-			t.Fatalf("should have returned Snowflake Error: %v", errMsgNoDefaultTransactionIsolationLevel)
+			t.Fatalf("should have returned Snowflake Error: %v", errors2.ErrMsgNoDefaultTransactionIsolationLevel)
 		}
 	})
 }

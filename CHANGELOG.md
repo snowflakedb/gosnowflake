@@ -1,5 +1,11 @@
 # Changelog
 
+## Upcoming Release
+
+Internal changes:
+
+- Moved configuration to a dedicated internal package (snowflakedb/gosnowflake#1720).
+
 ## 2.0.0
 
 Breaking changes:
@@ -37,8 +43,6 @@ Bug fixes:
 
 - The query `context.Context` is now propagated to cloud storage operations for PUT and GET queries, allowing for better cancellation handling (snowflakedb/gosnowflake#1690).
 
-## Upcoming Release
-
 New features:
 
 - Added support for Go 1.26, dropped support for Go 1.23 (snowflakedb/gosnowflake#1707).
@@ -50,8 +54,13 @@ Bug fixes:
 - Fixed WIF metadata request from Azure container, manifested with HTTP 400 error (snowflakedb/gosnowflake#1701).
 - Fixed SAML authentication port validation bypass in `isPrefixEqual` where the second URL's port was never checked (snowflakedb/gosnowflake#1712).
 - Fixed a race condition in OCSP cache clearer (snowflakedb/gosnowflake#1704).
+- The query `context.Context` is now propagated to cloud storage operations for PUT and GET queries, allowing for better cancellation handling (snowflakedb/gosnowflake#1690).
 - Fixed `tokenFilePath` DSN parameter triggering false validation error claiming both `token` and `tokenFilePath` were specified when only `tokenFilePath` was provided in the DSN string (snowflakedb/gosnowflake#1715).
 - Fixed minicore crash (SIGFPE) on fully statically linked Linux binaries by detecting static linking via ELF PT_INTERP inspection and skipping `dlopen` gracefully (snowflakedb/gosnowflake#1721).
+
+Internal changes:
+
+- Moved configuration to a dedicated internal package (snowflakedb/gosnowflake#1720).
 
 ## 1.19.0
 

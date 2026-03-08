@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 	"math"
@@ -1336,7 +1337,7 @@ func buildMapValues[K comparable, Vnullable any, VnotNullable any](mapValuesNull
 	result := make(map[K]VnotNullable, len(m))
 	for k, v := range m {
 		if v == nil && !nullableByDefault {
-			return nil, errNullValueInMap()
+			return nil, errors2.ErrNullValueInMapError()
 		}
 		if result[k], err = buildNotNullable(v); err != nil {
 			return nil, err
@@ -1771,7 +1772,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata que
 				return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (int64, error) {
 					v := arrowDecimal128ToValue(typedValues, j, higherPrecision, fieldMetadata)
 					if v == nil {
-						return 0, errNullValueInArray()
+						return 0, errors2.ErrNullValueInArrayError()
 					}
 					return strconv.ParseInt(v.(string), 10, 64)
 				})
@@ -1793,7 +1794,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata que
 				return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (float64, error) {
 					v := arrowDecimal128ToValue(typedValues, j, higherPrecision, fieldMetadata)
 					if v == nil {
-						return 0, errNullValueInArray()
+						return 0, errors2.ErrNullValueInArrayError()
 					}
 					return strconv.ParseFloat(v.(string), 64)
 				})
@@ -1812,7 +1813,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata que
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (int64, error) {
 				resInt := arrowInt64ToValue(typedValues, j, higherPrecision, fieldMetadata)
 				if resInt == nil {
-					return 0, errNullValueInArray()
+					return 0, errors2.ErrNullValueInArrayError()
 				}
 				return resInt.(int64), nil
 			})
@@ -1831,7 +1832,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata que
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (int32, error) {
 				resInt := arrowInt32ToValue(typedValues, j, higherPrecision, fieldMetadata)
 				if resInt == nil {
-					return 0, errNullValueInArray()
+					return 0, errors2.ErrNullValueInArrayError()
 				}
 				return resInt.(int32), nil
 			})
@@ -1849,7 +1850,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata que
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (int16, error) {
 				resInt := arrowInt16ToValue(typedValues, j, higherPrecision, fieldMetadata)
 				if resInt == nil {
-					return 0, errNullValueInArray()
+					return 0, errors2.ErrNullValueInArrayError()
 				}
 				return resInt.(int16), nil
 			})
@@ -1867,7 +1868,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata que
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (int8, error) {
 				resInt := arrowInt8ToValue(typedValues, j, higherPrecision, fieldMetadata)
 				if resInt == nil {
-					return 0, errNullValueInArray()
+					return 0, errors2.ErrNullValueInArrayError()
 				}
 				return resInt.(int8), nil
 			})
@@ -1885,7 +1886,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata que
 		return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (float64, error) {
 			resFloat := arrowRealToValue(values.(*array.Float64), j)
 			if resFloat == nil {
-				return 0, errNullValueInArray()
+				return 0, errors2.ErrNullValueInArrayError()
 			}
 			return resFloat.(float64), nil
 		})
@@ -1902,7 +1903,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata que
 		return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (string, error) {
 			resString := arrowStringToValue(values.(*array.String), j)
 			if resString == nil {
-				return "", errNullValueInArray()
+				return "", errors2.ErrNullValueInArrayError()
 			}
 			return resString.(string), nil
 		})
@@ -1919,7 +1920,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata que
 		return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (bool, error) {
 			resBool := arrowBoolToValue(values.(*array.Boolean), j)
 			if resBool == nil {
-				return false, errNullValueInArray()
+				return false, errors2.ErrNullValueInArrayError()
 			}
 			return resBool.(bool), nil
 
@@ -1948,7 +1949,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata que
 		return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (time.Time, error) {
 			v := arrowDateToValue(values.(*array.Date32), j)
 			if v == nil {
-				return time.Time{}, errNullValueInArray()
+				return time.Time{}, errors2.ErrNullValueInArrayError()
 			}
 			return v.(time.Time), nil
 
@@ -1968,7 +1969,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata que
 		return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (time.Time, error) {
 			v := arrowTimeToValue(values, j, fieldMetadata.Scale)
 			if v == nil {
-				return time.Time{}, errNullValueInArray()
+				return time.Time{}, errors2.ErrNullValueInArrayError()
 			}
 			return v.(time.Time), nil
 
@@ -1989,7 +1990,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata que
 			if ptr != nil {
 				return *ptr, nil
 			}
-			return time.Time{}, errNullValueInArray()
+			return time.Time{}, errors2.ErrNullValueInArrayError()
 		})
 	case types.ObjectType:
 		return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (*structuredType, error) {
@@ -2098,7 +2099,7 @@ func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, 
 		}
 		return mapStructuredMapNativeArrowRows(make(map[K]string), offsets, rowIdx, keyFunc, func(j int) (string, error) {
 			if items.IsNull(j) {
-				return "", errNullValueInMap()
+				return "", errors2.ErrNullValueInMapError()
 			}
 			return items.(*array.String).Value(j), nil
 		})
@@ -2113,7 +2114,7 @@ func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, 
 		}
 		return mapStructuredMapNativeArrowRows(make(map[K]bool), offsets, rowIdx, keyFunc, func(j int) (bool, error) {
 			if items.IsNull(j) {
-				return false, errNullValueInMap()
+				return false, errors2.ErrNullValueInMapError()
 			}
 			return items.(*array.Boolean).Value(j), nil
 		})
@@ -2148,7 +2149,7 @@ func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, 
 			}
 			return mapStructuredMapNativeArrowRows(make(map[K]int64), offsets, rowIdx, keyFunc, func(j int) (int64, error) {
 				if items.IsNull(j) {
-					return 0, errNullValueInMap()
+					return 0, errors2.ErrNullValueInMapError()
 				}
 				s, err := mapStructuredMapNativeArrowFixedValue[string](valueMetadata, j, items, higherPrecision, "")
 				if err != nil {
@@ -2172,7 +2173,7 @@ func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, 
 			}
 			return mapStructuredMapNativeArrowRows(make(map[K]float64), offsets, rowIdx, keyFunc, func(j int) (float64, error) {
 				if items.IsNull(j) {
-					return 0, errNullValueInMap()
+					return 0, errors2.ErrNullValueInMapError()
 				}
 				s, err := mapStructuredMapNativeArrowFixedValue[string](valueMetadata, j, items, higherPrecision, "")
 				if err != nil {
@@ -2193,7 +2194,7 @@ func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, 
 		}
 		return mapStructuredMapNativeArrowRows(make(map[K]float64), offsets, rowIdx, keyFunc, func(j int) (float64, error) {
 			if items.IsNull(j) {
-				return 0, errNullValueInMap()
+				return 0, errors2.ErrNullValueInMapError()
 			}
 			return arrowRealToValue(items.(*array.Float64), j).(float64), nil
 		})
@@ -2279,7 +2280,7 @@ func buildTimeFromNativeArrowArray[K comparable](mapNullValuesEnabled bool, offs
 	}
 	return mapStructuredMapNativeArrowRows(make(map[K]time.Time), offsets, rowIdx, keyFunc, func(j int) (time.Time, error) {
 		if items.IsNull(j) {
-			return time.Time{}, errNullValueInMap()
+			return time.Time{}, errors2.ErrNullValueInMapError()
 		}
 		return buildTime(j), nil
 	})

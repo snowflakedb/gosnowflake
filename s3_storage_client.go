@@ -50,7 +50,7 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 	s3Logger := logging.LoggerFunc(s3LoggingFunc)
 	endPoint := getS3CustomEndpoint(info)
 
-	transport, err := newTransportFactory(util.cfg, telemetry).createTransport(util.cfg.transportConfigFor(transportTypeCloudProvider))
+	transport, err := newTransportFactory(util.cfg, telemetry).createTransport(transportConfigFor(transportTypeCloudProvider))
 	if err != nil {
 		return nil, err
 	}

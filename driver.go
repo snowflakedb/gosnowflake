@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 	"os"
 	"strconv"
 	"strings"
@@ -23,7 +24,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	logger.Info("Open")
 	ctx := context.Background()
 	if dsn == "autoConfig" {
-		cfg, err = loadConnectionConfig()
+		cfg, err = sfconfig.LoadConnectionConfig()
 	} else {
 		cfg, err = ParseDSN(dsn)
 	}
@@ -38,7 +39,7 @@ func (d SnowflakeDriver) OpenConnector(dsn string) (driver.Connector, error) {
 	var cfg *Config
 	var err error
 	if dsn == "autoConfig" {
-		cfg, err = loadConnectionConfig()
+		cfg, err = sfconfig.LoadConnectionConfig()
 	} else {
 		cfg, err = ParseDSN(dsn)
 	}
@@ -78,7 +79,7 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 		return nil, err
 	}
 
-	if strings.HasSuffix(strings.ToLower(config.Host), cnDomain) {
+	if strings.HasSuffix(strings.ToLower(config.Host), sfconfig.CnDomain) {
 		logger.WithContext(ctx).Info("Connecting to CHINA Snowflake domain")
 	} else {
 		logger.WithContext(ctx).Info("Connecting to GLOBAL Snowflake domain")

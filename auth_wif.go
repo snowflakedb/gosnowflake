@@ -21,6 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/golang-jwt/jwt/v5"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
 
 const (
@@ -79,7 +80,7 @@ func createWifAttestationProvider(ctx context.Context, cfg *Config, telemetry *s
 			workloadIdentityEntraResource:    determineEntraResource(cfg),
 			azureMetadataServiceBaseURL:      defaultMetadataServiceBase,
 		},
-		oidcCreator: &oidcIdentityAttestationCreator{token: cfg.getToken},
+		oidcCreator: &oidcIdentityAttestationCreator{token: func() (string, error) { return sfconfig.GetToken(cfg) }},
 	}
 }
 
@@ -332,7 +333,7 @@ func (c *gcpIdentityAttestationCreator) createTokenRequest() (*http.Request, err
 
 func (c *gcpIdentityAttestationCreator) createGcpIdentityViaImpersonation() (*wifAttestation, error) {
 	// initialize transport
-	transport, err := newTransportFactory(c.cfg, c.telemetry).createTransport(c.cfg.transportConfigFor(transportTypeWIF))
+	transport, err := newTransportFactory(c.cfg, c.telemetry).createTransport(transportConfigFor(transportTypeWIF))
 	if err != nil {
 		logger.Debugf("Failed to create HTTP transport: %v", err)
 		return nil, err
@@ -457,7 +458,7 @@ func (c *gcpIdentityAttestationCreator) fetchImpersonatedToken(targetServiceAcco
 }
 
 func fetchTokenFromMetadataService(req *http.Request, cfg *Config, telemetry *snowflakeTelemetry) string {
-	transport, err := newTransportFactory(cfg, telemetry).createTransport(cfg.transportConfigFor(transportTypeWIF))
+	transport, err := newTransportFactory(cfg, telemetry).createTransport(transportConfigFor(transportTypeWIF))
 	if err != nil {
 		logger.Debugf("Failed to create HTTP transport: %v", err)
 		return ""

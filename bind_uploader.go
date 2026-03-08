@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 	"math/big"
@@ -84,10 +85,10 @@ func (bu *bindUploader) uploadStreamInternal(
 	}
 	stageName := bu.stagePath
 	if stageName == "" {
-		return nil, (&SnowflakeError{
+		return nil, exceptionTelemetry(&SnowflakeError{
 			Number:  ErrBindUpload,
 			Message: "stage name is null",
-		}).exceptionTelemetry(bu.sc)
+		}, bu.sc)
 	}
 
 	// use a placeholder for source file
@@ -116,12 +117,12 @@ func (bu *bindUploader) createStageIfNeeded() error {
 		if err != nil {
 			return err
 		}
-		return (&SnowflakeError{
+		return exceptionTelemetry(&SnowflakeError{
 			Number:   code,
 			SQLState: data.Data.SQLState,
 			Message:  data.Message,
 			QueryID:  data.Data.QueryID,
-		}).exceptionTelemetry(bu.sc)
+		}, bu.sc)
 	}
 	bu.arrayBindStage = bindStageName
 	return nil
@@ -131,10 +132,10 @@ func (bu *bindUploader) createStageIfNeeded() error {
 func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte, error) {
 	numColumns := len(columns)
 	if columns[0].Value == nil {
-		return nil, (&SnowflakeError{
+		return nil, exceptionTelemetry(&SnowflakeError{
 			Number:  ErrBindSerialization,
 			Message: "no binds found in the first column",
-		}).exceptionTelemetry(bu.sc)
+		}, bu.sc)
 	}
 
 	_, column, err := snowflakeArrayToString(&columns[0], true)
@@ -162,11 +163,11 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 		}
 		iNumRows := len(column)
 		if iNumRows != numRows {
-			return nil, (&SnowflakeError{
+			return nil, exceptionTelemetry(&SnowflakeError{
 				Number:      ErrBindSerialization,
-				Message:     errMsgBindColumnMismatch,
+				Message:     errors.ErrMsgBindColumnMismatch,
 				MessageArgs: []interface{}{colIdx, iNumRows, numRows},
-			}).exceptionTelemetry(bu.sc)
+			}, bu.sc)
 		}
 		for rowIdx := 0; rowIdx < numRows; rowIdx++ {
 			// length of column = number of rows

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 	"io"
 	"net/http"
 	"sync"
@@ -29,7 +30,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 		OauthRedirectURI:               "http://localhost:1234/snowflake/oauth-redirect",
 		Transporter:                    roundTripper,
 		ClientStoreTemporaryCredential: ConfigBoolTrue,
-		ExternalBrowserTimeout:         defaultExternalBrowserTimeout,
+		ExternalBrowserTimeout:         time.Duration(sfconfig.DefaultExternalBrowserTimeout),
 	}
 	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg, &snowflakeConn{})
 	assertNilF(t, err)
