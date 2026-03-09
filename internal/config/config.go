@@ -107,7 +107,7 @@ type Config struct {
 	CrlAllowCertificatesWithoutCrlURL Bool                    // Allow certificates (not short-lived) without CRL DP included to be treated as correct ones
 	CrlInMemoryCacheDisabled          bool                    // Should the in-memory cache be disabled
 	CrlOnDiskCacheDisabled            bool                    // Should the on-disk cache be disabled
-	CrlDownloadMaxSize                int                     // Max size in bytes of CRL to download. 0 means no limit. Default is 0.
+	CrlDownloadMaxSize                int                     // Max size in bytes of CRL to download. 0 means use default (20MB).
 	CrlHTTPClientTimeout              time.Duration           // Timeout for HTTP client used to download CRL
 
 	ConnectionDiagnosticsEnabled       bool   // Indicates whether connection diagnostics should be enabled
