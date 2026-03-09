@@ -36,7 +36,7 @@ jobs:
           - name: Setup go
             uses: actions/setup-go@v5
             with:
-              go-version: '1.25'
+              go-version: '1.26'
           - name: golangci-lint
             uses: golangci/golangci-lint-action@v7
             with:
@@ -44,6 +44,9 @@ jobs:
           - name: Format, Lint
             shell: bash
             run: ./ci/build.sh
+          - name: Run go fix across all platforms and tags
+            shell: bash
+            run: ./ci/gofix.sh
     build-test-linux:
         runs-on: ubuntu-latest
         strategy:
