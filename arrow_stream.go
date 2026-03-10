@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"strconv"
 	"time"
@@ -78,9 +79,7 @@ func (w *streamWrapReader) Close() error {
 func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) error {
 	headers := make(map[string]string)
 	if len(asb.scd.ChunkHeader) > 0 {
-		for k, v := range asb.scd.ChunkHeader {
-			headers[k] = v
-		}
+		maps.Copy(headers, asb.scd.ChunkHeader)
 	} else {
 		headers[headerSseCAlgorithm] = headerSseCAes
 		headers[headerSseCKey] = asb.scd.Qrmk
