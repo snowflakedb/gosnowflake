@@ -229,7 +229,7 @@ func (lcd *largeChunkDecoder) getu4WithPrefix() (rune, int) {
 
 func (lcd *largeChunkDecoder) getu4() rune {
 	var r rune
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		c := lcd.nextByte()
 		switch {
 		case '0' <= c && c <= '9':

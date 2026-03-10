@@ -272,7 +272,7 @@ func TestGetArrowBatchesLargeResultSet(t *testing.T) {
 	var wg sync.WaitGroup
 	work := make(chan int, len(batches))
 
-	for w := 0; w < maxWorkers; w++ {
+	for range maxWorkers {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
