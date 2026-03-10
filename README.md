@@ -129,14 +129,14 @@ func init() {
 	_ = gosnowflake.GetLogger().SetLogLevel("debug")
 }
 ```
-The following is a list of options you can pass in to set the level from least to most verbose: 
+The following is a list of options you can pass in to set the level from least to most verbose:
 - `"OFF"`
+- `"fatal"`
 - `"error"`
 - `"warn"`
-- `"print"`
-- `"trace"`
-- `"debug"`
 - `"info"`
+- `"debug"`
+- `"trace"`
 
 
 ## Capturing Code Coverage
