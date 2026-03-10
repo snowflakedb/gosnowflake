@@ -458,7 +458,7 @@ func TestRetryAuthLoginRequest(t *testing.T) {
 	execID := 0
 	bodyCreator := func() ([]byte, error) {
 		execID++
-		return []byte(fmt.Sprintf("execID: %d", execID)), nil
+		return fmt.Appendf(nil, "execID: %d", execID), nil
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,

@@ -423,7 +423,7 @@ func TestCrlModes(t *testing.T) {
 				idpValue, err := asn1.Marshal(issuingDistributionPoint{
 					DistributionPoint: distributionPointName{
 						FullName: []asn1.RawValue{
-							{Bytes: []byte(fmt.Sprintf("http://localhost:%v/rootCrl", port))},
+							{Bytes: fmt.Appendf(nil, "http://localhost:%v/rootCrl", port)},
 						},
 					},
 				})
@@ -452,7 +452,7 @@ func TestCrlModes(t *testing.T) {
 				idpValue, err := asn1.Marshal(issuingDistributionPoint{
 					DistributionPoint: distributionPointName{
 						FullName: []asn1.RawValue{
-							{Bytes: []byte(fmt.Sprintf("http://localhost:%v/otherCrl", port))},
+							{Bytes: fmt.Appendf(nil, "http://localhost:%v/otherCrl", port)},
 						},
 					},
 				})
