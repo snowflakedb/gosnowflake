@@ -2821,7 +2821,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (types.Snowflake
 	default:
 		// Support for bulk array binding insertion using []interface{}
 		nvValue := reflect.ValueOf(nv)
-		if nvValue.Kind() == reflect.Ptr {
+		if nvValue.Kind() == reflect.Pointer {
 			value := reflect.Indirect(reflect.ValueOf(nv.Value))
 			if isInterfaceArrayBinding(value.Interface()) {
 				timeStruct, ok := value.Interface().(interfaceArrayBinding)
