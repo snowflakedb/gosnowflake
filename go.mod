@@ -18,6 +18,7 @@ require (
 	github.com/aws/smithy-go v1.22.5
 	github.com/gabriel-vasile/mimetype v1.4.7
 	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/klauspost/compress v1.18.0
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	go.opentelemetry.io/otel v1.37.0
 	go.opentelemetry.io/otel/sdk v1.35.0
@@ -54,7 +55,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/klauspost/asmfmt v1.3.2 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
 	github.com/minio/asm2plan9s v0.0.0-20200509001527-cdd76441f9d8 // indirect
 	github.com/minio/c2goasm v0.0.0-20190812172519-36a3d3bbc4f3 // indirect
