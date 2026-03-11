@@ -8,6 +8,7 @@ import (
 	"github.com/snowflakedb/gosnowflake/v2/sflog"
 	"io"
 	"log/slog"
+	"maps"
 	"strings"
 	"sync"
 	"testing"
@@ -100,9 +101,7 @@ func (l *customLogger) Fatal(msg string) {
 
 func (l *customLogger) WithField(key string, value interface{}) gosnowflake.LogEntry {
 	newFields := make(map[string]interface{})
-	for k, v := range l.fields {
-		newFields[k] = v
-	}
+	maps.Copy(newFields, l.fields)
 	newFields[key] = value
 
 	return &customLogEntry{
@@ -113,12 +112,8 @@ func (l *customLogger) WithField(key string, value interface{}) gosnowflake.LogE
 
 func (l *customLogger) WithFields(fields map[string]any) gosnowflake.LogEntry {
 	newFields := make(map[string]interface{})
-	for k, v := range l.fields {
-		newFields[k] = v
-	}
-	for k, v := range fields {
-		newFields[k] = v
-	}
+	maps.Copy(newFields, l.fields)
+	maps.Copy(newFields, fields)
 
 	return &customLogEntry{
 		logger: l,
@@ -128,9 +123,7 @@ func (l *customLogger) WithFields(fields map[string]any) gosnowflake.LogEntry {
 
 func (l *customLogger) WithContext(ctx context.Context) gosnowflake.LogEntry {
 	newFields := make(map[string]interface{})
-	for k, v := range l.fields {
-		newFields[k] = v
-	}
+	maps.Copy(newFields, l.fields)
 
 	// Extract context fields
 	if sessionID := ctx.Value(gosnowflake.SFSessionIDKey); sessionID != nil {

@@ -2,6 +2,10 @@
 
 ## Upcoming Release
 
+Bug fixes:
+
+- Fixed default `CrlDownloadMaxSize` to be 20MB instead of 200MB, as the previous value was set too high and could cause out-of-memory issues (snowflakedb/gosnowflake#1735)
+
 Internal changes:
 
 - Moved configuration to a dedicated internal package (snowflakedb/gosnowflake#1720).
@@ -12,7 +16,7 @@ Breaking changes:
 
 - Removed `RaisePutGetError` from `SnowflakeFileTransferOptions` - current behaviour is aligned to always raise errors for PUT/GET operations (snowflakedb/gosnowflake#1690).
 - Removed `GetFileToStream` from `SnowflakeFileTransferOptions` - using `WithFileGetStream` automatically enables file streaming for GETs (snowflakedb/gosnowflake#1690).
-- Renamed `WithFileStream` to `WithFilePutStream` for consistency (snowflakedb/gosnowflake#1690). 
+- Renamed `WithFileStream` to `WithFilePutStream` for consistency (snowflakedb/gosnowflake#1690).
 - `Array` function now returns error for unsupported types (snowflakedb/gosnowflake#1693).
 - `WithMultiStatement` does not return error anymore (snowflakedb/gosnowflake#1693).
 - `WithOriginalTimestamp` is removed, use `WithArrowBatchesTimestampOption(UseOriginalTimestamp)` instead (snowflakedb/gosnowflake#1693).
