@@ -156,7 +156,7 @@ const (
 	defaultCrlHTTPClientTimeout       = 10 * time.Second
 	defaultCrlCacheValidityTime       = 24 * time.Hour
 	defaultCrlOnDiskCacheRemovalDelay = 7 * time.Hour
-	defaultCrlDownloadMaxSize         = 200 * 1024 * 1024 // 200 MB
+	defaultCrlDownloadMaxSize         = 20 * 1024 * 1024 // 20 MB
 )
 
 func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
