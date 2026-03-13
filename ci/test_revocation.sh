@@ -20,17 +20,21 @@ REVOCATION_BRANCH="${REVOCATION_BRANCH:-main}"
 
 rm -rf "$REVOCATION_DIR"
 if [ -n "$GITHUB_USER" ] && [ -n "$GITHUB_TOKEN" ]; then
-    git clone --depth 1 --branch "$REVOCATION_BRANCH" "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/snowflakedb/revocation-validation.git" "$REVOCATION_DIR"
+    git clone --depth 1 --branch "$REVOCATION_BRANCH" "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/snowflake-eng/revocation-validation.git" "$REVOCATION_DIR"
 else
-    git clone --depth 1 --branch "$REVOCATION_BRANCH" "https://github.com/snowflakedb/revocation-validation.git" "$REVOCATION_DIR"
+    git clone --depth 1 --branch "$REVOCATION_BRANCH" "https://github.com/snowflake-eng/revocation-validation.git" "$REVOCATION_DIR"
 fi
 
 cd "$REVOCATION_DIR"
 
-# Point the framework at the local Go driver checkout
-go mod edit -replace "github.com/snowflakedb/gosnowflake=${DRIVER_DIR}"
+# Update the framework to import gosnowflake v2 directly
+find . -name '*.go' -exec sed -i 's|"github.com/snowflakedb/gosnowflake"|"github.com/snowflakedb/gosnowflake/v2"|g' {} +
+go mod edit -droprequire "github.com/snowflakedb/gosnowflake"
+
+# Point the framework at the local Go driver v2 checkout
+go mod edit -replace "github.com/snowflakedb/gosnowflake/v2=${DRIVER_DIR}"
 go mod tidy
-echo "[Info] Replaced gosnowflake module with local checkout: $DRIVER_DIR"
+echo "[Info] Replaced gosnowflake v2 module with local checkout: $DRIVER_DIR"
 
 echo "[Info] Running tests with Go $(go version | grep -oE 'go[0-9]+\.[0-9]+')..."
 
