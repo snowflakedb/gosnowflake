@@ -1075,21 +1075,19 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 }
 
 func TestPutCancel(t *testing.T) {
-	sourceDir, err := os.Getwd()
-	assertNilF(t, err)
-
-	testData, cleanup := createCancelTestFile(t, sourceDir)
-	defer cleanup()
+	testData := createCancelTestFile(t)
 
 	stageDir := "test_put_cancel_" + randomString(10)
 
 	runDBTest(t, func(dbt *DBTest) {
-		c := make(chan error)
+		c := make(chan error, 1)
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
-			_, err = dbt.conn.ExecContext(
+			// Use a larger, non-compressed single-part upload so cancellation
+			// wins reliably even on faster runners.
+			_, err := dbt.conn.ExecContext(
 				ctx,
-				fmt.Sprintf("put 'file://%v' @~/%v overwrite=true",
+				fmt.Sprintf("put 'file://%v' @~/%v overwrite=true auto_compress=false parallel=1",
 					strings.ReplaceAll(testData, "\\", "/"), stageDir))
 			c <- err
 			close(c)
@@ -1275,27 +1273,17 @@ func createLimitedRealFile(t *testing.T, sourceDir string) string {
 	return fname
 }
 
-func createCancelTestFile(t *testing.T, sourceDir string) (string, func()) {
-	originalFile, err := os.Open(filepath.Join(sourceDir, "test_data/largefile.txt"))
-	assertNilF(t, err)
-	defer originalFile.Close()
+func createCancelTestFile(t *testing.T) string {
+	t.Helper()
 
-	tmpFile, err := os.CreateTemp(sourceDir, "cancel_test_*.txt")
-	assertNilF(t, err)
-	fname := tmpFile.Name()
-
-	limitSize := int64(10 * 1024 * 1024) // 10MB
-	limitedReader := io.LimitReader(originalFile, limitSize)
-
-	_, err = io.Copy(tmpFile, limitedReader)
-	assertNilF(t, err)
+	tmpFile, err := os.CreateTemp(t.TempDir(), "cancel_test_*.bin")
+	assertNilF(t, err, "creating temp file")
+	// Grow the empty temp file to 128 MiB without copying fixture data.
+	// The extended region reads back as zero bytes, which is sufficient for PUT.
+	assertNilF(t, tmpFile.Truncate(128*1024*1024), "truncating temp file to 128 MiB")
 
 	err = tmpFile.Close()
-	assertNilF(t, err)
+	assertNilF(t, err, "closing temp file")
 
-	cleanup := func() {
-		os.Remove(fname)
-	}
-
-	return fname, cleanup
+	return tmpFile.Name()
 }
