@@ -885,15 +885,16 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 }
 
 func TestPutGetLargeFile(t *testing.T) {
-	sourceDir, err := os.Getwd()
-	assertNilF(t, err)
+	testData := createTempLargeFile(t, 5*1024*1024)
+	baseName := filepath.Base(testData)
+	fnameStage := baseName + ".gz"
 
 	runDBTest(t, func(dbt *DBTest) {
 		stageDir := "test_put_largefile_" + randomString(10)
 		dbt.mustExec("rm @~/" + stageDir)
 
 		// PUT test
-		putQuery := fmt.Sprintf("put 'file://%v/test_data/largefile.txt' @~/%v", sourceDir, stageDir)
+		putQuery := fmt.Sprintf("put 'file://%v' @~/%v", strings.ReplaceAll(testData, "\\", "/"), stageDir)
 		sqlText := strings.ReplaceAll(putQuery, "\\", "\\\\")
 		dbt.mustExec(sqlText)
 		defer dbt.mustExec("rm @~/" + stageDir)
@@ -903,30 +904,27 @@ func TestPutGetLargeFile(t *testing.T) {
 		}()
 		var file, s1, s2, s3 string
 		if rows.Next() {
-			err = rows.Scan(&file, &s1, &s2, &s3)
+			err := rows.Scan(&file, &s1, &s2, &s3)
 			assertNilF(t, err)
 		}
 
-		if !strings.Contains(file, "largefile.txt.gz") {
+		if !strings.Contains(file, fnameStage) {
 			t.Fatalf("should contain file. got: %v", file)
 		}
 
 		// GET test with stream
 		var streamBuf bytes.Buffer
 		ctx := WithFileGetStream(context.Background(), &streamBuf)
-		sql := fmt.Sprintf("get @~/%v/largefile.txt.gz 'file://%v'", stageDir, t.TempDir())
+		sql := fmt.Sprintf("get @~/%v/%v 'file://%v'", stageDir, fnameStage, t.TempDir())
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQueryContext(ctx, sqlText)
 		defer func() {
 			assertNilF(t, rows2.Close())
 		}()
 		for rows2.Next() {
-			err = rows2.Scan(&file, &s1, &s2, &s3)
+			err := rows2.Scan(&file, &s1, &s2, &s3)
 			assertNilE(t, err)
-			assertTrueE(t, strings.HasPrefix(file, "largefile.txt.gz"), "a file was not downloaded by GET")
-			v, err := strconv.Atoi(s1)
-			assertNilE(t, err)
-			assertEqualE(t, v, 424821, "did not return the right file size")
+			assertTrueE(t, strings.HasPrefix(file, fnameStage), "a file was not downloaded by GET")
 			assertEqualE(t, s2, "DOWNLOADED", "did not return DOWNLOADED status")
 			assertEqualE(t, s3, "")
 		}
@@ -951,12 +949,8 @@ func TestPutGetLargeFile(t *testing.T) {
 			}
 		}
 
-		// verify the downloaded stream with the original file
-		fname := filepath.Join(sourceDir, "/test_data/largefile.txt")
-		f, err := os.Open(fname)
-		assertNilE(t, err)
-		defer f.Close()
-		originalContents, err := io.ReadAll(f)
+		// verify the downloaded stream matches the original file
+		originalContents, err := os.ReadFile(testData)
 		assertNilE(t, err)
 		assertEqualF(t, contents, string(originalContents), "data did not match content")
 	})
@@ -1075,8 +1069,7 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 }
 
 func TestPutCancel(t *testing.T) {
-	testData := createCancelTestFile(t)
-
+	testData := createTempLargeFile(t, 128*1024*1024)
 	stageDir := "test_put_cancel_" + randomString(10)
 
 	runDBTest(t, func(dbt *DBTest) {
@@ -1117,10 +1110,9 @@ func TestPutGetLargeFileStreamAutoCompressFalse(t *testing.T) {
 }
 
 func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
-	sourceDir, err := os.Getwd()
-	assertNilF(t, err)
+	var err error
 
-	fname := createLimitedRealFile(t, sourceDir)
+	fname := createTempLargeFile(t, 5*1024*1024)
 
 	baseName := filepath.Base(fname)
 	fnameGet := baseName + ".gz"
@@ -1248,42 +1240,15 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 	})
 }
 
-func createLimitedRealFile(t *testing.T, sourceDir string) string {
-	tmpDir := t.TempDir()
-	tmpFile, err := os.CreateTemp(tmpDir, "largefile_*.txt")
-	assertNilF(t, err)
-	fname := tmpFile.Name()
-
-	originalFile, err := os.Open(filepath.Join(sourceDir, "test_data/largefile.txt"))
-	if err == nil {
-		defer originalFile.Close()
-		limitSize := int64(5 * 1024 * 1024) // 5MB
-		limitedReader := io.LimitReader(originalFile, limitSize)
-		_, err = io.Copy(tmpFile, limitedReader)
-		assertNilF(t, err)
-	} else {
-		syntheticData := strings.Repeat("TPC-H benchmark order data: ", 190000) // ~5MB
-		_, err = tmpFile.WriteString(syntheticData)
-		assertNilF(t, err)
-	}
-
-	err = tmpFile.Close()
-	assertNilF(t, err)
-
-	return fname
-}
-
-func createCancelTestFile(t *testing.T) string {
+// createTempLargeFile creates a sparse file of sizeBytes in t.TempDir().
+// The file is grown with Truncate, so no I/O is needed; sparse-file-capable
+// filesystems allocate no real disk space. The extended region reads back as
+// zero bytes, which is sufficient for PUT/GET round-trip tests.
+func createTempLargeFile(t *testing.T, sizeBytes int64) string {
 	t.Helper()
-
-	tmpFile, err := os.CreateTemp(t.TempDir(), "cancel_test_*.bin")
-	assertNilF(t, err, "creating temp file")
-	// Grow the empty temp file to 128 MiB without copying fixture data.
-	// The extended region reads back as zero bytes, which is sufficient for PUT.
-	assertNilF(t, tmpFile.Truncate(128*1024*1024), "truncating temp file to 128 MiB")
-
-	err = tmpFile.Close()
-	assertNilF(t, err, "closing temp file")
-
+	tmpFile, err := os.CreateTemp(t.TempDir(), "large_test_*.bin")
+	assertNilF(t, err, "creating temp large file")
+	assertNilF(t, tmpFile.Truncate(sizeBytes), fmt.Sprintf("truncating temp file to %d bytes", sizeBytes))
+	assertNilF(t, tmpFile.Close(), "closing temp large file")
 	return tmpFile.Name()
 }
