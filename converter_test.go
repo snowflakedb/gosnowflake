@@ -21,7 +21,6 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/decimal128"
 	"github.com/apache/arrow-go/v18/arrow/memory"
-
 )
 
 func stringIntToDecimal(src string) (decimal128.Num, bool) {
