@@ -410,35 +410,35 @@ func buildSowcFromType(params map[string]*string, typ reflect.Type) (*structured
 			if field.Type.Kind() == reflect.Pointer {
 				t = field.Type.Elem()
 			}
-			if t.AssignableTo(reflect.TypeOf(sql.NullString{})) {
+			if t.AssignableTo(reflect.TypeFor[sql.NullString]()) {
 				if err := childSowc.WriteNullString(fieldName, sql.NullString{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullByte{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullByte]()) {
 				if err := childSowc.WriteNullByte(fieldName, sql.NullByte{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullInt16{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullInt16]()) {
 				if err := childSowc.WriteNullInt16(fieldName, sql.NullInt16{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullInt32{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullInt32]()) {
 				if err := childSowc.WriteNullInt32(fieldName, sql.NullInt32{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullInt64{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullInt64]()) {
 				if err := childSowc.WriteNullInt64(fieldName, sql.NullInt64{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullFloat64{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullFloat64]()) {
 				if err := childSowc.WriteNullFloat64(fieldName, sql.NullFloat64{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullBool{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullBool]()) {
 				if err := childSowc.WriteNullBool(fieldName, sql.NullBool{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullTime{})) || t.AssignableTo(reflect.TypeOf(time.Time{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullTime]()) || t.AssignableTo(reflect.TypeFor[time.Time]()) {
 				timeSnowflakeType, err := getTimeSnowflakeType(field)
 				if err != nil {
 					return nil, err
@@ -453,7 +453,7 @@ func buildSowcFromType(params map[string]*string, typ reflect.Type) (*structured
 				if err := childSowc.WriteNullableStruct(fieldName, nil, field.Type); err != nil {
 					return nil, err
 				}
-			} else if t.Implements(reflect.TypeOf((*driver.Valuer)(nil)).Elem()) {
+			} else if t.Implements(reflect.TypeFor[driver.Valuer]()) {
 				if err := childSowc.WriteNullString(fieldName, sql.NullString{}); err != nil {
 					return nil, err
 				}
@@ -622,7 +622,7 @@ func (sowc *structuredObjectWriterContext) WriteAll(sow StructuredObjectWriter) 
 		} else if field.Type.Kind() == reflect.Slice || field.Type.Kind() == reflect.Map {
 			var timeSfType []byte
 			var err error
-			if field.Type.Elem().AssignableTo(reflect.TypeOf(time.Time{})) || field.Type.Elem().AssignableTo(reflect.TypeOf(sql.NullTime{})) {
+			if field.Type.Elem().AssignableTo(reflect.TypeFor[time.Time]()) || field.Type.Elem().AssignableTo(reflect.TypeFor[sql.NullTime]()) {
 				timeSfType, err = getTimeSnowflakeType(typ.Field(i))
 				if err != nil {
 					return err

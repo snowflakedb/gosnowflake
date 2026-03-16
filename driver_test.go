@@ -955,21 +955,21 @@ func TestDecfloat(t *testing.T) {
 									}
 									columnTypes, err := rows.ColumnTypes()
 									assertNilF(t, err)
-									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(""))
+									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeFor[string]())
 								} else if higherPrecision {
 									var bf *big.Float
 									rows.mustScan(&bf)
 									assertEqualE(t, bf.Text('g', 38), tc.higherPrecisionOutput)
 									columnTypes, err := rows.ColumnTypes()
 									assertNilF(t, err)
-									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(&big.Float{}))
+									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeFor[*big.Float]())
 								} else {
 									var f float64
 									rows.mustScan(&f)
 									assertEqualEpsilonE(t, f, tc.standardPrecisionOutput, 0.0001)
 									columnTypes, err := rows.ColumnTypes()
 									assertNilF(t, err)
-									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(0.0))
+									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeFor[float64]())
 								}
 								rows.mustNext()
 								if !decfloatMappingEnabled {
