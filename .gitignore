@@ -15,6 +15,8 @@ whitesource/
 *.swp
 cp.out
 __debug_bin*
+test-output.txt
+test-report.junit.xml
 
 # exclude vendor
 vendor
