@@ -8,11 +8,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
-
-var paramsMutex *sync.Mutex
 
 // SnowflakeDriver is a context of Go Driver
 type SnowflakeDriver struct{}
@@ -125,5 +122,4 @@ func init() {
 	if runningOnGithubAction() {
 		_ = GetLogger().SetLogLevel("fatal")
 	}
-	paramsMutex = &sync.Mutex{}
 }

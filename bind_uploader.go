@@ -109,7 +109,7 @@ func (bu *bindUploader) createStageIfNeeded() error {
 	data, err := bu.sc.exec(bu.ctx, createTemporaryStageStmt, false, false, false, []driver.NamedValue{})
 	if err != nil {
 		newThreshold := "0"
-		bu.sc.cfg.Params[sessionArrayBindStageThreshold] = &newThreshold
+		bu.sc.syncParams.set(sessionArrayBindStageThreshold, &newThreshold)
 		return err
 	}
 	if !data.Success {
@@ -226,7 +226,7 @@ func (sc *snowflakeConn) processBindings(
 		req.Bindings = nil
 		req.BindStage = uploader.stagePath
 	} else {
-		req.Bindings, err = getBindValues(bindings, sc.cfg.Params)
+		req.Bindings, err = getBindValues(bindings, &sc.syncParams)
 		if err != nil {
 			return err
 		}
@@ -235,7 +235,7 @@ func (sc *snowflakeConn) processBindings(
 	return nil
 }
 
-func getBindValues(bindings []driver.NamedValue, params map[string]*string) (map[string]execBindParameter, error) {
+func getBindValues(bindings []driver.NamedValue, params *syncParams) (map[string]execBindParameter, error) {
 	tsmode := types.TimestampNtzType
 	idx := 1
 	var err error

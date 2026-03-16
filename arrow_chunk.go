@@ -19,7 +19,7 @@ type arrowResultChunk struct {
 	allocator memory.Allocator
 }
 
-func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []query.ExecResponseRowType, highPrec bool, params map[string]*string) ([]chunkRowType, error) {
+func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []query.ExecResponseRowType, highPrec bool, params *syncParams) ([]chunkRowType, error) {
 	defer arc.reader.Release()
 	logger.Debug("Arrow Decoder")
 	var chunkRows []chunkRowType

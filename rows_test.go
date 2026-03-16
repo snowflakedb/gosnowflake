@@ -115,9 +115,7 @@ func TestRowsWithoutChunkDownloader(t *testing.T) {
 	cm := []query.ExecResponseChunk{}
 	rows := new(snowflakeRows)
 	sc := &snowflakeConn{
-		cfg: &Config{
-			Params: make(map[string]*string),
-		},
+		cfg: &Config{},
 	}
 	rows.sc = sc
 	rows.ctx = context.Background()
@@ -187,12 +185,12 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 	}
 	rows := new(snowflakeRows)
 	two := "2"
+	params := map[string]*string{
+		clientPrefetchThreadsKey: &two,
+	}
 	sc := &snowflakeConn{
-		cfg: &Config{
-			Params: map[string]*string{
-				clientPrefetchThreadsKey: &two,
-			},
-		},
+		cfg: &Config{},
+		syncParams: syncParams{params: params},
 	}
 	rows.sc = sc
 	rows.ctx = context.Background()
@@ -269,12 +267,12 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 	}
 	rows := new(snowflakeRows)
 	three := "3"
+	params := map[string]*string{
+		clientPrefetchThreadsKey: &three,
+	}
 	sc := &snowflakeConn{
-		cfg: &Config{
-			Params: map[string]*string{
-				clientPrefetchThreadsKey: &three,
-			},
-		},
+		cfg: &Config{},
+		syncParams: syncParams{params: params},
 	}
 	rows.sc = sc
 	rows.ctx = context.Background()
@@ -354,9 +352,7 @@ func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
 	}
 	rows := new(snowflakeRows)
 	sc := &snowflakeConn{
-		cfg: &Config{
-			Params: make(map[string]*string),
-		},
+		cfg: &Config{},
 	}
 	rows.sc = sc
 	rows.ctx = context.Background()

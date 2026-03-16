@@ -240,12 +240,12 @@ func TestPruneBySessionValue(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.size, func(t *testing.T) {
+			params := map[string]*string{
+				queryContextCacheSizeParamName: &tc.size,
+			}
 			sc := &snowflakeConn{
-				cfg: &Config{
-					Params: map[string]*string{
-						queryContextCacheSizeParamName: &tc.size,
-					},
-				},
+				cfg:        &Config{},
+				syncParams: syncParams{params: params},
 			}
 
 			qcc := (&queryContextCache{}).init()
@@ -270,9 +270,7 @@ func TestPruneByDefaultValue(t *testing.T) {
 	qce6 := queryContextEntry{6, 6, 6, ""}
 
 	sc := &snowflakeConn{
-		cfg: &Config{
-			Params: map[string]*string{},
-		},
+		cfg: &Config{},
 	}
 
 	qcc := (&queryContextCache{}).init()
@@ -296,9 +294,7 @@ func TestNoQcesClearsCache(t *testing.T) {
 	qce1 := queryContextEntry{1, 1, 1, ""}
 
 	sc := &snowflakeConn{
-		cfg: &Config{
-			Params: map[string]*string{},
-		},
+		cfg: &Config{},
 	}
 
 	qcc := (&queryContextCache{}).init()
@@ -317,9 +313,7 @@ func TestNoQcesClearsCache(t *testing.T) {
 
 func htapTestSnowflakeConn() *snowflakeConn {
 	return &snowflakeConn{
-		cfg: &Config{
-			Params: map[string]*string{},
-		},
+		cfg: &Config{},
 	}
 }
 
@@ -510,22 +504,25 @@ func TestHTAPOptimizations(t *testing.T) {
 					}
 				})
 				t.Run("Session param - DATE_OUTPUT_FORMAT", func(t *testing.T) {
-					if !strings.EqualFold(*sct.sc.cfg.Params["date_output_format"], "YYYY-MM-DD") {
-						t.Errorf("should use default date_output_format, but got: %v", *sct.sc.cfg.Params["date_output_format"])
+					dateFormat, _ := sct.sc.syncParams.get("date_output_format")
+					if !strings.EqualFold(*dateFormat, "YYYY-MM-DD") {
+						t.Errorf("should use default date_output_format, but got: %v", *dateFormat)
 					}
 
 					sct.mustExec("ALTER SESSION SET DATE_OUTPUT_FORMAT = 'DD-MM-YYYY'", nil)
 					defer sct.mustExec("ALTER SESSION SET DATE_OUTPUT_FORMAT = 'YYYY-MM-DD'", nil)
 
-					if !strings.EqualFold(*sct.sc.cfg.Params["date_output_format"], "DD-MM-YYYY") {
-						t.Errorf("date output format should be switched, expected DD-MM-YYYY, got %v", sct.sc.cfg.Params["date_output_format"])
+					dateFormat, _ = sct.sc.syncParams.get("date_output_format")
+					if !strings.EqualFold(*dateFormat, "DD-MM-YYYY") {
+						t.Errorf("date output format should be switched, expected DD-MM-YYYY, got %v", *dateFormat)
 					}
 
 					query := sct.mustQuery("SELECT 1", nil)
 					query.Close()
 
-					if !strings.EqualFold(*sct.sc.cfg.Params["date_output_format"], "DD-MM-YYYY") {
-						t.Errorf("date output format should be switched, expected DD-MM-YYYY, got %v", sct.sc.cfg.Params["date_output_format"])
+					dateFormat, _ = sct.sc.syncParams.get("date_output_format")
+					if !strings.EqualFold(*dateFormat, "DD-MM-YYYY") {
+						t.Errorf("date output format should be switched, expected DD-MM-YYYY, got %v", *dateFormat)
 					}
 				})
 			})

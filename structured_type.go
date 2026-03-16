@@ -117,10 +117,10 @@ func (e *structuredObjectWriterEntry) toFieldMetadata() query.FieldMetadata {
 type structuredObjectWriterContext struct {
 	values  map[string]any
 	entries []structuredObjectWriterEntry
-	params  map[string]*string
+	params  *syncParams
 }
 
-func (sowc *structuredObjectWriterContext) init(params map[string]*string) {
+func (sowc *structuredObjectWriterContext) init(params *syncParams) {
 	sowc.values = make(map[string]any)
 	sowc.params = params
 }
@@ -377,7 +377,7 @@ func (sowc *structuredObjectWriterContext) WriteNullRaw(fieldName string, typ re
 	return fmt.Errorf("cannot use %v as nillable field", typ.Kind().String())
 }
 
-func buildSowcFromType(params map[string]*string, typ reflect.Type) (*structuredObjectWriterContext, error) {
+func buildSowcFromType(params *syncParams, typ reflect.Type) (*structuredObjectWriterContext, error) {
 	childSowc := &structuredObjectWriterContext{}
 	childSowc.init(params)
 	if typ.Kind() == reflect.Pointer {
@@ -710,7 +710,7 @@ func ScanMapOfScanners[K comparable, V sql.Scanner](m *map[K]V) *MapOfScanners[K
 type structuredType struct {
 	values        map[string]any
 	fieldMetadata []query.FieldMetadata
-	params        map[string]*string
+	params        *syncParams
 }
 
 func getType[T any](st *structuredType, fieldName string, emptyValue T) (T, bool, error) {

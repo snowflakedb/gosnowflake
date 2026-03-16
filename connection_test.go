@@ -94,7 +94,7 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:               &Config{Params: map[string]*string{}},
+		cfg:               &Config{},
 		rest:              sr,
 		queryContextCache: (&queryContextCache{}).init(),
 	}
@@ -134,7 +134,7 @@ func TestGetQueryResultUsesTokenFromTokenAccessor(t *testing.T) {
 		TokenAccessor: ta,
 	}
 	sc := &snowflakeConn{
-		cfg:                 &Config{Params: map[string]*string{}},
+		cfg:                 &Config{},
 		rest:                sr,
 		currentTimeProvider: defaultTimeProvider,
 	}
@@ -181,7 +181,7 @@ func TestGetQueryResultTokenExpiry(t *testing.T) {
 		TokenAccessor:    ta,
 	}
 	sc := &snowflakeConn{
-		cfg:                 &Config{Params: map[string]*string{}},
+		cfg:                 &Config{},
 		rest:                sr,
 		currentTimeProvider: defaultTimeProvider,
 	}
@@ -230,7 +230,7 @@ func TestGetQueryResultTokenNotSet(t *testing.T) {
 		TokenAccessor:    ta,
 	}
 	sc := &snowflakeConn{
-		cfg:                 &Config{Params: map[string]*string{}},
+		cfg:                 &Config{},
 		rest:                sr,
 		currentTimeProvider: defaultTimeProvider,
 	}
@@ -333,7 +333,7 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:               &Config{Params: map[string]*string{}},
+		cfg:               &Config{},
 		rest:              sr,
 		queryContextCache: (&queryContextCache{}).init(),
 	}
@@ -385,7 +385,7 @@ func TestExecContextPropagationIntegrationTest(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:               &Config{Params: map[string]*string{}},
+		cfg:               &Config{},
 		rest:              sr,
 		queryContextCache: (&queryContextCache{}).init(),
 	}
@@ -406,7 +406,7 @@ func TestServiceName(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:               &Config{Params: map[string]*string{}},
+		cfg:               &Config{},
 		rest:              sr,
 		queryContextCache: (&queryContextCache{}).init(),
 	}
@@ -416,7 +416,7 @@ func TestServiceName(t *testing.T) {
 		_, err := sc.exec(context.Background(), "", false, /* noResult */
 			false /* isInternal */, false /* describeOnly */, nil)
 		assertNilF(t, err)
-		if actualServiceName, ok := sc.cfg.Params[serviceName]; ok {
+		if actualServiceName, ok := sc.syncParams.get(serviceName); ok {
 			if *actualServiceName != expectServiceName {
 				t.Errorf("service name mis-match. expected %v, actual %v",
 					expectServiceName, actualServiceName)
@@ -446,7 +446,7 @@ func TestCloseIgnoreSessionGone(t *testing.T) {
 		FuncCloseSession: closeSessionMock,
 	}
 	sc := &snowflakeConn{
-		cfg:               &Config{Params: map[string]*string{}},
+		cfg:               &Config{},
 		rest:              sr,
 		telemetry:         testTelemetry,
 		queryContextCache: (&queryContextCache{}).init(),
@@ -462,7 +462,7 @@ func TestClientSessionPersist(t *testing.T) {
 		FuncCloseSession: closeSessionMock,
 	}
 	sc := &snowflakeConn{
-		cfg:       &Config{Params: map[string]*string{}},
+		cfg:       &Config{},
 		rest:      sr,
 		telemetry: testTelemetry,
 	}
@@ -814,7 +814,7 @@ func TestExecWithServerSideError(t *testing.T) {
 		FuncPostQuery: postQueryMock,
 	}
 	sc := &snowflakeConn{
-		cfg:       &Config{Params: map[string]*string{}},
+		cfg:       &Config{},
 		rest:      sr,
 		telemetry: testTelemetry,
 	}

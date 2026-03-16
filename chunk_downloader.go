@@ -112,9 +112,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 	chunkMetaLen := len(scd.ChunkMetas)
 	if chunkMetaLen > 0 {
 		chunkDownloadWorkers := defaultMaxChunkDownloadWorkers
-		paramsMutex.Lock()
-		chunkDownloadWorkersStr, ok := scd.sc.cfg.Params[clientPrefetchThreadsKey]
-		paramsMutex.Unlock()
+		chunkDownloadWorkersStr, ok := scd.sc.syncParams.get(clientPrefetchThreadsKey)
 		if ok {
 			var err error
 			chunkDownloadWorkers, err = strconv.Atoi(*chunkDownloadWorkersStr)
@@ -303,11 +301,11 @@ func (scd *snowflakeChunkDownloader) releaseRawArrowBatches() {
 	}
 }
 
-func (scd *snowflakeChunkDownloader) getConfigParams() (map[string]*string, error) {
+func (scd *snowflakeChunkDownloader) getConfigParams() (*syncParams, error) {
 	if scd.sc == nil || scd.sc.cfg == nil {
-		return map[string]*string{}, errNoConnection
+		return nil, errNoConnection
 	}
-	return scd.sc.cfg.Params, nil
+	return &scd.sc.syncParams, nil
 }
 
 func getChunk(

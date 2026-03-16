@@ -290,12 +290,10 @@ func authenticate(
 	clientEnvironment.Platform = getDetectedPlatforms()
 
 	sessionParameters := make(map[string]interface{})
-	paramsMutex.Lock()
-	for k, v := range sc.cfg.Params {
+	for k, v := range sc.syncParams.All() {
 		// upper casing to normalize keys
-		sessionParameters[strings.ToUpper(k)] = *v
+		sessionParameters[strings.ToUpper(k)] = v
 	}
-	paramsMutex.Unlock()
 
 	sessionParameters[sessionClientValidateDefaultParameters] = sc.cfg.ValidateDefaultParameters != ConfigBoolFalse
 	if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue {
