@@ -2,14 +2,16 @@ package gosnowflake
 
 import (
 	"bufio"
+	"debug/elf"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/internal/compilation"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/snowflakedb/gosnowflake/internal/compilation"
 )
 
 const disableMinicoreEnv = "SF_DISABLE_MINICORE"
@@ -235,6 +237,13 @@ func (l *miniCoreLoaderType) loadCore() miniCore {
 			fmt.Errorf("minicore is not supported on %v/%v platform", runtime.GOOS, runtime.GOARCH)))
 	}
 
+	if dynLinked, err := isDynamicallyLinked(); err != nil {
+		minicoreDebugf("cannot determine linking mode: %v, proceeding anyway", err)
+	} else if !dynLinked {
+		return newErroredMiniCore(newMiniCoreError(miniCoreErrorTypeLoad, runtime.GOOS, "",
+			fmt.Errorf("binary is statically linked (no dynamic linker); dlopen is unavailable")))
+	}
+
 	libDir, libPath, err := l.writeLibraryToFile()
 	if err != nil {
 		return newErroredMiniCore(err)
@@ -265,15 +274,15 @@ func (l *miniCoreLoaderType) writeLibraryToFile() (minicoreDirCandidate, string,
 	for _, dir := range l.searchDirs {
 		if dir.preUseFunc != nil {
 			if err := dir.preUseFunc(); err != nil {
-				minicoreDebugf("Failed to prepare directory %s: %v", dir.path, err)
-				errs = append(errs, fmt.Errorf("failed to prepare directory %v: %v", dir.path, err))
+				minicoreDebugf("Failed to prepare directory %q: %v", dir.path, err)
+				errs = append(errs, fmt.Errorf("failed to prepare directory %q: %v", dir.path, err))
 				continue
 			}
 		}
 		libPath := filepath.Join(dir.path, corePlatformConfig.coreLibFileName)
 		if err := os.WriteFile(libPath, corePlatformConfig.coreLib, 0600); err != nil {
-			minicoreDebugf("Failed to write embedded library to %s: %v", libPath, err)
-			errs = append(errs, fmt.Errorf("failed to write to %v: %v", libPath, err))
+			minicoreDebugf("Failed to write embedded library to %q: %v", libPath, err)
+			errs = append(errs, fmt.Errorf("failed to write to %q: %v", libPath, err))
 			continue
 		}
 		minicoreDebugf("Successfully wrote embedded library to %s", dir)
@@ -304,10 +313,15 @@ func getMiniCore() miniCore {
 
 			minicoreDebugf("Starting asynchronous minicore loading")
 			miniCoreLoader := newMiniCoreLoader()
+			core := miniCoreLoader.loadCore()
 			miniCoreMutex.Lock()
-			miniCoreInstance = miniCoreLoader.loadCore()
+			miniCoreInstance = core
 			miniCoreMutex.Unlock()
-			minicoreDebugf("Minicore loading completed asynchronously")
+			if v, err := core.FullVersion(); err != nil {
+				minicoreDebugf("Minicore version not available: %v", err)
+			} else {
+				minicoreDebugf("Minicore loading completed, version: %s", v)
+			}
 		}()
 	})
 
@@ -332,6 +346,30 @@ func minicoreDebugf(format string, args ...any) {
 	finalFormat := "[%v] " + format
 	logger.Debugf(finalFormat, finalArgs...)
 	minicoreLoadLogs.logs = append(minicoreLoadLogs.logs, maskSecrets(fmt.Sprintf(finalFormat, finalArgs...)))
+}
+
+// isDynamicallyLinked checks whether the current binary has a dynamic linker (PT_INTERP).
+// A statically linked glibc binary will crash with SIGFPE if dlopen is called,
+// so this check allows us to skip minicore loading gracefully.
+func isDynamicallyLinked() (bool, error) {
+	if runtime.GOOS != "linux" {
+		return true, nil
+	}
+	f, err := elf.Open("/proc/self/exe")
+	if err != nil {
+		return false, fmt.Errorf("cannot open /proc/self/exe: %v", err)
+	}
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			logger.Debugf("isDynamicallyLinked: error closing /proc/self/exe: %v", closeErr)
+		}
+	}()
+	for _, p := range f.Progs {
+		if p.Type == elf.PT_INTERP {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // libcType represents the type of C library in use
