@@ -12,6 +12,7 @@ import (
 	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 	"math/big"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -1190,7 +1191,7 @@ func shouldIgnoreField(field reflect.StructField) bool {
 	if sfTag == "" {
 		return false
 	}
-	return contains(strings.Split(sfTag, ",")[1:], "ignore")
+	return slices.Contains(strings.Split(sfTag, ",")[1:], "ignore")
 }
 
 func getTimeSnowflakeType(field reflect.StructField) ([]byte, error) {
@@ -1199,15 +1200,15 @@ func getTimeSnowflakeType(field reflect.StructField) ([]byte, error) {
 		return nil, nil
 	}
 	values := strings.Split(sfTag, ",")[1:]
-	if contains(values, "time") {
+	if slices.Contains(values, "time") {
 		return DataTypeTime, nil
-	} else if contains(values, "date") {
+	} else if slices.Contains(values, "date") {
 		return DataTypeDate, nil
-	} else if contains(values, "ltz") {
+	} else if slices.Contains(values, "ltz") {
 		return DataTypeTimestampLtz, nil
-	} else if contains(values, "ntz") {
+	} else if slices.Contains(values, "ntz") {
 		return DataTypeTimestampNtz, nil
-	} else if contains(values, "tz") {
+	} else if slices.Contains(values, "tz") {
 		return DataTypeTimestampTz, nil
 	}
 	return nil, nil

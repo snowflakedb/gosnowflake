@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -150,12 +151,7 @@ func (cd *connectivityDiagnoser) resolveHostname(hostname string) {
 }
 
 func (cd *connectivityDiagnoser) isAcceptableStatusCode(statusCode int, acceptableCodes []int) bool {
-	for _, code := range acceptableCodes {
-		if statusCode == code {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(acceptableCodes, statusCode)
 }
 
 func (cd *connectivityDiagnoser) fetchCRL(uri string) error {
