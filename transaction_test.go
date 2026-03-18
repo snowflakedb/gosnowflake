@@ -99,7 +99,7 @@ func TestTransactionError(t *testing.T) {
 
 	tx := snowflakeTx{
 		sc: &snowflakeConn{
-			cfg:  &Config{Params: map[string]*string{}},
+			cfg:  &Config{},
 			rest: sr,
 		},
 		ctx: context.Background(),

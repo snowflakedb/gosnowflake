@@ -89,9 +89,9 @@ func TestValueToString(t *testing.T) {
 	if err == nil {
 		t.Errorf("should raise error: %v", v)
 	}
-	params := make(map[string]*string)
+	params := newSyncParams(make(map[string]*string))
 	dateFormat := "YYYY-MM-DD"
-	params["date_output_format"] = &dateFormat
+	params.set("date_output_format", &dateFormat)
 
 	// both localTime and utcTime should yield the same unix timestamp
 	localTime := time.Date(2019, 2, 6, 14, 17, 31, 123456789, time.FixedZone("-08:00", -8*3600))
@@ -185,7 +185,7 @@ func TestValueToString(t *testing.T) {
 		assertEqualE(t, *bv.value, u.String())
 	})
 
-	bv, err = valueToString(&testValueToStringStructuredObject{s: "some string", i: 123, date: time.Date(2024, time.May, 24, 0, 0, 0, 0, time.UTC)}, types.TimestampLtzType, params)
+	bv, err = valueToString(&testValueToStringStructuredObject{s: "some string", i: 123, date: time.Date(2024, time.May, 24, 0, 0, 0, 0, time.UTC)}, types.TimestampLtzType, &params)
 	assertNilF(t, err)
 	assertEqualE(t, bv.format, jsonFormatStr)
 	assertDeepEqualE(t, *bv.schema, bindingSchema{

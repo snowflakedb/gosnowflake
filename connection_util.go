@@ -14,9 +14,7 @@ import (
 )
 
 func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
-	paramsMutex.Lock()
-	v, ok := sc.cfg.Params[sessionClientSessionKeepAlive]
-	paramsMutex.Unlock()
+	v, ok := sc.syncParams.get(sessionClientSessionKeepAlive)
 	if !ok {
 		return false
 	}
@@ -24,9 +22,7 @@ func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
 }
 
 func (sc *snowflakeConn) getClientSessionKeepAliveHeartbeatFrequency() (time.Duration, bool) {
-	paramsMutex.Lock()
-	v, ok := sc.cfg.Params[sessionClientSessionKeepAliveHeartbeatFrequency]
-	paramsMutex.Unlock()
+	v, ok := sc.syncParams.get(sessionClientSessionKeepAliveHeartbeatFrequency)
 
 	if !ok {
 		return 0, false
@@ -67,9 +63,7 @@ func (sc *snowflakeConn) stopHeartBeat() {
 }
 
 func (sc *snowflakeConn) getArrayBindStageThreshold() int {
-	paramsMutex.Lock()
-	v, ok := sc.cfg.Params[sessionArrayBindStageThreshold]
-	paramsMutex.Unlock()
+	v, ok := sc.syncParams.get(sessionArrayBindStageThreshold)
 	if !ok {
 		return 0
 	}
@@ -91,11 +85,9 @@ func (sc *snowflakeConn) connectionTelemetry(cfg *Config) {
 		},
 		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
 	}
-	paramsMutex.Lock()
-	for k, v := range cfg.Params {
-		data.Message[k] = *v
+	for k, v := range sc.syncParams.All() {
+		data.Message[k] = v
 	}
-	paramsMutex.Unlock()
 	if err := sc.telemetry.addLog(data); err != nil {
 		logger.WithContext(sc.ctx).Warnf("cannot add telemetry log: %v", err)
 	}
@@ -222,16 +214,12 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 			}
 		}
 		logger.WithContext(sc.ctx).Tracef("parameter. name: %v, value: %v", param.Name, v)
-		paramsMutex.Lock()
-		sc.cfg.Params[strings.ToLower(param.Name)] = &v
-		paramsMutex.Unlock()
+		sc.syncParams.set(strings.ToLower(param.Name), &v)
 	}
 }
 
 func (sc *snowflakeConn) configureTelemetry() {
-	paramsMutex.Lock()
-	defer paramsMutex.Unlock()
-	telemetryEnabled, ok := sc.cfg.Params["client_telemetry_enabled"]
+	telemetryEnabled, ok := sc.syncParams.get("client_telemetry_enabled")
 	// In-band telemetry is enabled by default on the backend side.
 	if ok && telemetryEnabled != nil && *telemetryEnabled == "true" {
 		sc.telemetry.flushSize = defaultFlushSize

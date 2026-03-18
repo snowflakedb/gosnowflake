@@ -79,9 +79,7 @@ func (qcc *queryContextCache) prune(size int) {
 }
 
 func (qcc *queryContextCache) getQueryContextCacheSize(sc *snowflakeConn) int {
-	paramsMutex.Lock()
-	sizeStr, ok := sc.cfg.Params[queryContextCacheSizeParamName]
-	paramsMutex.Unlock()
+	sizeStr, ok := sc.syncParams.get(queryContextCacheSizeParamName)
 	if ok {
 		size, err := strconv.Atoi(*sizeStr)
 		if err != nil {

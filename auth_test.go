@@ -397,7 +397,6 @@ func getDefaultSnowflakeConn() *snowflakeConn {
 			Warehouse:          "w",
 			Role:               "r",
 			Region:             "",
-			Params:             make(map[string]*string),
 			PasscodeInPassword: false,
 			Passcode:           "",
 			Application:        "testapp",

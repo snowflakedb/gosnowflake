@@ -142,8 +142,8 @@ type snowflakeArrowStreamChunkDownloader struct {
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
-	if scd.sc != nil && scd.sc.cfg != nil {
-		return getCurrentLocation(scd.sc.cfg.Params)
+	if scd.sc != nil {
+		return getCurrentLocation(&scd.sc.syncParams)
 	}
 	return nil
 }
