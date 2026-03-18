@@ -345,6 +345,20 @@ func (sp *syncParams) All() iter.Seq2[string, string] {
 	}
 }
 
+// snapshot returns a shallow copy of the params map.
+// The returned map shares *string pointers with the original, which is safe
+// because set() replaces pointers rather than mutating pointed-to strings.
+func (sp *syncParams) snapshot() map[string]*string {
+	sp.mu.Lock()
+	defer sp.mu.Unlock()
+	if sp.params == nil {
+		return nil
+	}
+	copied := make(map[string]*string, len(sp.params))
+	maps.Copy(copied, sp.params)
+	return copied
+}
+
 func chooseRandomFromRange(min float64, max float64) float64 {
 	return rand.Float64()*(max-min) + min
 }

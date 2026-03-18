@@ -771,6 +771,14 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 		valueAwaiter.done()
 	}
 	sc.populateSessionParameters(authData.Parameters)
+	sc.currentSessionCtx = sessionContext{
+		database:  authData.SessionInfo.DatabaseName,
+		schema:    authData.SessionInfo.SchemaName,
+		warehouse: authData.SessionInfo.WarehouseName,
+		role:      authData.SessionInfo.RoleName,
+	}
+	sc.initialSessionCtx = sc.currentSessionCtx
+	sc.initialParams = sc.syncParams.snapshot()
 	sc.configureTelemetry()
 	sc.ctx = context.WithValue(sc.ctx, SFSessionIDKey, authData.SessionID)
 	return nil
