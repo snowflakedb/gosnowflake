@@ -320,15 +320,15 @@ func isArrayBind(bindings []driver.NamedValue) bool {
 
 func supportedArrayBind(nv *driver.NamedValue) bool {
 	switch reflect.TypeOf(nv.Value) {
-	case reflect.TypeOf(&intArray{}), reflect.TypeOf(&int32Array{}),
-		reflect.TypeOf(&int64Array{}), reflect.TypeOf(&float64Array{}),
-		reflect.TypeOf(&float32Array{}), reflect.TypeOf(&decfloatArray{}),
-		reflect.TypeOf(&boolArray{}), reflect.TypeOf(&stringArray{}),
-		reflect.TypeOf(&byteArray{}), reflect.TypeOf(&timestampNtzArray{}),
-		reflect.TypeOf(&timestampLtzArray{}), reflect.TypeOf(&timestampTzArray{}),
-		reflect.TypeOf(&dateArray{}), reflect.TypeOf(&timeArray{}):
+	case reflect.TypeFor[*intArray](), reflect.TypeFor[*int32Array](),
+		reflect.TypeFor[*int64Array](), reflect.TypeFor[*float64Array](),
+		reflect.TypeFor[*float32Array](), reflect.TypeFor[*decfloatArray](),
+		reflect.TypeFor[*boolArray](), reflect.TypeFor[*stringArray](),
+		reflect.TypeFor[*byteArray](), reflect.TypeFor[*timestampNtzArray](),
+		reflect.TypeFor[*timestampLtzArray](), reflect.TypeFor[*timestampTzArray](),
+		reflect.TypeFor[*dateArray](), reflect.TypeFor[*timeArray]():
 		return true
-	case reflect.TypeOf([]uint8{}):
+	case reflect.TypeFor[[]uint8]():
 		// internal binding ts mode
 		val, ok := nv.Value.([]uint8)
 		if !ok {
@@ -361,13 +361,13 @@ func supportedDecfloatBind(nv *driver.NamedValue) bool {
 		return false
 	}
 
-	return val.Type() == reflect.TypeOf(big.Float{})
+	return val.Type() == reflect.TypeFor[big.Float]()
 }
 
 func supportedNullBind(nv *driver.NamedValue) bool {
 	switch reflect.TypeOf(nv.Value) {
-	case reflect.TypeOf(sql.NullString{}), reflect.TypeOf(sql.NullInt64{}),
-		reflect.TypeOf(sql.NullBool{}), reflect.TypeOf(sql.NullFloat64{}), reflect.TypeOf(TypedNullTime{}):
+	case reflect.TypeFor[sql.NullString](), reflect.TypeFor[sql.NullInt64](),
+		reflect.TypeFor[sql.NullBool](), reflect.TypeFor[sql.NullFloat64](), reflect.TypeFor[TypedNullTime]():
 		return true
 	}
 	return false
@@ -388,5 +388,5 @@ func supportedStructuredArrayBind(nv *driver.NamedValue) bool {
 
 func supportedStructuredMapBind(nv *driver.NamedValue) bool {
 	typ := reflect.TypeOf(nv.Value)
-	return typ != nil && (typ.Kind() == reflect.Map || typ == reflect.TypeOf(NilMapTypes{}))
+	return typ != nil && (typ.Kind() == reflect.Map || typ == reflect.TypeFor[NilMapTypes]())
 }

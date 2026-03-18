@@ -55,13 +55,13 @@ func TestJSONVariousTypes(t *testing.T) {
 		if ct[0].Name() != "C1" || ct[1].Name() != "C2" || ct[2].Name() != "C2A" || ct[3].Name() != "C3" || ct[4].Name() != "C4" || ct[5].Name() != "C5" || ct[6].Name() != "C6" {
 			dbt.Errorf("failed to get column names: %#v", ct)
 		}
-		if ct[0].ScanType() != reflect.TypeOf(float64(0)) {
-			dbt.Errorf("failed to get scan type. expected: %v, got: %v", reflect.TypeOf(float64(0)), ct[0].ScanType())
+		if ct[0].ScanType() != reflect.TypeFor[float64]() {
+			dbt.Errorf("failed to get scan type. expected: %v, got: %v", reflect.TypeFor[float64](), ct[0].ScanType())
 		}
-		if ct[1].ScanType() != reflect.TypeOf(int64(0)) {
-			dbt.Errorf("failed to get scan type. expected: %v, got: %v", reflect.TypeOf(int64(0)), ct[1].ScanType())
+		if ct[1].ScanType() != reflect.TypeFor[int64]() {
+			dbt.Errorf("failed to get scan type. expected: %v, got: %v", reflect.TypeFor[int64](), ct[1].ScanType())
 		}
-		assertEqualE(t, ct[2].ScanType(), reflect.TypeOf(""))
+		assertEqualE(t, ct[2].ScanType(), reflect.TypeFor[string]())
 		var pr, sc int64
 		var cLen int64
 		var canNull bool

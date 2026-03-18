@@ -1505,9 +1505,9 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 		columnName string
 		columnType reflect.Type
 	}{
-		{"C1", reflect.TypeOf("")},
-		{"C2", reflect.TypeOf("")},
-		{"C3", reflect.TypeOf("")},
+		{"C1", reflect.TypeFor[string]()},
+		{"C2", reflect.TypeFor[string]()},
+		{"C3", reflect.TypeFor[string]()},
 	}
 	testCases := []struct {
 		testDesc string
