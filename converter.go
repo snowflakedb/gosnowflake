@@ -138,77 +138,77 @@ func snowflakeTypeToGo(ctx context.Context, dbtype types.SnowflakeType, precisio
 		if higherPrecisionEnabled(ctx) {
 			if scale == 0 {
 				if precision >= 19 {
-					return reflect.TypeOf(&big.Int{})
+					return reflect.TypeFor[*big.Int]()
 				}
-				return reflect.TypeOf(int64(0))
+				return reflect.TypeFor[int64]()
 			}
-			return reflect.TypeOf(&big.Float{})
+			return reflect.TypeFor[*big.Float]()
 		}
 		if scale == 0 {
 			if precision >= 19 {
-				return reflect.TypeOf("")
+				return reflect.TypeFor[string]()
 			}
-			return reflect.TypeOf(int64(0))
+			return reflect.TypeFor[int64]()
 		}
-		return reflect.TypeOf(float64(0))
+		return reflect.TypeFor[float64]()
 	case types.RealType:
-		return reflect.TypeOf(float64(0))
+		return reflect.TypeFor[float64]()
 	case types.DecfloatType:
 		if !decfloatMappingEnabled(ctx) {
-			return reflect.TypeOf("")
+			return reflect.TypeFor[string]()
 		}
 		if higherPrecisionEnabled(ctx) {
-			return reflect.TypeOf(&big.Float{})
+			return reflect.TypeFor[*big.Float]()
 		}
-		return reflect.TypeOf(float64(0))
+		return reflect.TypeFor[float64]()
 	case types.TextType, types.VariantType:
-		return reflect.TypeOf("")
+		return reflect.TypeFor[string]()
 	case types.DateType, types.TimeType, types.TimestampLtzType, types.TimestampNtzType, types.TimestampTzType:
 		return reflect.TypeOf(time.Now())
 	case types.BinaryType:
-		return reflect.TypeOf([]byte{})
+		return reflect.TypeFor[[]byte]()
 	case types.BooleanType:
-		return reflect.TypeOf(true)
+		return reflect.TypeFor[bool]()
 	case types.ObjectType:
 		if len(fields) > 0 && structuredTypesEnabled {
-			return reflect.TypeOf(ObjectType{})
+			return reflect.TypeFor[ObjectType]()
 		}
-		return reflect.TypeOf("")
+		return reflect.TypeFor[string]()
 	case types.ArrayType:
 		if len(fields) == 0 || !structuredTypesEnabled {
-			return reflect.TypeOf("")
+			return reflect.TypeFor[string]()
 		}
 		if len(fields) != 1 {
 			logger.WithContext(ctx).Warn("Unexpected fields number: " + strconv.Itoa(len(fields)))
-			return reflect.TypeOf("")
+			return reflect.TypeFor[string]()
 		}
 		switch types.GetSnowflakeType(fields[0].Type) {
 		case types.FixedType:
 			if fields[0].Scale == 0 && higherPrecisionEnabled(ctx) {
-				return reflect.TypeOf([]*big.Int{})
+				return reflect.TypeFor[[]*big.Int]()
 			} else if fields[0].Scale == 0 && !higherPrecisionEnabled(ctx) {
-				return reflect.TypeOf([]int64{})
+				return reflect.TypeFor[[]int64]()
 			} else if fields[0].Scale != 0 && higherPrecisionEnabled(ctx) {
-				return reflect.TypeOf([]*big.Float{})
+				return reflect.TypeFor[[]*big.Float]()
 			}
-			return reflect.TypeOf([]float64{})
+			return reflect.TypeFor[[]float64]()
 		case types.RealType:
-			return reflect.TypeOf([]float64{})
+			return reflect.TypeFor[[]float64]()
 		case types.TextType:
-			return reflect.TypeOf([]string{})
+			return reflect.TypeFor[[]string]()
 		case types.DateType, types.TimeType, types.TimestampLtzType, types.TimestampNtzType, types.TimestampTzType:
-			return reflect.TypeOf([]time.Time{})
+			return reflect.TypeFor[[]time.Time]()
 		case types.BooleanType:
-			return reflect.TypeOf([]bool{})
+			return reflect.TypeFor[[]bool]()
 		case types.BinaryType:
-			return reflect.TypeOf([][]byte{})
+			return reflect.TypeFor[[][]byte]()
 		case types.ObjectType:
-			return reflect.TypeOf([]ObjectType{})
+			return reflect.TypeFor[[]ObjectType]()
 		}
 		return nil
 	case types.MapType:
 		if !structuredTypesEnabled {
-			return reflect.TypeOf("")
+			return reflect.TypeFor[string]()
 		}
 		switch types.GetSnowflakeType(fields[0].Type) {
 		case types.TextType:
@@ -216,42 +216,42 @@ func snowflakeTypeToGo(ctx context.Context, dbtype types.SnowflakeType, precisio
 		case types.FixedType:
 			return snowflakeTypeToGoForMaps[int64](ctx, fields[1])
 		}
-		return reflect.TypeOf(map[any]any{})
+		return reflect.TypeFor[map[any]any]()
 	}
 	logger.WithContext(ctx).Errorf("unsupported dbtype is specified. %v", dbtype)
-	return reflect.TypeOf("")
+	return reflect.TypeFor[string]()
 }
 
 func snowflakeTypeToGoForMaps[K comparable](ctx context.Context, valueMetadata query.FieldMetadata) reflect.Type {
 	switch types.GetSnowflakeType(valueMetadata.Type) {
 	case types.TextType:
-		return reflect.TypeOf(map[K]string{})
+		return reflect.TypeFor[map[K]string]()
 	case types.FixedType:
 		if higherPrecisionEnabled(ctx) && valueMetadata.Scale == 0 {
-			return reflect.TypeOf(map[K]*big.Int{})
+			return reflect.TypeFor[map[K]*big.Int]()
 		} else if higherPrecisionEnabled(ctx) && valueMetadata.Scale != 0 {
-			return reflect.TypeOf(map[K]*big.Float{})
+			return reflect.TypeFor[map[K]*big.Float]()
 		} else if !higherPrecisionEnabled(ctx) && valueMetadata.Scale == 0 {
-			return reflect.TypeOf(map[K]int64{})
+			return reflect.TypeFor[map[K]int64]()
 		} else {
-			return reflect.TypeOf(map[K]float64{})
+			return reflect.TypeFor[map[K]float64]()
 		}
 	case types.RealType:
-		return reflect.TypeOf(map[K]float64{})
+		return reflect.TypeFor[map[K]float64]()
 	case types.BooleanType:
-		return reflect.TypeOf(map[K]bool{})
+		return reflect.TypeFor[map[K]bool]()
 	case types.BinaryType:
-		return reflect.TypeOf(map[K][]byte{})
+		return reflect.TypeFor[map[K][]byte]()
 	case types.TimeType, types.DateType, types.TimestampTzType, types.TimestampNtzType, types.TimestampLtzType:
-		return reflect.TypeOf(map[K]time.Time{})
+		return reflect.TypeFor[map[K]time.Time]()
 	}
 	logger.WithContext(ctx).Errorf("unsupported dbtype is specified for map value")
-	return reflect.TypeOf("")
+	return reflect.TypeFor[string]()
 }
 
 // valueToString converts arbitrary golang type to a string. This is mainly used in binding data with placeholders
 // in queries.
-func valueToString(v driver.Value, tsmode types.SnowflakeType, params map[string]*string) (bindingValue, error) {
+func valueToString(v driver.Value, tsmode types.SnowflakeType, params *syncParams) (bindingValue, error) {
 	isJSONFormat := isJSONFormatType(tsmode)
 	if v == nil {
 		if isJSONFormat {
@@ -273,7 +273,7 @@ func valueToString(v driver.Value, tsmode types.SnowflakeType, params map[string
 		}
 	}
 
-	if tsmode == types.DecfloatType && v1.Type() == reflect.TypeOf(big.Float{}) {
+	if tsmode == types.DecfloatType && v1.Type() == reflect.TypeFor[big.Float]() {
 		s := v.(*big.Float).Text('g', decfloatPrintingPrec)
 		return bindingValue{&s, "", nil}, nil
 	}
@@ -332,7 +332,7 @@ func isUUIDImplementer(v reflect.Value) bool {
 	return false
 }
 
-func arrayToString(v driver.Value, tsmode types.SnowflakeType, params map[string]*string) (bindingValue, error) {
+func arrayToString(v driver.Value, tsmode types.SnowflakeType, params *syncParams) (bindingValue, error) {
 	v1 := reflect.Indirect(reflect.ValueOf(v))
 	if v1.Kind() == reflect.Slice && v1.IsNil() {
 		return bindingValue{nil, jsonFormatStr, nil}, nil
@@ -459,7 +459,7 @@ func arrayToString(v driver.Value, tsmode types.SnowflakeType, params map[string
 	return bindingValue{&resString, jsonFormatStr, nil}, nil
 }
 
-func mapToString(v driver.Value, tsmode types.SnowflakeType, params map[string]*string) (bindingValue, error) {
+func mapToString(v driver.Value, tsmode types.SnowflakeType, params *syncParams) (bindingValue, error) {
 	var err error
 	valOf := reflect.Indirect(reflect.ValueOf(v))
 	if valOf.IsNil() {
@@ -483,7 +483,7 @@ func mapToString(v driver.Value, tsmode types.SnowflakeType, params map[string]*
 		if err != nil {
 			return bindingValue{}, err
 		}
-	} else if typOf.Elem().AssignableTo(reflect.TypeOf(time.Time{})) || typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullTime{})) {
+	} else if typOf.Elem().AssignableTo(reflect.TypeFor[time.Time]()) || typOf.Elem().AssignableTo(reflect.TypeFor[sql.NullTime]()) {
 		m := make(map[string]*string, valOf.Len())
 		iter := valOf.MapRange()
 		for iter.Next() {
@@ -506,7 +506,7 @@ func mapToString(v driver.Value, tsmode types.SnowflakeType, params map[string]*
 		if err != nil {
 			return bindingValue{}, err
 		}
-	} else if typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullString{})) {
+	} else if typOf.Elem().AssignableTo(reflect.TypeFor[sql.NullString]()) {
 		m := make(map[string]*string, valOf.Len())
 		iter := valOf.MapRange()
 		for iter.Next() {
@@ -521,7 +521,7 @@ func mapToString(v driver.Value, tsmode types.SnowflakeType, params map[string]*
 		if err != nil {
 			return bindingValue{}, err
 		}
-	} else if typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullByte{})) || typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullInt16{})) || typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullInt32{})) || typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullInt64{})) {
+	} else if typOf.Elem().AssignableTo(reflect.TypeFor[sql.NullByte]()) || typOf.Elem().AssignableTo(reflect.TypeFor[sql.NullInt16]()) || typOf.Elem().AssignableTo(reflect.TypeFor[sql.NullInt32]()) || typOf.Elem().AssignableTo(reflect.TypeFor[sql.NullInt64]()) {
 		m := make(map[string]*int64, valOf.Len())
 		iter := valOf.MapRange()
 		for iter.Next() {
@@ -536,7 +536,7 @@ func mapToString(v driver.Value, tsmode types.SnowflakeType, params map[string]*
 		if err != nil {
 			return bindingValue{}, err
 		}
-	} else if typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullFloat64{})) {
+	} else if typOf.Elem().AssignableTo(reflect.TypeFor[sql.NullFloat64]()) {
 		m := make(map[string]*float64, valOf.Len())
 		iter := valOf.MapRange()
 		for iter.Next() {
@@ -551,7 +551,7 @@ func mapToString(v driver.Value, tsmode types.SnowflakeType, params map[string]*
 		if err != nil {
 			return bindingValue{}, err
 		}
-	} else if typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullBool{})) {
+	} else if typOf.Elem().AssignableTo(reflect.TypeFor[sql.NullBool]()) {
 		m := make(map[string]*bool, valOf.Len())
 		iter := valOf.MapRange()
 		for iter.Next() {
@@ -669,7 +669,7 @@ func stringOrIntToString(v reflect.Value) string {
 	return v.String()
 }
 
-func goTypeToFieldMetadata(typ reflect.Type, tsmode types.SnowflakeType, params map[string]*string) (query.FieldMetadata, error) {
+func goTypeToFieldMetadata(typ reflect.Type, tsmode types.SnowflakeType, params *syncParams) (query.FieldMetadata, error) {
 	if tsmode == types.BinaryType {
 		return query.FieldMetadata{
 			Type:     "BINARY",
@@ -702,23 +702,23 @@ func goTypeToFieldMetadata(typ reflect.Type, tsmode types.SnowflakeType, params 
 			Nullable: true,
 		}, nil
 	case reflect.Struct:
-		if typ.AssignableTo(reflect.TypeOf(sql.NullString{})) {
+		if typ.AssignableTo(reflect.TypeFor[sql.NullString]()) {
 			return query.FieldMetadata{
 				Type:     "TEXT",
 				Nullable: true,
 			}, nil
-		} else if typ.AssignableTo(reflect.TypeOf(sql.NullBool{})) {
+		} else if typ.AssignableTo(reflect.TypeFor[sql.NullBool]()) {
 			return query.FieldMetadata{
 				Type:     "BOOLEAN",
 				Nullable: true,
 			}, nil
-		} else if typ.AssignableTo(reflect.TypeOf(sql.NullByte{})) || typ.AssignableTo(reflect.TypeOf(sql.NullInt16{})) || typ.AssignableTo(reflect.TypeOf(sql.NullInt32{})) || typ.AssignableTo(reflect.TypeOf(sql.NullInt64{})) {
+		} else if typ.AssignableTo(reflect.TypeFor[sql.NullByte]()) || typ.AssignableTo(reflect.TypeFor[sql.NullInt16]()) || typ.AssignableTo(reflect.TypeFor[sql.NullInt32]()) || typ.AssignableTo(reflect.TypeFor[sql.NullInt64]()) {
 			return query.FieldMetadata{
 				Type:      "FIXED",
 				Precision: numberDefaultPrecision,
 				Nullable:  true,
 			}, nil
-		} else if typ.AssignableTo(reflect.TypeOf(sql.NullFloat64{})) {
+		} else if typ.AssignableTo(reflect.TypeFor[sql.NullFloat64]()) {
 			return query.FieldMetadata{
 				Type:     "REAL",
 				Nullable: true,
@@ -806,7 +806,7 @@ func isArrayOfStructs(v any) bool {
 	return reflect.TypeOf(v).Elem().Kind() == reflect.Struct || (reflect.TypeOf(v).Elem().Kind() == reflect.Pointer && reflect.TypeOf(v).Elem().Elem().Kind() == reflect.Struct)
 }
 
-func structValueToString(v driver.Value, tsmode types.SnowflakeType, params map[string]*string) (bindingValue, error) {
+func structValueToString(v driver.Value, tsmode types.SnowflakeType, params *syncParams) (bindingValue, error) {
 	switch typedVal := v.(type) {
 	case time.Time:
 		return timeTypeValueToString(typedVal, tsmode)
@@ -958,7 +958,7 @@ func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
 
 // stringToValue converts a pointer of string data to an arbitrary golang variable
 // This is mainly used in fetching data.
-func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta query.ExecResponseRowType, srcValue *string, loc *time.Location, params map[string]*string) error {
+func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta query.ExecResponseRowType, srcValue *string, loc *time.Location, params *syncParams) error {
 	if srcValue == nil {
 		logger.Debugf("snowflake data type: %v, raw value: nil", srcColumnMeta.Type)
 		*dest = nil
@@ -1127,7 +1127,7 @@ func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta query.
 	return nil
 }
 
-func jsonToMap(ctx context.Context, keyMetadata, valueMetadata query.FieldMetadata, srcValue string, params map[string]*string) (snowflakeValue, error) {
+func jsonToMap(ctx context.Context, keyMetadata, valueMetadata query.FieldMetadata, srcValue string, params *syncParams) (snowflakeValue, error) {
 	structuredTypesEnabled := structuredTypesEnabled(ctx)
 	if !structuredTypesEnabled {
 		return srcValue, nil
@@ -1173,7 +1173,7 @@ func jsonToMap(ctx context.Context, keyMetadata, valueMetadata query.FieldMetada
 	}
 }
 
-func jsonToMapWithKeyType[K comparable](ctx context.Context, valueMetadata query.FieldMetadata, m map[K]any, params map[string]*string) (snowflakeValue, error) {
+func jsonToMapWithKeyType[K comparable](ctx context.Context, valueMetadata query.FieldMetadata, m map[K]any, params *syncParams) (snowflakeValue, error) {
 	mapValuesNullableEnabled := embeddedValuesNullableEnabled(ctx)
 	switch valueMetadata.Type {
 	case "text":
@@ -1292,7 +1292,7 @@ func jsonToMapWithKeyType[K comparable](ctx context.Context, valueMetadata query
 	return nil, fmt.Errorf("unsupported map value type: %v", valueMetadata.Type)
 }
 
-func buildArrayFromMap[K comparable, V any](ctx context.Context, valueMetadata query.FieldMetadata, m map[K]any, params map[string]*string) (snowflakeValue, error) {
+func buildArrayFromMap[K comparable, V any](ctx context.Context, valueMetadata query.FieldMetadata, m map[K]any, params *syncParams) (snowflakeValue, error) {
 	res := make(map[K][]V)
 	for k, v := range m {
 		if v == nil {
@@ -1308,7 +1308,7 @@ func buildArrayFromMap[K comparable, V any](ctx context.Context, valueMetadata q
 	return res, nil
 }
 
-func buildStructuredTypeFromMap(values map[string]any, fieldMetadata []query.FieldMetadata, params map[string]*string) *structuredType {
+func buildStructuredTypeFromMap(values map[string]any, fieldMetadata []query.FieldMetadata, params *syncParams) *structuredType {
 	return &structuredType{
 		values:        values,
 		params:        params,
@@ -1346,7 +1346,7 @@ func buildMapValues[K comparable, Vnullable any, VnotNullable any](mapValuesNull
 	return result, nil
 }
 
-func buildStructuredArray(ctx context.Context, fieldMetadata query.FieldMetadata, srcValue []any, params map[string]*string) (any, error) {
+func buildStructuredArray(ctx context.Context, fieldMetadata query.FieldMetadata, srcValue []any, params *syncParams) (any, error) {
 	switch fieldMetadata.Type {
 	case "text":
 		return copyArrayAndConvert[string](srcValue, func(input any) (string, error) {
@@ -1411,7 +1411,7 @@ func buildStructuredArray(ctx context.Context, fieldMetadata query.FieldMetadata
 	return srcValue, nil
 }
 
-func buildStructuredArrayRecursive[T any](ctx context.Context, fieldMetadata query.FieldMetadata, srcValue []any, params map[string]*string) ([][]T, error) {
+func buildStructuredArrayRecursive[T any](ctx context.Context, fieldMetadata query.FieldMetadata, srcValue []any, params *syncParams) ([][]T, error) {
 	arr := make([][]T, len(srcValue))
 	for i, v := range srcValue {
 		structuredArray, err := buildStructuredArray(ctx, fieldMetadata, v.([]any), params)
@@ -1434,7 +1434,7 @@ func copyArrayAndConvert[T any](input []any, convertFunc func(input any) (T, err
 	return output, nil
 }
 
-func buildStructuredTypeRecursive(ctx context.Context, m map[string]any, fields []query.FieldMetadata, params map[string]*string) (*structuredType, error) {
+func buildStructuredTypeRecursive(ctx context.Context, m map[string]any, fields []query.FieldMetadata, params *syncParams) (*structuredType, error) {
 	var err error
 	for _, fm := range fields {
 		if fm.Type == "array" && m[fm.Name] != nil {
@@ -1553,7 +1553,7 @@ func arrowToValues(
 	srcValue arrow.Array,
 	loc *time.Location,
 	higherPrecision bool,
-	params map[string]*string) error {
+	params *syncParams) error {
 
 	if len(destcol) != srcValue.Len() {
 		return fmt.Errorf("array interface length mismatch")
@@ -1570,7 +1570,7 @@ func arrowToValues(
 	return nil
 }
 
-func arrowToValue(ctx context.Context, rowIdx int, srcColumnMeta query.FieldMetadata, srcValue arrow.Array, loc *time.Location, higherPrecision bool, params map[string]*string, snowflakeType types.SnowflakeType) (snowflakeValue, error) {
+func arrowToValue(ctx context.Context, rowIdx int, srcColumnMeta query.FieldMetadata, srcValue arrow.Array, loc *time.Location, higherPrecision bool, params *syncParams, snowflakeType types.SnowflakeType) (snowflakeValue, error) {
 	structuredTypesEnabled := structuredTypesEnabled(ctx)
 	switch snowflakeType {
 	case types.FixedType:
@@ -1696,7 +1696,7 @@ func arrowToValue(ctx context.Context, rowIdx int, srcColumnMeta query.FieldMeta
 	return nil, fmt.Errorf("unsupported data type")
 }
 
-func buildMapFromNativeArrow(ctx context.Context, rowIdx int, keyMetadata, valueMetadata query.FieldMetadata, srcValue arrow.Array, loc *time.Location, higherPrecision bool, params map[string]*string) (snowflakeValue, error) {
+func buildMapFromNativeArrow(ctx context.Context, rowIdx int, keyMetadata, valueMetadata query.FieldMetadata, srcValue arrow.Array, loc *time.Location, higherPrecision bool, params *syncParams) (snowflakeValue, error) {
 	arrowMap := srcValue.(*array.Map)
 	if arrowMap.IsNull(rowIdx) {
 		return nil, nil
@@ -1723,7 +1723,7 @@ func buildMapFromNativeArrow(ctx context.Context, rowIdx int, keyMetadata, value
 	return nil, nil
 }
 
-func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata query.FieldMetadata, srcValue arrow.Array, loc *time.Location, higherPrecision bool, params map[string]*string) (snowflakeValue, error) {
+func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata query.FieldMetadata, srcValue arrow.Array, loc *time.Location, higherPrecision bool, params *syncParams) (snowflakeValue, error) {
 	list := srcValue.(*array.List)
 	if list.IsNull(rowIdx) {
 		return nil, nil
@@ -2043,7 +2043,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata que
 	return nil, nil
 }
 
-func buildArrowListRecursive[T any](ctx context.Context, rowIdx int, fieldMetadata query.FieldMetadata, offsets []int32, values arrow.Array, loc *time.Location, higherPrecision bool, params map[string]*string) (snowflakeValue, error) {
+func buildArrowListRecursive[T any](ctx context.Context, rowIdx int, fieldMetadata query.FieldMetadata, offsets []int32, values arrow.Array, loc *time.Location, higherPrecision bool, params *syncParams) (snowflakeValue, error) {
 	return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) ([]T, error) {
 		arrowList, err := buildListFromNativeArrow(ctx, j, fieldMetadata.Fields[0], values, loc, higherPrecision, params)
 		if err != nil {
@@ -2085,7 +2085,7 @@ func extractInt64(values arrow.Array, j int) (int64, error) {
 	return 0, fmt.Errorf("unsupported map type: %T", values.DataType().Name())
 }
 
-func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, valueMetadata query.FieldMetadata, offsets []int32, keyFunc func(j int) (K, error), items arrow.Array, higherPrecision bool, loc *time.Location, params map[string]*string) (snowflakeValue, error) {
+func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, valueMetadata query.FieldMetadata, offsets []int32, keyFunc func(j int) (K, error), items arrow.Array, higherPrecision bool, loc *time.Location, params *syncParams) (snowflakeValue, error) {
 	mapNullValuesEnabled := embeddedValuesNullableEnabled(ctx)
 	switch valueMetadata.Type {
 	case "text":
@@ -2259,7 +2259,7 @@ func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, 
 	return nil, errors.New("Unsupported map value: " + valueMetadata.Type)
 }
 
-func buildListFromNativeArrowMap[K comparable, V any](ctx context.Context, rowIdx int, valueMetadata query.FieldMetadata, offsets []int32, keyFunc func(j int) (K, error), items arrow.Array, higherPrecision bool, loc *time.Location, params map[string]*string) (snowflakeValue, error) {
+func buildListFromNativeArrowMap[K comparable, V any](ctx context.Context, rowIdx int, valueMetadata query.FieldMetadata, offsets []int32, keyFunc func(j int) (K, error), items arrow.Array, higherPrecision bool, loc *time.Location, params *syncParams) (snowflakeValue, error) {
 	return mapStructuredMapNativeArrowRows(make(map[K][]V), offsets, rowIdx, keyFunc, func(j int) ([]V, error) {
 		if items.IsNull(j) {
 			return nil, nil
@@ -2323,7 +2323,7 @@ func mapStructuredMapNativeArrowRows[K comparable, V any](m map[K]V, offsets []i
 	return m, nil
 }
 
-func arrowToStructuredType(ctx context.Context, structs *array.Struct, fieldMetadata []query.FieldMetadata, loc *time.Location, rowIdx int, higherPrecision bool, params map[string]*string) (*structuredType, error) {
+func arrowToStructuredType(ctx context.Context, structs *array.Struct, fieldMetadata []query.FieldMetadata, loc *time.Location, rowIdx int, higherPrecision bool, params *syncParams) (*structuredType, error) {
 	var err error
 	m := make(map[string]any)
 	for colIdx := 0; colIdx < structs.NumField(); colIdx++ {
@@ -2696,70 +2696,70 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (types.Snowflake
 	var t types.SnowflakeType
 	var arr []*string
 	switch reflect.TypeOf(nv.Value) {
-	case reflect.TypeOf(&intArray{}):
+	case reflect.TypeFor[*intArray]():
 		t = types.FixedType
 		a := nv.Value.(*intArray)
 		for _, x := range *a {
 			v := strconv.Itoa(x)
 			arr = append(arr, &v)
 		}
-	case reflect.TypeOf(&int64Array{}):
+	case reflect.TypeFor[*int64Array]():
 		t = types.FixedType
 		a := nv.Value.(*int64Array)
 		for _, x := range *a {
 			v := strconv.FormatInt(x, 10)
 			arr = append(arr, &v)
 		}
-	case reflect.TypeOf(&int32Array{}):
+	case reflect.TypeFor[*int32Array]():
 		t = types.FixedType
 		a := nv.Value.(*int32Array)
 		for _, x := range *a {
 			v := strconv.Itoa(int(x))
 			arr = append(arr, &v)
 		}
-	case reflect.TypeOf(&float64Array{}):
+	case reflect.TypeFor[*float64Array]():
 		t = types.RealType
 		a := nv.Value.(*float64Array)
 		for _, x := range *a {
 			v := fmt.Sprintf("%g", x)
 			arr = append(arr, &v)
 		}
-	case reflect.TypeOf(&float32Array{}):
+	case reflect.TypeFor[*float32Array]():
 		t = types.RealType
 		a := nv.Value.(*float32Array)
 		for _, x := range *a {
 			v := fmt.Sprintf("%g", x)
 			arr = append(arr, &v)
 		}
-	case reflect.TypeOf(&decfloatArray{}):
+	case reflect.TypeFor[*decfloatArray]():
 		t = types.TextType
 		a := nv.Value.(*decfloatArray)
 		for _, x := range *a {
 			v := x.Text('g', decfloatPrintingPrec)
 			arr = append(arr, &v)
 		}
-	case reflect.TypeOf(&boolArray{}):
+	case reflect.TypeFor[*boolArray]():
 		t = types.BooleanType
 		a := nv.Value.(*boolArray)
 		for _, x := range *a {
 			v := strconv.FormatBool(x)
 			arr = append(arr, &v)
 		}
-	case reflect.TypeOf(&stringArray{}):
+	case reflect.TypeFor[*stringArray]():
 		t = types.TextType
 		a := nv.Value.(*stringArray)
 		for _, x := range *a {
 			v := x // necessary for address to be not overwritten
 			arr = append(arr, &v)
 		}
-	case reflect.TypeOf(&byteArray{}):
+	case reflect.TypeFor[*byteArray]():
 		t = types.BinaryType
 		a := nv.Value.(*byteArray)
 		for _, x := range *a {
 			v := hex.EncodeToString(x)
 			arr = append(arr, &v)
 		}
-	case reflect.TypeOf(&timestampNtzArray{}):
+	case reflect.TypeFor[*timestampNtzArray]():
 		t = types.TimestampNtzType
 		a := nv.Value.(*timestampNtzArray)
 		for _, x := range *a {
@@ -2769,7 +2769,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (types.Snowflake
 			}
 			arr = append(arr, &v)
 		}
-	case reflect.TypeOf(&timestampLtzArray{}):
+	case reflect.TypeFor[*timestampLtzArray]():
 		t = types.TimestampLtzType
 		a := nv.Value.(*timestampLtzArray)
 
@@ -2780,7 +2780,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (types.Snowflake
 			}
 			arr = append(arr, &v)
 		}
-	case reflect.TypeOf(&timestampTzArray{}):
+	case reflect.TypeFor[*timestampTzArray]():
 		t = types.TimestampTzType
 		a := nv.Value.(*timestampTzArray)
 		for _, x := range *a {
@@ -2790,7 +2790,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (types.Snowflake
 			}
 			arr = append(arr, &v)
 		}
-	case reflect.TypeOf(&dateArray{}):
+	case reflect.TypeFor[*dateArray]():
 		t = types.DateType
 		a := nv.Value.(*dateArray)
 		for _, x := range *a {
@@ -2804,7 +2804,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (types.Snowflake
 			}
 			arr = append(arr, &v)
 		}
-	case reflect.TypeOf(&timeArray{}):
+	case reflect.TypeFor[*timeArray]():
 		t = types.TimeType
 		a := nv.Value.(*timeArray)
 		for _, x := range *a {

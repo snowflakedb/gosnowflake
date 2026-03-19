@@ -535,10 +535,10 @@ type keyMetadata struct {
 
 type encryptionData struct {
 	EncryptionMode      string          `json:"EncryptionMode,omitempty"`
-	WrappedContentKey   contentKey      `json:"WrappedContentKey,omitempty"`
-	EncryptionAgent     encryptionAgent `json:"EncryptionAgent,omitempty"`
+	WrappedContentKey   contentKey      `json:"WrappedContentKey"`
+	EncryptionAgent     encryptionAgent `json:"EncryptionAgent"`
 	ContentEncryptionIV string          `json:"ContentEncryptionIV,omitempty"`
-	KeyWrappingMetadata keyMetadata     `json:"KeyWrappingMetadata,omitempty"`
+	KeyWrappingMetadata keyMetadata     `json:"KeyWrappingMetadata"`
 }
 
 type snowflakeFileEncryption struct {

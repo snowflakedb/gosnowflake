@@ -110,35 +110,36 @@ func TestGetCurrentLocation(t *testing.T) {
 	}
 	incorrectTz := "Not/exists"
 	testcases := []struct {
-		params map[string]*string
+		params syncParams
 		loc    *time.Location
 	}{
 		{
-			params: map[string]*string{},
+			params: newSyncParams(map[string]*string{}),
 			loc:    time.Now().Location(),
 		},
 		{
-			params: map[string]*string{
+			params: newSyncParams(map[string]*string{
 				"timezone": nil,
-			},
+			}),
 			loc: time.Now().Location(),
 		},
 		{
-			params: map[string]*string{
+			params: newSyncParams(map[string]*string{
 				"timezone": &specificTz,
-			},
+			}),
 			loc: specificLoc,
 		},
 		{
-			params: map[string]*string{
+			params: newSyncParams(map[string]*string{
 				"timezone": &incorrectTz,
-			},
+			}),
 			loc: time.Now().Location(),
 		},
 	}
-	for _, tc := range testcases {
+	for i := range testcases {
+		tc := &testcases[i]
 		t.Run(fmt.Sprintf("%v", tc.loc), func(t *testing.T) {
-			loc := getCurrentLocation(tc.params)
+			loc := getCurrentLocation(&tc.params)
 			if !reflect.DeepEqual(*loc, *tc.loc) {
 				t.Fatalf("location mismatch. expected: %v, got: %v", tc.loc, loc)
 			}

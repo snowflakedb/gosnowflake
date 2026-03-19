@@ -4,7 +4,9 @@
 
 Bug fixes:
 
-- Fixed default `CrlDownloadMaxSize` to be 20MB instead of 200MB, as the previous value was set too high and could cause out-of-memory issues (snowflakedb/gosnowflake#1735)
+- Fixed default `CrlDownloadMaxSize` to be 20MB instead of 200MB, as the previous value was set too high and could cause out-of-memory issues (snowflakedb/gosnowflake#1735).
+- Replaced global `paramsMutex` with per-connection `syncParams` to encapsulate parameter synchronization and avoid cross-connection contention (snowflakedb/gosnoflake#1747).
+- `Config.Params` map is not modified anymore, to avoid changing parameter values across connections of the same connection pool (snowflakedb/gosnowflake#1747).
 
 Internal changes:
 
@@ -22,7 +24,8 @@ Breaking changes:
 - `WithOriginalTimestamp` is removed, use `WithArrowBatchesTimestampOption(UseOriginalTimestamp)` instead (snowflakedb/gosnowflake#1693).
 - `WithMapValuesNullable` and `WithArrayValuesNullable` combined into one option `WithEmbeddedValuesNullable` (snowflakedb/gosnowflake#1693).
 - Hid streaming chunk downloader. It will be removed completely in the future (snowflakedb/gosnowflake#1696).
-- Maximum number of chunk download goroutines is now configured with `CLIENT_PREFETCH_THREADS` session parameter (snowflakedb/gosnowflake#1696).
+- Maximum number of chunk download goroutines is now configured with `CLIENT_PREFETCH_THREADS` session parameter (snowflakedb/gosnowflake#1696)
+  and default to 4.
 - Fixed typo in `GOSNOWFLAKE_SKIP_REGISTRATION` env variable (snowflakedb/gosnowflake#1696).
 - Removed `ClientIP` field from `Config` struct. This field was never used and is not needed for any functionality (snowflakedb/gosnowflake#1692).
 - Unexported MfaToken and IdToken (snowflakedb/gosnowflake#1692).

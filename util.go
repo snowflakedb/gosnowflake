@@ -5,6 +5,8 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io"
+	"iter"
+	"maps"
 	"math/rand"
 	"os"
 	"strings"
@@ -297,13 +299,50 @@ func (utp *unixTimeProvider) currentTime() int64 {
 	return time.Now().UnixMilli()
 }
 
-func contains[T comparable](s []T, e T) bool {
-	for _, v := range s {
-		if v == e {
-			return true
+type syncParams struct {
+	mu     sync.Mutex
+	params map[string]*string
+}
+
+func newSyncParams(params map[string]*string) syncParams {
+	copied := make(map[string]*string)
+	if params != nil {
+		maps.Copy(copied, params)
+	}
+	return syncParams{params: copied}
+}
+
+func (sp *syncParams) get(key string) (*string, bool) {
+	sp.mu.Lock()
+	defer sp.mu.Unlock()
+	if sp.params == nil {
+		return nil, false
+	}
+	v, ok := sp.params[key]
+	return v, ok
+}
+
+func (sp *syncParams) set(key string, value *string) {
+	sp.mu.Lock()
+	defer sp.mu.Unlock()
+	if sp.params == nil {
+		sp.params = make(map[string]*string)
+	}
+	sp.params[key] = value
+}
+
+// All returns an iterator over all params, holding the lock for the
+// duration of iteration. Callers use: for k, v := range sp.All() { ... }
+func (sp *syncParams) All() iter.Seq2[string, string] {
+	return func(yield func(string, string) bool) {
+		sp.mu.Lock()
+		defer sp.mu.Unlock()
+		for k, v := range sp.params {
+			if !yield(k, *v) {
+				return
+			}
 		}
 	}
-	return false
 }
 
 func chooseRandomFromRange(min float64, max float64) float64 {

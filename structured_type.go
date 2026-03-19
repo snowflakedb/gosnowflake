@@ -12,6 +12,7 @@ import (
 	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 	"math/big"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -116,10 +117,10 @@ func (e *structuredObjectWriterEntry) toFieldMetadata() query.FieldMetadata {
 type structuredObjectWriterContext struct {
 	values  map[string]any
 	entries []structuredObjectWriterEntry
-	params  map[string]*string
+	params  *syncParams
 }
 
-func (sowc *structuredObjectWriterContext) init(params map[string]*string) {
+func (sowc *structuredObjectWriterContext) init(params *syncParams) {
 	sowc.values = make(map[string]any)
 	sowc.params = params
 }
@@ -376,7 +377,7 @@ func (sowc *structuredObjectWriterContext) WriteNullRaw(fieldName string, typ re
 	return fmt.Errorf("cannot use %v as nillable field", typ.Kind().String())
 }
 
-func buildSowcFromType(params map[string]*string, typ reflect.Type) (*structuredObjectWriterContext, error) {
+func buildSowcFromType(params *syncParams, typ reflect.Type) (*structuredObjectWriterContext, error) {
 	childSowc := &structuredObjectWriterContext{}
 	childSowc.init(params)
 	if typ.Kind() == reflect.Pointer {
@@ -410,35 +411,35 @@ func buildSowcFromType(params map[string]*string, typ reflect.Type) (*structured
 			if field.Type.Kind() == reflect.Pointer {
 				t = field.Type.Elem()
 			}
-			if t.AssignableTo(reflect.TypeOf(sql.NullString{})) {
+			if t.AssignableTo(reflect.TypeFor[sql.NullString]()) {
 				if err := childSowc.WriteNullString(fieldName, sql.NullString{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullByte{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullByte]()) {
 				if err := childSowc.WriteNullByte(fieldName, sql.NullByte{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullInt16{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullInt16]()) {
 				if err := childSowc.WriteNullInt16(fieldName, sql.NullInt16{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullInt32{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullInt32]()) {
 				if err := childSowc.WriteNullInt32(fieldName, sql.NullInt32{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullInt64{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullInt64]()) {
 				if err := childSowc.WriteNullInt64(fieldName, sql.NullInt64{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullFloat64{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullFloat64]()) {
 				if err := childSowc.WriteNullFloat64(fieldName, sql.NullFloat64{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullBool{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullBool]()) {
 				if err := childSowc.WriteNullBool(fieldName, sql.NullBool{}); err != nil {
 					return nil, err
 				}
-			} else if t.AssignableTo(reflect.TypeOf(sql.NullTime{})) || t.AssignableTo(reflect.TypeOf(time.Time{})) {
+			} else if t.AssignableTo(reflect.TypeFor[sql.NullTime]()) || t.AssignableTo(reflect.TypeFor[time.Time]()) {
 				timeSnowflakeType, err := getTimeSnowflakeType(field)
 				if err != nil {
 					return nil, err
@@ -453,7 +454,7 @@ func buildSowcFromType(params map[string]*string, typ reflect.Type) (*structured
 				if err := childSowc.WriteNullableStruct(fieldName, nil, field.Type); err != nil {
 					return nil, err
 				}
-			} else if t.Implements(reflect.TypeOf((*driver.Valuer)(nil)).Elem()) {
+			} else if t.Implements(reflect.TypeFor[driver.Valuer]()) {
 				if err := childSowc.WriteNullString(fieldName, sql.NullString{}); err != nil {
 					return nil, err
 				}
@@ -622,7 +623,7 @@ func (sowc *structuredObjectWriterContext) WriteAll(sow StructuredObjectWriter) 
 		} else if field.Type.Kind() == reflect.Slice || field.Type.Kind() == reflect.Map {
 			var timeSfType []byte
 			var err error
-			if field.Type.Elem().AssignableTo(reflect.TypeOf(time.Time{})) || field.Type.Elem().AssignableTo(reflect.TypeOf(sql.NullTime{})) {
+			if field.Type.Elem().AssignableTo(reflect.TypeFor[time.Time]()) || field.Type.Elem().AssignableTo(reflect.TypeFor[sql.NullTime]()) {
 				timeSfType, err = getTimeSnowflakeType(typ.Field(i))
 				if err != nil {
 					return err
@@ -709,7 +710,7 @@ func ScanMapOfScanners[K comparable, V sql.Scanner](m *map[K]V) *MapOfScanners[K
 type structuredType struct {
 	values        map[string]any
 	fieldMetadata []query.FieldMetadata
-	params        map[string]*string
+	params        *syncParams
 }
 
 func getType[T any](st *structuredType, fieldName string, emptyValue T) (T, bool, error) {
@@ -1190,7 +1191,7 @@ func shouldIgnoreField(field reflect.StructField) bool {
 	if sfTag == "" {
 		return false
 	}
-	return contains(strings.Split(sfTag, ",")[1:], "ignore")
+	return slices.Contains(strings.Split(sfTag, ",")[1:], "ignore")
 }
 
 func getTimeSnowflakeType(field reflect.StructField) ([]byte, error) {
@@ -1199,15 +1200,15 @@ func getTimeSnowflakeType(field reflect.StructField) ([]byte, error) {
 		return nil, nil
 	}
 	values := strings.Split(sfTag, ",")[1:]
-	if contains(values, "time") {
+	if slices.Contains(values, "time") {
 		return DataTypeTime, nil
-	} else if contains(values, "date") {
+	} else if slices.Contains(values, "date") {
 		return DataTypeDate, nil
-	} else if contains(values, "ltz") {
+	} else if slices.Contains(values, "ltz") {
 		return DataTypeTimestampLtz, nil
-	} else if contains(values, "ntz") {
+	} else if slices.Contains(values, "ntz") {
 		return DataTypeTimestampNtz, nil
-	} else if contains(values, "tz") {
+	} else if slices.Contains(values, "tz") {
 		return DataTypeTimestampTz, nil
 	}
 	return nil, nil

@@ -33,8 +33,8 @@ var formatReplacements = []formatReplacement{
 	{input: "TZM", output: "00"},
 }
 
-func timeToString(t time.Time, dateTimeType string, params map[string]*string) (string, error) {
-	sfFormat, err := dateTimeInputFormatByType(dateTimeType, params)
+func timeToString(t time.Time, dateTimeType string, sp *syncParams) (string, error) {
+	sfFormat, err := dateTimeInputFormatByType(dateTimeType, sp)
 	if err != nil {
 		return "", err
 	}
@@ -72,29 +72,27 @@ func snowflakeFormatToGoFormat(sfFormat string) (string, error) {
 	return res, nil
 }
 
-func dateTimeOutputFormatByType(dateTimeType string, params map[string]*string) (string, error) {
-	paramsMutex.Lock()
-	defer paramsMutex.Unlock()
+func dateTimeOutputFormatByType(dateTimeType string, sp *syncParams) (string, error) {
 	var format *string
 	switch strings.ToLower(dateTimeType) {
 	case "date":
-		format = params["date_output_format"]
+		format, _ = sp.get("date_output_format")
 	case "time":
-		format = params["time_output_format"]
+		format, _ = sp.get("time_output_format")
 	case "timestamp_ltz":
-		format = params["timestamp_ltz_output_format"]
+		format, _ = sp.get("timestamp_ltz_output_format")
 		if format == nil || *format == "" {
-			format = params["timestamp_output_format"]
+			format, _ = sp.get("timestamp_output_format")
 		}
 	case "timestamp_tz":
-		format = params["timestamp_tz_output_format"]
+		format, _ = sp.get("timestamp_tz_output_format")
 		if format == nil || *format == "" {
-			format = params["timestamp_output_format"]
+			format, _ = sp.get("timestamp_output_format")
 		}
 	case "timestamp_ntz":
-		format = params["timestamp_ntz_output_format"]
+		format, _ = sp.get("timestamp_ntz_output_format")
 		if format == nil || *format == "" {
-			format = params["timestamp_output_format"]
+			format, _ = sp.get("timestamp_output_format")
 		}
 	}
 	if format != nil {
@@ -103,40 +101,39 @@ func dateTimeOutputFormatByType(dateTimeType string, params map[string]*string) 
 	return "", errors.New("not known output format parameter for " + dateTimeType)
 }
 
-func dateTimeInputFormatByType(dateTimeType string, params map[string]*string) (string, error) {
-	paramsMutex.Lock()
-	defer paramsMutex.Unlock()
+func dateTimeInputFormatByType(dateTimeType string, sp *syncParams) (string, error) {
 	var format *string
+	var ok bool
 	switch strings.ToLower(dateTimeType) {
 	case "date":
-		if format = params["date_input_format"]; format == nil || *format == "" {
-			format = params["date_output_format"]
+		if format, ok = sp.get("date_input_format"); !ok || format == nil || *format == "" {
+			format, _ = sp.get("date_output_format")
 		}
 	case "time":
-		if format = params["time_input_format"]; format == nil || *format == "" {
-			format = params["time_output_format"]
+		if format, ok = sp.get("time_input_format"); !ok || format == nil || *format == "" {
+			format, _ = sp.get("time_output_format")
 		}
 	case "timestamp_ltz":
-		if format = params["timestamp_ltz_input_format"]; format == nil || *format == "" {
-			if format = params["timestamp_input_format"]; format == nil || *format == "" {
-				if format = params["timestamp_ltz_output_format"]; format == nil || *format == "" {
-					format = params["timestamp_output_format"]
+		if format, ok = sp.get("timestamp_ltz_input_format"); !ok || format == nil || *format == "" {
+			if format, ok = sp.get("timestamp_input_format"); !ok || format == nil || *format == "" {
+				if format, ok = sp.get("timestamp_ltz_output_format"); !ok || format == nil || *format == "" {
+					format, _ = sp.get("timestamp_output_format")
 				}
 			}
 		}
 	case "timestamp_tz":
-		if format = params["timestamp_tz_input_format"]; format == nil || *format == "" {
-			if format = params["timestamp_input_format"]; format == nil || *format == "" {
-				if format = params["timestamp_tz_output_format"]; format == nil || *format == "" {
-					format = params["timestamp_output_format"]
+		if format, ok = sp.get("timestamp_tz_input_format"); !ok || format == nil || *format == "" {
+			if format, ok = sp.get("timestamp_input_format"); !ok || format == nil || *format == "" {
+				if format, ok = sp.get("timestamp_tz_output_format"); !ok || format == nil || *format == "" {
+					format, _ = sp.get("timestamp_output_format")
 				}
 			}
 		}
 	case "timestamp_ntz":
-		if format = params["timestamp_ntz_input_format"]; format == nil || *format == "" {
-			if format = params["timestamp_input_format"]; format == nil || *format == "" {
-				if format = params["timestamp_ntz_output_format"]; format == nil || *format == "" {
-					format = params["timestamp_output_format"]
+		if format, ok = sp.get("timestamp_ntz_input_format"); !ok || format == nil || *format == "" {
+			if format, ok = sp.get("timestamp_input_format"); !ok || format == nil || *format == "" {
+				if format, ok = sp.get("timestamp_ntz_output_format"); !ok || format == nil || *format == "" {
+					format, _ = sp.get("timestamp_output_format")
 				}
 			}
 		}

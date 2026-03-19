@@ -10,9 +10,6 @@ on:
     tags:
       - v*
   pull_request:
-    branches:
-      - master
-      - SNOW-*
   schedule:
     - cron: '7 3 * * *'
   workflow_dispatch:
@@ -43,7 +40,7 @@ jobs:
           - name: golangci-lint
             uses: golangci/golangci-lint-action@v7
             with:
-              version: v2.4.0
+              version: v2.11
           - name: Format, Lint
             shell: bash
             run: ./ci/build.sh

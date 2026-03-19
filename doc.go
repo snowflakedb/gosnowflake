@@ -162,7 +162,7 @@ The following connection parameters are supported:
     In this case (with this default validation deliberately turned off) the driver cannot guarantee that the actual behaviour inside the session will match with the one you'd expect, i.e. not actually using the database you expect, and so on.
 
   - tracing: Specifies the logging level to be used. Set to error by default.
-    Valid values are trace, debug, info, print, warning, error, fatal, panic.
+    Valid values are off, fatal, error, warn, info, debug, trace.
 
   - logQueryText: when set to true, the full query text will be logged. Be aware that it may include sensitive information. Default value is false.
 

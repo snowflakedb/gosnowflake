@@ -445,10 +445,10 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 
 		for _, fileName := range sfa.srcFiles {
 			if len(fileName) > 0 {
-				firstPathSep := strings.Index(fileName, "/")
+				_, after, ok := strings.Cut(fileName, "/")
 				dstFileName := fileName
-				if firstPathSep >= 0 {
-					dstFileName = fileName[firstPathSep+1:]
+				if ok {
+					dstFileName = after
 				}
 				sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
 					name:              baseName(fileName),

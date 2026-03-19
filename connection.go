@@ -6,8 +6,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
-	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -15,6 +13,9 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 
 	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
 	"go.opentelemetry.io/otel/propagation"
@@ -75,6 +76,7 @@ type snowflakeConn struct {
 	internal            InternalClient
 	queryContextCache   *queryContextCache
 	currentTimeProvider currentTimeProvider
+	syncParams          syncParams
 	idToken             string
 	mfaToken            string
 }
@@ -146,11 +148,9 @@ func (sc *snowflakeConn) exec(
 	propagator := propagation.TraceContext{}
 	propagator.Inject(ctx, propagation.MapCarrier(headers))
 
-	paramsMutex.Lock()
-	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
-		headers[httpHeaderServiceName] = *serviceName
+	if sn, ok := sc.syncParams.get(serviceName); ok {
+		headers[httpHeaderServiceName] = *sn
 	}
-	paramsMutex.Unlock()
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
@@ -659,6 +659,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 
 	telemetry.sr = sc.rest
 	sc.telemetry = telemetry
+	sc.syncParams = newSyncParams(sc.cfg.Params)
 
 	return sc, nil
 }

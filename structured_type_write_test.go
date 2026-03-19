@@ -501,7 +501,7 @@ func (o *objectWithAllTypesWrapper) Scan(val any) error {
 }
 
 func (o *objectWithAllTypesWrapper) Write(sowc StructuredObjectWriterContext) error {
-	return sowc.WriteNullableStruct("o", o.o, reflect.TypeOf(objectWithAllTypes{}))
+	return sowc.WriteNullableStruct("o", o.o, reflect.TypeFor[objectWithAllTypes]())
 }
 
 func TestBindingObjectWithAllTypesNullable(t *testing.T) {
@@ -561,7 +561,7 @@ func TestBindingNullStructuredObjects(t *testing.T) {
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
-		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", DataTypeNilObject, reflect.TypeOf(simpleObject{}))
+		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", DataTypeNilObject, reflect.TypeFor[simpleObject]())
 
 		rows := dbt.mustQueryContext(ctx, "SELECT * FROM test_object_binding")
 		defer rows.Close()
@@ -735,7 +735,7 @@ func TestBindingNilArrayOfObjects(t *testing.T) {
 		}()
 
 		var arr []*simpleObject
-		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeNilArray, reflect.TypeOf(simpleObject{}))
+		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeNilArray, reflect.TypeFor[simpleObject]())
 
 		rows := dbt.mustQueryContext(ctx, "SELECT * FROM test_array_binding")
 		defer rows.Close()
@@ -758,7 +758,7 @@ func TestBindingNilArrayOfInts(t *testing.T) {
 		}()
 
 		var arr *[]int64
-		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeNilArray, reflect.TypeOf(1))
+		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeNilArray, reflect.TypeFor[int]())
 
 		rows := dbt.mustQueryContext(ctx, "SELECT * FROM test_array_binding")
 		defer rows.Close()
@@ -1057,8 +1057,8 @@ func TestBindingNilMapOfStructs(t *testing.T) {
 		}()
 
 		var m map[string]*simpleObject
-		dbt.mustExecT(t, "INSERT INTO test_map_binding SELECT ?", DataTypeNilMap, NilMapTypes{Key: reflect.TypeOf(""), Value: reflect.TypeOf(&simpleObject{})})
-		rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_map_binding", DataTypeNilMap, NilMapTypes{Key: reflect.TypeOf(""), Value: reflect.TypeOf(&simpleObject{})})
+		dbt.mustExecT(t, "INSERT INTO test_map_binding SELECT ?", DataTypeNilMap, NilMapTypes{Key: reflect.TypeFor[string](), Value: reflect.TypeFor[*simpleObject]()})
+		rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_map_binding", DataTypeNilMap, NilMapTypes{Key: reflect.TypeFor[string](), Value: reflect.TypeFor[*simpleObject]()})
 		defer rows.Close()
 
 		assertTrueF(t, rows.Next())
@@ -1079,8 +1079,8 @@ func TestBindingNilMapOfInts(t *testing.T) {
 		}()
 
 		var m *map[string]int64
-		dbt.mustExecT(t, "INSERT INTO test_map_binding SELECT ?", DataTypeNilMap, NilMapTypes{Key: reflect.TypeOf(""), Value: reflect.TypeOf(1)})
-		rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_map_binding", DataTypeNilMap, NilMapTypes{Key: reflect.TypeOf(""), Value: reflect.TypeOf(1)})
+		dbt.mustExecT(t, "INSERT INTO test_map_binding SELECT ?", DataTypeNilMap, NilMapTypes{Key: reflect.TypeFor[string](), Value: reflect.TypeFor[int]()})
+		rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_map_binding", DataTypeNilMap, NilMapTypes{Key: reflect.TypeFor[string](), Value: reflect.TypeFor[int]()})
 		defer rows.Close()
 
 		assertTrueF(t, rows.Next())

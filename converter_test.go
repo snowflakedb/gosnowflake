@@ -21,7 +21,6 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/decimal128"
 	"github.com/apache/arrow-go/v18/arrow/memory"
-
 )
 
 func stringIntToDecimal(src string) (decimal128.Num, bool) {
@@ -90,9 +89,9 @@ func TestValueToString(t *testing.T) {
 	if err == nil {
 		t.Errorf("should raise error: %v", v)
 	}
-	params := make(map[string]*string)
+	params := newSyncParams(make(map[string]*string))
 	dateFormat := "YYYY-MM-DD"
-	params["date_output_format"] = &dateFormat
+	params.set("date_output_format", &dateFormat)
 
 	// both localTime and utcTime should yield the same unix timestamp
 	localTime := time.Date(2019, 2, 6, 14, 17, 31, 123456789, time.FixedZone("-08:00", -8*3600))
@@ -186,7 +185,7 @@ func TestValueToString(t *testing.T) {
 		assertEqualE(t, *bv.value, u.String())
 	})
 
-	bv, err = valueToString(&testValueToStringStructuredObject{s: "some string", i: 123, date: time.Date(2024, time.May, 24, 0, 0, 0, 0, time.UTC)}, types.TimestampLtzType, params)
+	bv, err = valueToString(&testValueToStringStructuredObject{s: "some string", i: 123, date: time.Date(2024, time.May, 24, 0, 0, 0, 0, time.UTC)}, types.TimestampLtzType, &params)
 	assertNilF(t, err)
 	assertEqualE(t, bv.format, jsonFormatStr)
 	assertDeepEqualE(t, *bv.schema, bindingSchema{
@@ -1064,12 +1063,12 @@ func TestNumbersScanType(t *testing.T) {
 
 						types, err := rows.ColumnTypes()
 						assertNilF(t, err)
-						assertEqualE(t, types[0].ScanType(), reflect.TypeOf(int64(1)))
-						assertEqualE(t, types[1].ScanType(), reflect.TypeOf(int64(1)))
-						assertEqualE(t, types[2].ScanType(), reflect.TypeOf(int64(1)))
-						assertEqualE(t, types[3].ScanType(), reflect.TypeOf(""))
-						assertEqualE(t, types[4].ScanType(), reflect.TypeOf(""))
-						assertEqualE(t, types[5].ScanType(), reflect.TypeOf(""))
+						assertEqualE(t, types[0].ScanType(), reflect.TypeFor[int64]())
+						assertEqualE(t, types[1].ScanType(), reflect.TypeFor[int64]())
+						assertEqualE(t, types[2].ScanType(), reflect.TypeFor[int64]())
+						assertEqualE(t, types[3].ScanType(), reflect.TypeFor[string]())
+						assertEqualE(t, types[4].ScanType(), reflect.TypeFor[string]())
+						assertEqualE(t, types[5].ScanType(), reflect.TypeFor[string]())
 					})
 
 					t.Run("without higher precision - regardless of scan type, int parsing should still work", func(t *testing.T) {
@@ -1088,12 +1087,12 @@ func TestNumbersScanType(t *testing.T) {
 
 						types, err := rows.ColumnTypes()
 						assertNilF(t, err)
-						assertEqualE(t, types[0].ScanType(), reflect.TypeOf(int64(1)))
-						assertEqualE(t, types[1].ScanType(), reflect.TypeOf(int64(1)))
-						assertEqualE(t, types[2].ScanType(), reflect.TypeOf(int64(1)))
-						assertEqualE(t, types[3].ScanType(), reflect.TypeOf(""))
-						assertEqualE(t, types[4].ScanType(), reflect.TypeOf(""))
-						assertEqualE(t, types[5].ScanType(), reflect.TypeOf(""))
+						assertEqualE(t, types[0].ScanType(), reflect.TypeFor[int64]())
+						assertEqualE(t, types[1].ScanType(), reflect.TypeFor[int64]())
+						assertEqualE(t, types[2].ScanType(), reflect.TypeFor[int64]())
+						assertEqualE(t, types[3].ScanType(), reflect.TypeFor[string]())
+						assertEqualE(t, types[4].ScanType(), reflect.TypeFor[string]())
+						assertEqualE(t, types[5].ScanType(), reflect.TypeFor[string]())
 					})
 
 					t.Run("with higher precision", func(t *testing.T) {
@@ -1114,12 +1113,12 @@ func TestNumbersScanType(t *testing.T) {
 
 						types, err := rows.ColumnTypes()
 						assertNilF(t, err)
-						assertEqualE(t, types[0].ScanType(), reflect.TypeOf(int64(1)))
-						assertEqualE(t, types[1].ScanType(), reflect.TypeOf(int64(1)))
-						assertEqualE(t, types[2].ScanType(), reflect.TypeOf(&big.Int{}))
-						assertEqualE(t, types[3].ScanType(), reflect.TypeOf(&big.Int{}))
-						assertEqualE(t, types[4].ScanType(), reflect.TypeOf(&big.Int{}))
-						assertEqualE(t, types[5].ScanType(), reflect.TypeOf(&big.Int{}))
+						assertEqualE(t, types[0].ScanType(), reflect.TypeFor[int64]())
+						assertEqualE(t, types[1].ScanType(), reflect.TypeFor[int64]())
+						assertEqualE(t, types[2].ScanType(), reflect.TypeFor[*big.Int]())
+						assertEqualE(t, types[3].ScanType(), reflect.TypeFor[*big.Int]())
+						assertEqualE(t, types[4].ScanType(), reflect.TypeFor[*big.Int]())
+						assertEqualE(t, types[5].ScanType(), reflect.TypeFor[*big.Int]())
 					})
 				})
 
@@ -1139,12 +1138,12 @@ func TestNumbersScanType(t *testing.T) {
 
 						types, err := rows.ColumnTypes()
 						assertNilF(t, err)
-						assertEqualE(t, types[0].ScanType(), reflect.TypeOf(1.5))
-						assertEqualE(t, types[1].ScanType(), reflect.TypeOf(1.5))
-						assertEqualE(t, types[2].ScanType(), reflect.TypeOf(1.5))
-						assertEqualE(t, types[3].ScanType(), reflect.TypeOf(1.5))
-						assertEqualE(t, types[4].ScanType(), reflect.TypeOf(1.5))
-						assertEqualE(t, types[5].ScanType(), reflect.TypeOf(1.5))
+						assertEqualE(t, types[0].ScanType(), reflect.TypeFor[float64]())
+						assertEqualE(t, types[1].ScanType(), reflect.TypeFor[float64]())
+						assertEqualE(t, types[2].ScanType(), reflect.TypeFor[float64]())
+						assertEqualE(t, types[3].ScanType(), reflect.TypeFor[float64]())
+						assertEqualE(t, types[4].ScanType(), reflect.TypeFor[float64]())
+						assertEqualE(t, types[5].ScanType(), reflect.TypeFor[float64]())
 					})
 
 					t.Run("with higher precision", func(t *testing.T) {
@@ -1164,12 +1163,12 @@ func TestNumbersScanType(t *testing.T) {
 
 						types, err := rows.ColumnTypes()
 						assertNilF(t, err)
-						assertEqualE(t, types[0].ScanType(), reflect.TypeOf(&big.Float{}))
-						assertEqualE(t, types[1].ScanType(), reflect.TypeOf(&big.Float{}))
-						assertEqualE(t, types[2].ScanType(), reflect.TypeOf(&big.Float{}))
-						assertEqualE(t, types[3].ScanType(), reflect.TypeOf(&big.Float{}))
-						assertEqualE(t, types[4].ScanType(), reflect.TypeOf(&big.Float{}))
-						assertEqualE(t, types[5].ScanType(), reflect.TypeOf(&big.Float{}))
+						assertEqualE(t, types[0].ScanType(), reflect.TypeFor[*big.Float]())
+						assertEqualE(t, types[1].ScanType(), reflect.TypeFor[*big.Float]())
+						assertEqualE(t, types[2].ScanType(), reflect.TypeFor[*big.Float]())
+						assertEqualE(t, types[3].ScanType(), reflect.TypeFor[*big.Float]())
+						assertEqualE(t, types[4].ScanType(), reflect.TypeFor[*big.Float]())
+						assertEqualE(t, types[5].ScanType(), reflect.TypeFor[*big.Float]())
 					})
 				})
 			})

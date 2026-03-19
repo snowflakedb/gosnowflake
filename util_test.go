@@ -399,26 +399,6 @@ func TestGetFromEnvFailOnMissing(t *testing.T) {
 	}
 }
 
-type tcContains[T comparable] struct {
-	arr      []T
-	e        T
-	expected bool
-}
-
-func TestContains(t *testing.T) {
-	performContainsTestcase(tcContains[int]{[]int{1, 2, 3, 5}, 4, false}, t)
-	performContainsTestcase(tcContains[string]{[]string{"a", "b", "C", "F"}, "C", true}, t)
-	performContainsTestcase(tcContains[int]{[]int{1, 2, 3, 5}, 2, true}, t)
-	performContainsTestcase(tcContains[string]{[]string{"a", "b", "C", "F"}, "f", false}, t)
-}
-
-func performContainsTestcase[S comparable](tc tcContains[S], t *testing.T) {
-	result := contains(tc.arr, tc.e)
-	if result != tc.expected {
-		t.Errorf("contains failed; arr: %v, e: %v, should be %v but was %v", tc.arr, tc.e, tc.expected, result)
-	}
-}
-
 func skipOnJenkins(t *testing.T, message string) {
 	if os.Getenv("JENKINS_HOME") != "" {
 		t.Skip("Skipping test on Jenkins: " + message)
@@ -497,4 +477,85 @@ func overrideEnv(env string, value string) envOverride {
 	oldValue := os.Getenv(env)
 	os.Setenv(env, value)
 	return envOverride{env, oldValue}
+}
+
+func TestSyncParamsAll(t *testing.T) {
+	t.Run("nil map constructor", func(t *testing.T) {
+		assertEqualE(t, len(syncParams{}.params), 0)
+	})
+
+	t.Run("original map is left intact", func(t *testing.T) {
+		m := make(map[string]*string)
+		a := "a"
+		m["a"] = &a
+		sp := newSyncParams(m)
+		b := "b"
+		sp.set("a", &b)
+		assertEqualE(t, *m["a"], "a")
+	})
+
+	t.Run("nil map yields nothing", func(t *testing.T) {
+		var sp syncParams
+		count := 0
+		for range sp.All() {
+			count++
+		}
+		assertEqualE(t, count, 0)
+	})
+
+	t.Run("empty map yields nothing", func(t *testing.T) {
+		sp := newSyncParams(map[string]*string{})
+		count := 0
+		for range sp.All() {
+			count++
+		}
+		assertEqualE(t, count, 0)
+	})
+
+	t.Run("iterates all entries", func(t *testing.T) {
+		a, b := "1", "2"
+		sp := newSyncParams(map[string]*string{"a": &a, "b": &b})
+		got := map[string]string{}
+		for k, v := range sp.All() {
+			got[k] = v
+		}
+		assertEqualE(t, len(got), 2)
+		assertEqualE(t, got["a"], "1")
+		assertEqualE(t, got["b"], "2")
+	})
+
+	t.Run("break stops early", func(t *testing.T) {
+		a, b, c := "1", "2", "3"
+		sp := newSyncParams(map[string]*string{"a": &a, "b": &b, "c": &c})
+		count := 0
+		for range sp.All() {
+			count++
+			break
+		}
+		assertEqualE(t, count, 1)
+	})
+
+	// This test verifies there's no data race — All() holds the mutex during iteration
+	// while set() also acquires it, so they must serialize correctly. Running this test
+	// under -race would catch it if the locking were missing or broken.
+	t.Run("concurrent iteration and mutation", func(t *testing.T) {
+		sp := newSyncParams(map[string]*string{})
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			for i := range 100 {
+				v := strconv.Itoa(i)
+				sp.set(v, &v)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			for range 100 {
+				for range sp.All() {
+				}
+			}
+		}()
+		wg.Wait()
+	})
 }

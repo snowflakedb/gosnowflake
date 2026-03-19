@@ -218,11 +218,9 @@ func (sc *snowflakeConn) getQueryResultResp(
 	resultPath string) (
 	*execResponse, error) {
 	headers := getHeaders()
-	paramsMutex.Lock()
-	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
-		headers[httpHeaderServiceName] = *serviceName
+	if sn, ok := sc.syncParams.get(serviceName); ok {
+		headers[httpHeaderServiceName] = *sn
 	}
-	paramsMutex.Unlock()
 	param := make(url.Values)
 	param.Set(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	param.Set("clientStartTime", strconv.FormatInt(sc.currentTimeProvider.currentTime(), 10))
