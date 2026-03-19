@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	sferrors "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -18,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	sferrors "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/snowflakedb/gosnowflake/v2/internal/compilation"
@@ -98,6 +99,9 @@ type authRequestClientEnvironment struct {
 	CoreLoadError           string            `json:"CORE_LOAD_ERROR,omitempty"`
 	CoreFileName            string            `json:"CORE_FILE_NAME,omitempty"`
 	CgoEnabled              bool              `json:"CGO_ENABLED,omitempty"`
+	LinkingMode             string            `json:"LINKING_MODE,omitempty"`
+	LibcFamily              string            `json:"LIBC_FAMILY,omitempty"`
+	LibcVersion             string            `json:"LIBC_VERSION,omitempty"`
 }
 
 type authRequestData struct {
@@ -391,6 +395,11 @@ func newAuthRequestClientEnvironment() authRequestClientEnvironment {
 		coreLoadError = "Minicore is still loading"
 		logger.Debugf("Minicore not yet loaded for client environment telemetry")
 	}
+	libcInfo := internalos.GetLibcInfo()
+	linkingMode, err := compilation.CheckDynamicLinking()
+	if err != nil {
+		logger.Debugf("cannot determine if app is dynamically linked: %v", err)
+	}
 	return authRequestClientEnvironment{
 		Os:            runtime.GOOS,
 		OsVersion:     osVersion,
@@ -401,6 +410,9 @@ func newAuthRequestClientEnvironment() authRequestClientEnvironment {
 		CoreFileName:  getMiniCoreFileName(),
 		CoreLoadError: coreLoadError,
 		CgoEnabled:    compilation.CgoEnabled,
+		LinkingMode:   linkingMode.String(),
+		LibcFamily:    libcInfo.Family,
+		LibcVersion:   libcInfo.Version,
 	}
 }
 
