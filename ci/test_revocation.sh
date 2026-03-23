@@ -20,15 +20,15 @@ REVOCATION_BRANCH="${REVOCATION_BRANCH:-main}"
 
 rm -rf "$REVOCATION_DIR"
 if [ -n "$GITHUB_USER" ] && [ -n "$GITHUB_TOKEN" ]; then
-    git clone --depth 1 --branch "$REVOCATION_BRANCH" "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/snowflakedb/revocation-validation.git" "$REVOCATION_DIR"
+    git clone --depth 1 --branch "$REVOCATION_BRANCH" "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/snowflake-eng/revocation-validation.git" "$REVOCATION_DIR"
 else
-    git clone --depth 1 --branch "$REVOCATION_BRANCH" "https://github.com/snowflakedb/revocation-validation.git" "$REVOCATION_DIR"
+    git clone --depth 1 --branch "$REVOCATION_BRANCH" "https://github.com/snowflake-eng/revocation-validation.git" "$REVOCATION_DIR"
 fi
 
 cd "$REVOCATION_DIR"
 
 # Point the framework at the local Go driver checkout
-go mod edit -replace "github.com/snowflakedb/gosnowflake=${DRIVER_DIR}"
+go mod edit -replace "github.com/snowflakedb/gosnowflake/v2=${DRIVER_DIR}"
 go mod tidy
 echo "[Info] Replaced gosnowflake module with local checkout: $DRIVER_DIR"
 
