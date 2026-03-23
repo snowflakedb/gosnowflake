@@ -11,6 +11,7 @@ Bug fixes:
 Internal changes:
 
 - Moved configuration to a dedicated internal package (snowflakedb/gosnowflake#1720).
+- Modernized Go syntax idioms throughout the codebase.
 
 ## 2.0.0
 
