@@ -191,7 +191,9 @@ type authRequestClientEnvironment struct {
 	CoreLoadError           string            `json:"CORE_LOAD_ERROR,omitempty"`
 	CoreFileName            string            `json:"CORE_FILE_NAME,omitempty"`
 	CgoEnabled              bool              `json:"CGO_ENABLED,omitempty"`
-	IsDynamicallyLinked     *bool             `json:"IS_DYNAMICALLY_LINKED,omitempty"`
+	LinkingMode             string            `json:"LINKING_MODE,omitempty"`
+	LibcFamily              string            `json:"LIBC_FAMILY,omitempty"`
+	LibcVersion             string            `json:"LIBC_VERSION,omitempty"`
 }
 
 type authRequestData struct {
@@ -487,26 +489,24 @@ func newAuthRequestClientEnvironment() authRequestClientEnvironment {
 		coreLoadError = "Minicore is still loading"
 		logger.Debugf("Minicore not yet loaded for client environment telemetry")
 	}
-
-	// Detect if the binary is dynamically linked
-	var isDynLinked *bool
-	if dynLinked, err := isDynamicallyLinked(); err != nil {
-		logger.Debugf("cannot determine linking mode: %v", err)
-	} else {
-		isDynLinked = &dynLinked
+	libcInfo := internalos.GetLibcInfo()
+	linkingMode, err := compilation.CheckDynamicLinking()
+	if err != nil {
+		logger.Debugf("cannot determine if app is dynamically linked: %v", err)
 	}
-
 	return authRequestClientEnvironment{
-		Os:                  runtime.GOOS,
-		OsVersion:           osVersion,
-		OsDetails:           internalos.GetOsDetails(),
-		Isa:                 runtime.GOARCH,
-		GoVersion:           runtime.Version(),
-		CoreVersion:         coreVersion,
-		CoreFileName:        getMiniCoreFileName(),
-		CoreLoadError:       coreLoadError,
-		CgoEnabled:          compilation.CgoEnabled,
-		IsDynamicallyLinked: isDynLinked,
+		Os:            runtime.GOOS,
+		OsVersion:     osVersion,
+		OsDetails:     internalos.GetOsDetails(),
+		Isa:           runtime.GOARCH,
+		GoVersion:     runtime.Version(),
+		CoreVersion:   coreVersion,
+		CoreFileName:  getMiniCoreFileName(),
+		CoreLoadError: coreLoadError,
+		CgoEnabled:    compilation.CgoEnabled,
+		LinkingMode:   linkingMode.String(),
+		LibcFamily:    libcInfo.Family,
+		LibcVersion:   libcInfo.Version,
 	}
 }
 

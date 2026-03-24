@@ -2,6 +2,10 @@
 
 ## Upcoming Release
 
+Internal changes:
+
+- Added libc family, version and dynamic linking marker to client environment telemetry.
+
 Bug fixes:
 
 - Fixed minicore crash (SIGFPE) on fully statically linked Linux binaries by detecting static linking via ELF PT_INTERP inspection and skipping `dlopen` gracefully (snowflakedb/gosnowflake#1721).

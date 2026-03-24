@@ -1,8 +1,6 @@
 package gosnowflake
 
 import (
-	"bufio"
-	"debug/elf"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +10,7 @@ import (
 	"time"
 
 	"github.com/snowflakedb/gosnowflake/internal/compilation"
+	internalos "github.com/snowflakedb/gosnowflake/internal/os"
 )
 
 const disableMinicoreEnv = "SF_DISABLE_MINICORE"
@@ -237,9 +236,9 @@ func (l *miniCoreLoaderType) loadCore() miniCore {
 			fmt.Errorf("minicore is not supported on %v/%v platform", runtime.GOOS, runtime.GOARCH)))
 	}
 
-	if dynLinked, err := isDynamicallyLinked(); err != nil {
+	if linkingMode, err := compilation.CheckDynamicLinking(); err != nil || linkingMode == compilation.UnknownLinking {
 		minicoreDebugf("cannot determine linking mode: %v, proceeding anyway", err)
-	} else if !dynLinked {
+	} else if linkingMode == compilation.StaticLinking {
 		return newErroredMiniCore(newMiniCoreError(miniCoreErrorTypeLoad, runtime.GOOS, "",
 			fmt.Errorf("binary is statically linked (no dynamic linker); dlopen is unavailable")))
 	}
@@ -348,30 +347,6 @@ func minicoreDebugf(format string, args ...any) {
 	minicoreLoadLogs.logs = append(minicoreLoadLogs.logs, maskSecrets(fmt.Sprintf(finalFormat, finalArgs...)))
 }
 
-// isDynamicallyLinked checks whether the current binary has a dynamic linker (PT_INTERP).
-// A statically linked glibc binary will crash with SIGFPE if dlopen is called,
-// so this check allows us to skip minicore loading gracefully.
-func isDynamicallyLinked() (bool, error) {
-	if runtime.GOOS != "linux" {
-		return true, nil
-	}
-	f, err := elf.Open("/proc/self/exe")
-	if err != nil {
-		return false, fmt.Errorf("cannot open /proc/self/exe: %v", err)
-	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil {
-			logger.Debugf("isDynamicallyLinked: error closing /proc/self/exe: %v", closeErr)
-		}
-	}()
-	for _, p := range f.Progs {
-		if p.Type == elf.PT_INTERP {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 // libcType represents the type of C library in use
 type libcType string
 
@@ -381,43 +356,29 @@ const (
 	libcTypeIgnored libcType = ""
 )
 
-// detectLibc detects whether glibc or musl is in use by checking /proc/self/maps
+// detectLibc detects whether glibc or musl is in use
 func detectLibc() libcType {
-	// Only applicable on Linux
 	if runtime.GOOS != "linux" {
-		return libcTypeIgnored // Default for non-Linux POSIX systems
+		return libcTypeIgnored
 	}
 
-	minicoreDebugf("Detecting libc type by reading /proc/self/maps")
+	info := internalos.GetLibcInfo()
 
-	fd, err := os.Open("/proc/self/maps")
-	if err != nil {
-		minicoreDebugf("Failed to read /proc/self/maps: %v, assuming glibc", err)
+	switch info.Family {
+	case "glibc":
+		minicoreDebugf("detected glibc environment")
+		if info.Version != "" {
+			minicoreDebugf("glibc version: %s", info.Version)
+		}
+		return libcTypeGlibc
+	case "musl":
+		minicoreDebugf("detected musl environment")
+		if info.Version != "" {
+			minicoreDebugf("musl version: %s", info.Version)
+		}
+		return libcTypeMusl
+	default:
+		minicoreDebugf("Could not detect libc type, assuming glibc")
 		return libcTypeGlibc
 	}
-	defer func(fd *os.File) {
-		if err = fd.Close(); err != nil {
-			minicoreDebugf("cannot close %v file. %v", fd.Name(), err)
-		}
-	}(fd)
-
-	scanner := bufio.NewScanner(fd)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.Contains(line, "musl") {
-			minicoreDebugf("detected musl environment")
-			return libcTypeMusl
-		} else if strings.Contains(line, "libc.so.6") {
-			minicoreDebugf("detected glibc environment")
-			return libcTypeGlibc
-		}
-	}
-
-	if err = scanner.Err(); err != nil {
-		minicoreDebugf("error while scanning /proc/self/maps. assuming glibc. %v", err)
-		return libcTypeGlibc
-	}
-
-	minicoreDebugf("Could not detect libc type from /proc/self/maps, assuming glibc")
-	return libcTypeGlibc
 }
