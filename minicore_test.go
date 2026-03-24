@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/snowflakedb/gosnowflake/v2/internal/compilation"
 )
 
 func TestMiniCoreLoadSuccess(t *testing.T) {
@@ -131,15 +133,22 @@ func TestMiniCoreLoadLogsVersion(t *testing.T) {
 }
 
 func TestIsDynamicallyLinked(t *testing.T) {
-	dynLinked, err := isDynamicallyLinked()
+	linkingMode, err := compilation.CheckDynamicLinking()
 	if runtime.GOOS == "linux" {
 		assertNilF(t, err, "should be able to read /proc/self/exe")
+		assertEqualE(t, linkingMode, compilation.DynamicLinking, "go test binaries should be dynamically linked")
+	} else {
+		assertEqualE(t, linkingMode, compilation.UnknownLinking, "linking mode should be unknown on non-linux OS")
 	}
-	assertTrueF(t, dynLinked, "go test binaries should be dynamically linked")
 }
 
 func TestMiniCoreLoadedE2E(t *testing.T) {
-	wiremock.registerMappings(t, newWiremockMapping("minicore/auth/successful_flow.json"), newWiremockMapping("select1.json"))
+	logger.SetLogLevel("debug")
+	mappingFile := "minicore/auth/successful_flow.json"
+	if runtime.GOOS == "linux" {
+		mappingFile = "minicore/auth/successful_flow_linux.json"
+	}
+	wiremock.registerMappings(t, newWiremockMapping(mappingFile), newWiremockMapping("select1.json"))
 	cfg := wiremock.connectionConfig()
 	connector := NewConnector(SnowflakeDriver{}, *cfg)
 	db := sql.OpenDB(connector)
