@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"cmp"
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -208,10 +209,14 @@ func (util *snowflakeAzureClient) uploadFile(
 	}
 	if meta.srcStream != nil {
 		uploadSrc := cmp.Or(meta.realSrcStream, meta.srcStream)
+		contentMD5 := md5.Sum(uploadSrc.Bytes())
 		_, err = withCloudStorageTimeout(ctx, util.cfg, func(ctx context.Context) (azblob.UploadStreamResponse, error) {
 			return blobClient.UploadStream(ctx, uploadSrc, &azblob.UploadStreamOptions{
 				BlockSize: int64(uploadSrc.Len()),
 				Metadata:  azureMeta,
+				HTTPHeaders: &blob.HTTPHeaders{
+					BlobContentMD5: contentMD5[:],
+				},
 			})
 		})
 	} else {
@@ -226,12 +231,19 @@ func (util *snowflakeAzureClient) uploadFile(
 			}
 		}()
 
+		var contentMD5 []byte
+		contentMD5, err = computeMD5ForFile(f)
+		if err != nil {
+			return fmt.Errorf("failed to compute MD5: %w", err)
+		}
+
 		contentType := "application/octet-stream"
 		contentEncoding := "utf-8"
 		blobOptions := &azblob.UploadFileOptions{
 			HTTPHeaders: &blob.HTTPHeaders{
 				BlobContentType:     &contentType,
 				BlobContentEncoding: &contentEncoding,
+				BlobContentMD5:      contentMD5,
 			},
 			Metadata:    azureMeta,
 			Concurrency: uint16(maxConcurrency),
@@ -365,6 +377,20 @@ func (util *snowflakeAzureClient) detectAzureTokenExpireError(resp *http.Respons
 	errStr := string(azureErr)
 	return strings.Contains(errStr, "Signature not valid in the specified time frame") ||
 		strings.Contains(errStr, "Server failed to authenticate the request")
+}
+
+// computeMD5ForFile reads a file to compute its MD5 digest, then seeks back to
+// the start so the file can be read again for upload. Azure does not compute
+// Content-MD5 for multi-part (block blob) uploads, so we must provide it.
+func computeMD5ForFile(f *os.File) ([]byte, error) {
+	h := md5.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return nil, err
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	return h.Sum(nil), nil
 }
 
 func createContainerClient(clientURL string, cfg *Config, telemetry *snowflakeTelemetry) (*container.Client, error) {
