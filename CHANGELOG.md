@@ -13,6 +13,7 @@ Internal changes:
 - Moved configuration to a dedicated internal package (snowflakedb/gosnowflake#1720).
 - Modernized Go syntax idioms throughout the codebase.
 - Added libc family, version and dynamic linking marker to client environment telemetry (snowflakedb/gosnowflake#1750).
+- Bumped a few libraries to fix vulnerabilities (snowflakedb/gosnowflake#1751, snowflakedb/gosnowflake#1756).
 
 ## 2.0.0
 
