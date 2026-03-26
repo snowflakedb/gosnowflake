@@ -915,8 +915,6 @@ func testFloat64(t *testing.T, json bool) {
 
 func TestDecfloat(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExecT(t, "ALTER SESSION SET FEATURE_DECFLOAT = enabled")
-		dbt.mustExecT(t, "ALTER SESSION SET DECFLOAT_RESULT_COLUMN_TYPE = 2") // TODO remove when decfloat is enabled by default
 		for _, format := range []string{"JSON", "ARROW"} {
 			if format == "JSON" {
 				dbt.mustExecT(t, forceJSON)
