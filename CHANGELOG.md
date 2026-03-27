@@ -2,6 +2,10 @@
 
 ## Upcoming Release
 
+New features:
+
+- Dropped support for Go 1.23 and added support for Go 1.26.
+
 Internal changes:
 
 - Added libc family, version and dynamic linking marker to client environment telemetry.
