@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"crypto/md5"
@@ -209,10 +210,11 @@ func (util *snowflakeAzureClient) uploadFile(
 	}
 	if meta.srcStream != nil {
 		uploadSrc := cmp.Or(meta.realSrcStream, meta.srcStream)
-		contentMD5 := md5.Sum(uploadSrc.Bytes())
+		data := uploadSrc.Bytes()
+		contentMD5 := md5.Sum(data)
 		_, err = withCloudStorageTimeout(ctx, util.cfg, func(ctx context.Context) (azblob.UploadStreamResponse, error) {
-			return blobClient.UploadStream(ctx, uploadSrc, &azblob.UploadStreamOptions{
-				BlockSize: int64(uploadSrc.Len()),
+			return blobClient.UploadStream(ctx, bytes.NewReader(data), &azblob.UploadStreamOptions{
+				BlockSize: int64(len(data)),
 				Metadata:  azureMeta,
 				HTTPHeaders: &blob.HTTPHeaders{
 					BlobContentMD5: contentMD5[:],
