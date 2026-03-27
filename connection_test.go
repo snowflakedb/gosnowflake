@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
+	"maps"
 	"math/big"
 	"strconv"
+
+	sferrors "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 
 	"net/http"
 	"net/url"
@@ -824,7 +826,7 @@ func TestExecWithServerSideError(t *testing.T) {
 		t.Error("expected a server side error")
 	}
 	sfe := err.(*SnowflakeError)
-	errUnknownError := errors2.ErrUnknownError()
+	errUnknownError := sferrors.ErrUnknownError()
 	if sfe.Number != -1 || sfe.SQLState != "-1" || sfe.QueryID != "-1" {
 		t.Errorf("incorrect snowflake error. expected: %v, got: %v", errUnknownError, *sfe)
 	}
@@ -1093,6 +1095,397 @@ func TestGetTransport(t *testing.T) {
 				test.roundTripperCheck(t, result)
 			}
 		})
+	}
+}
+
+// We could get rid of it after migrating to Go 1.26 - new("some string")
+func strPtr(s string) *string { return &s }
+
+func TestUnitResetSession(t *testing.T) {
+	t.Run("nil rest returns ErrBadConn", func(t *testing.T) {
+		sc := &snowflakeConn{
+			cfg:  &Config{},
+			rest: nil,
+		}
+		err := sc.ResetSession(context.Background())
+		if !errors.Is(err, driver.ErrBadConn) {
+			t.Errorf("expected driver.ErrBadConn, got %v", err)
+		}
+	})
+
+	t.Run("clean session returns nil", func(t *testing.T) {
+		initial := sessionContext{
+			database:  "DB1",
+			schema:    "SCHEMA1",
+			warehouse: "WH1",
+			role:      "ROLE1",
+		}
+		params := map[string]*string{
+			"date_output_format": strPtr("YYYY-MM-DD"),
+			"timezone":           strPtr("UTC"),
+		}
+		sc := &snowflakeConn{
+			cfg:               &Config{},
+			rest:              &snowflakeRestful{},
+			currentSessionCtx: initial,
+			initialSessionCtx: initial,
+			syncParams:        newSyncParams(params),
+			initialParams:     maps.Clone(params),
+		}
+		err := sc.ResetSession(context.Background())
+		if err != nil {
+			t.Errorf("expected nil, got %v", err)
+		}
+	})
+
+	t.Run("database changed returns ErrBadConn", func(t *testing.T) {
+		initial := sessionContext{database: "DB1", schema: "S", warehouse: "W", role: "R"}
+		sc := &snowflakeConn{
+			cfg:               &Config{},
+			rest:              &snowflakeRestful{},
+			currentSessionCtx: sessionContext{database: "DB2", schema: "S", warehouse: "W", role: "R"},
+			initialSessionCtx: initial,
+			syncParams:        newSyncParams(nil),
+			initialParams:     nil,
+		}
+		err := sc.ResetSession(context.Background())
+		if !errors.Is(err, driver.ErrBadConn) {
+			t.Errorf("expected driver.ErrBadConn, got %v", err)
+		}
+	})
+
+	t.Run("schema changed returns ErrBadConn", func(t *testing.T) {
+		initial := sessionContext{database: "D", schema: "S1", warehouse: "W", role: "R"}
+		sc := &snowflakeConn{
+			cfg:               &Config{},
+			rest:              &snowflakeRestful{},
+			currentSessionCtx: sessionContext{database: "D", schema: "S2", warehouse: "W", role: "R"},
+			initialSessionCtx: initial,
+			syncParams:        newSyncParams(nil),
+			initialParams:     nil,
+		}
+		err := sc.ResetSession(context.Background())
+		if !errors.Is(err, driver.ErrBadConn) {
+			t.Errorf("expected driver.ErrBadConn, got %v", err)
+		}
+	})
+
+	t.Run("warehouse changed returns ErrBadConn", func(t *testing.T) {
+		initial := sessionContext{database: "D", schema: "S", warehouse: "W1", role: "R"}
+		sc := &snowflakeConn{
+			cfg:               &Config{},
+			rest:              &snowflakeRestful{},
+			currentSessionCtx: sessionContext{database: "D", schema: "S", warehouse: "W2", role: "R"},
+			initialSessionCtx: initial,
+			syncParams:        newSyncParams(nil),
+			initialParams:     nil,
+		}
+		err := sc.ResetSession(context.Background())
+		if !errors.Is(err, driver.ErrBadConn) {
+			t.Errorf("expected driver.ErrBadConn, got %v", err)
+		}
+	})
+
+	t.Run("role changed returns ErrBadConn", func(t *testing.T) {
+		initial := sessionContext{database: "D", schema: "S", warehouse: "W", role: "R1"}
+		sc := &snowflakeConn{
+			cfg:               &Config{},
+			rest:              &snowflakeRestful{},
+			currentSessionCtx: sessionContext{database: "D", schema: "S", warehouse: "W", role: "PUBLIC"},
+			initialSessionCtx: initial,
+			syncParams:        newSyncParams(nil),
+			initialParams:     nil,
+		}
+		err := sc.ResetSession(context.Background())
+		if !errors.Is(err, driver.ErrBadConn) {
+			t.Errorf("expected driver.ErrBadConn, got %v", err)
+		}
+	})
+
+	t.Run("parameter value changed returns ErrBadConn", func(t *testing.T) {
+		initial := sessionContext{database: "D", schema: "S", warehouse: "W", role: "R"}
+		initialParams := map[string]*string{
+			"date_output_format": strPtr("YYYY-MM-DD"),
+		}
+		currentParams := map[string]*string{
+			"date_output_format": strPtr("DD-MM-YYYY"),
+		}
+		sc := &snowflakeConn{
+			cfg:               &Config{},
+			rest:              &snowflakeRestful{},
+			currentSessionCtx: initial,
+			initialSessionCtx: initial,
+			syncParams:        newSyncParams(currentParams),
+			initialParams:     maps.Clone(initialParams),
+		}
+		err := sc.ResetSession(context.Background())
+		if !errors.Is(err, driver.ErrBadConn) {
+			t.Errorf("expected driver.ErrBadConn, got %v", err)
+		}
+	})
+
+	t.Run("parameter added returns ErrBadConn", func(t *testing.T) {
+		initial := sessionContext{database: "D", schema: "S", warehouse: "W", role: "R"}
+		initialParams := map[string]*string{
+			"date_output_format": strPtr("YYYY-MM-DD"),
+		}
+		currentParams := map[string]*string{
+			"date_output_format": strPtr("YYYY-MM-DD"),
+			"timezone":           strPtr("America/New_York"),
+		}
+		sc := &snowflakeConn{
+			cfg:               &Config{},
+			rest:              &snowflakeRestful{},
+			currentSessionCtx: initial,
+			initialSessionCtx: initial,
+			syncParams:        newSyncParams(currentParams),
+			initialParams:     maps.Clone(initialParams),
+		}
+		err := sc.ResetSession(context.Background())
+		if !errors.Is(err, driver.ErrBadConn) {
+			t.Errorf("expected driver.ErrBadConn, got %v", err)
+		}
+	})
+
+	t.Run("parameter removed returns ErrBadConn", func(t *testing.T) {
+		initial := sessionContext{database: "D", schema: "S", warehouse: "W", role: "R"}
+		initialParams := map[string]*string{
+			"date_output_format": strPtr("YYYY-MM-DD"),
+			"timezone":           strPtr("UTC"),
+		}
+		currentParams := map[string]*string{
+			"date_output_format": strPtr("YYYY-MM-DD"),
+		}
+		sc := &snowflakeConn{
+			cfg:               &Config{},
+			rest:              &snowflakeRestful{},
+			currentSessionCtx: initial,
+			initialSessionCtx: initial,
+			syncParams:        newSyncParams(currentParams),
+			initialParams:     maps.Clone(initialParams),
+		}
+		err := sc.ResetSession(context.Background())
+		if !errors.Is(err, driver.ErrBadConn) {
+			t.Errorf("expected driver.ErrBadConn, got %v", err)
+		}
+	})
+
+	t.Run("nil parameter pointer does not panic", func(t *testing.T) {
+		initial := sessionContext{database: "D", schema: "S", warehouse: "W", role: "R"}
+		initialParams := map[string]*string{
+			"param1": nil,
+			"param2": strPtr("val"),
+		}
+		currentParams := map[string]*string{
+			"param1": nil,
+			"param2": strPtr("val"),
+		}
+		sc := &snowflakeConn{
+			cfg:               &Config{},
+			rest:              &snowflakeRestful{},
+			currentSessionCtx: initial,
+			initialSessionCtx: initial,
+			syncParams:        newSyncParams(currentParams),
+			initialParams:     maps.Clone(initialParams),
+		}
+		err := sc.ResetSession(context.Background())
+		if err != nil {
+			t.Errorf("expected nil, got %v", err)
+		}
+	})
+
+	t.Run("nil to non-nil parameter returns ErrBadConn", func(t *testing.T) {
+		initial := sessionContext{database: "D", schema: "S", warehouse: "W", role: "R"}
+		initialParams := map[string]*string{
+			"param1": nil,
+		}
+		currentParams := map[string]*string{
+			"param1": strPtr("val"),
+		}
+		sc := &snowflakeConn{
+			cfg:               &Config{},
+			rest:              &snowflakeRestful{},
+			currentSessionCtx: initial,
+			initialSessionCtx: initial,
+			syncParams:        newSyncParams(currentParams),
+			initialParams:     maps.Clone(initialParams),
+		}
+		err := sc.ResetSession(context.Background())
+		if !errors.Is(err, driver.ErrBadConn) {
+			t.Errorf("expected driver.ErrBadConn, got %v", err)
+		}
+	})
+}
+
+func TestConfigIsNotMutatedBySessionChanges(t *testing.T) {
+	cfg, err := ParseDSN(dsn)
+	assertNilF(t, err, "failed to parse test DSN")
+
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+
+	ctx := context.Background()
+	runID := randomString(10)
+
+	t.Run("Database", func(t *testing.T) {
+		originalDatabase := cfg.Database
+
+		newDatabase := fmt.Sprintf("test_session_reset_db_%v", runID)
+		_, err := db.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE %v", newDatabase))
+		if err != nil && strings.Contains(err.Error(), "Insufficient privileges") {
+			t.Skip("skipping database test due to insufficient privileges to create database")
+			return
+		}
+		assertNilF(t, err)
+		defer db.ExecContext(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %v", newDatabase))
+
+		assertEqualE(t, cfg.Database, originalDatabase,
+			"cfg.Database should not be mutated by CREATE DATABASE")
+
+		var currentDB string
+		assertNilF(t, db.QueryRowContext(ctx, "SELECT CURRENT_DATABASE()").Scan(&currentDB))
+		if strings.EqualFold(currentDB, newDatabase) {
+			t.Errorf("next connection from pool should not use the dirty database %v", newDatabase)
+		}
+	})
+
+	t.Run("Schema", func(t *testing.T) {
+		originalSchema := cfg.Schema
+
+		newSchema := fmt.Sprintf("test_session_reset_schema_%v", runID)
+		_, err := db.ExecContext(ctx, fmt.Sprintf("CREATE SCHEMA %v", newSchema))
+		if err != nil && strings.Contains(err.Error(), "Insufficient privileges") {
+			t.Skip("skipping schema test due to insufficient privileges to create schema")
+			return
+		}
+		assertNilF(t, err)
+		defer db.ExecContext(ctx, fmt.Sprintf("DROP SCHEMA IF EXISTS %v", newSchema))
+
+		assertEqualE(t, cfg.Schema, originalSchema,
+			"cfg.Schema should not be mutated by CREATE SCHEMA")
+
+		var currentSchema string
+		assertNilF(t, db.QueryRowContext(ctx, "SELECT CURRENT_SCHEMA()").Scan(&currentSchema))
+		if strings.EqualFold(currentSchema, newSchema) {
+			t.Errorf("next connection from pool should not use the dirty schema %v", newSchema)
+		}
+	})
+
+	t.Run("Warehouse", func(t *testing.T) {
+		originalWarehouse := cfg.Warehouse
+
+		newWarehouse := fmt.Sprintf("test_session_reset_wh_%v", runID)
+		_, err := db.ExecContext(ctx, fmt.Sprintf("CREATE WAREHOUSE %v", newWarehouse))
+		if err != nil && strings.Contains(err.Error(), "Insufficient privileges") {
+			t.Skip("skipping warehouse test due to insufficient privileges to create warehouse")
+			return
+		}
+		assertNilF(t, err)
+		defer db.ExecContext(ctx, fmt.Sprintf("DROP WAREHOUSE IF EXISTS %v", newWarehouse))
+
+		assertEqualE(t, cfg.Warehouse, originalWarehouse,
+			"cfg.Warehouse should not be mutated by CREATE WAREHOUSE")
+
+		var currentWH string
+		assertNilF(t, db.QueryRowContext(ctx, "SELECT CURRENT_WAREHOUSE()").Scan(&currentWH))
+		if strings.EqualFold(currentWH, newWarehouse) {
+			t.Errorf("next connection from pool should not use the dirty warehouse %v", newWarehouse)
+		}
+	})
+
+	t.Run("Role", func(t *testing.T) {
+		if strings.EqualFold(cfg.Role, "PUBLIC") {
+			t.Skip("can't test role switch")
+		}
+		originalRole := cfg.Role
+
+		_, err := db.ExecContext(ctx, "USE ROLE PUBLIC")
+		assertNilF(t, err)
+		defer db.ExecContext(ctx, fmt.Sprintf("USE ROLE %v", originalRole))
+
+		assertEqualE(t, cfg.Role, originalRole,
+			"cfg.Role should not be mutated by USE ROLE")
+
+		var currentRole string
+		assertNilF(t, db.QueryRowContext(ctx, "SELECT CURRENT_ROLE()").Scan(&currentRole))
+		if strings.EqualFold(currentRole, "PUBLIC") {
+			t.Errorf("next connection from pool should not use the dirty role PUBLIC")
+		}
+	})
+
+	t.Run("SessionParameter", func(t *testing.T) {
+		if cfg.Params == nil {
+			cfg.Params = make(map[string]*string)
+		}
+		originalParams := maps.Clone(cfg.Params)
+
+		_, err := db.ExecContext(ctx, "ALTER SESSION SET DATE_OUTPUT_FORMAT = 'YYYY'")
+		assertNilF(t, err)
+
+		assertEqualE(t, len(cfg.Params), len(originalParams),
+			"cfg.Params length should not change after ALTER SESSION")
+		for k, v := range originalParams {
+			cur, ok := cfg.Params[k]
+			if !ok {
+				t.Errorf("cfg.Params key %q disappeared after ALTER SESSION", k)
+			} else if (v == nil) != (cur == nil) || (v != nil && *v != *cur) {
+				t.Errorf("cfg.Params[%q] changed after ALTER SESSION", k)
+			}
+		}
+
+		rows, err := db.QueryContext(ctx, "SHOW PARAMETERS LIKE 'DATE_OUTPUT_FORMAT'")
+		assertNilF(t, err)
+		defer rows.Close()
+		assertTrueF(t, rows.Next())
+		p, err := ScanSnowflakeParameter(rows)
+		assertNilF(t, err)
+		if p.Value == "YYYY" {
+			t.Errorf("next connection from pool should not use the dirty DATE_OUTPUT_FORMAT, got %v", p.Value)
+		}
+	})
+}
+
+func TestReservedConnSessionDoesNotLeakToPool(t *testing.T) {
+	cfg, err := ParseDSN(dsn)
+	assertNilF(t, err, "failed to parse test DSN")
+
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+
+	ctx := context.Background()
+	runID := randomString(10)
+	newDatabase := fmt.Sprintf("test_reserved_conn_%v", runID)
+
+	// Step 1: reserve a connection, change database, confirm it took effect
+	conn, err := db.Conn(ctx)
+	assertNilF(t, err)
+
+	_, err = conn.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE %v", newDatabase))
+	if err != nil && strings.Contains(err.Error(), "Insufficient privileges") {
+		t.Skip("skipping database test due to insufficient privileges to create database")
+		return
+	}
+	assertNilF(t, err)
+	defer db.ExecContext(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %v", newDatabase))
+
+	var currentDB string
+	assertNilF(t, conn.QueryRowContext(ctx, "SELECT CURRENT_DATABASE()").Scan(&currentDB))
+	if !strings.EqualFold(currentDB, newDatabase) {
+		t.Fatalf("expected CURRENT_DATABASE() to be %v on the same conn, got %v", newDatabase, currentDB)
+	}
+
+	// Step 2: close the reserved connection (returns to pool)
+	assertNilF(t, conn.Close())
+
+	// Step 3: get a new connection from pool — should NOT have the dirty database
+	var freshDB string
+	assertNilF(t, db.QueryRowContext(ctx, "SELECT CURRENT_DATABASE()").Scan(&freshDB))
+	if strings.EqualFold(freshDB, newDatabase) {
+		t.Errorf("fresh connection from pool should not have the dirty database %v", newDatabase)
 	}
 }
 

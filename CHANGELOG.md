@@ -7,6 +7,7 @@ Bug fixes:
 - Fixed default `CrlDownloadMaxSize` to be 20MB instead of 200MB, as the previous value was set too high and could cause out-of-memory issues (snowflakedb/gosnowflake#1735).
 - Replaced global `paramsMutex` with per-connection `syncParams` to encapsulate parameter synchronization and avoid cross-connection contention (snowflakedb/gosnoflake#1747).
 - `Config.Params` map is not modified anymore, to avoid changing parameter values across connections of the same connection pool (snowflakedb/gosnowflake#1747).
+- Implemented `SessionResetter` interface to prohibit returning dirty connections to the pool (snowflakedb/gosnowflake#1748).
 
 Internal changes:
 
@@ -49,10 +50,6 @@ Breaking changes:
   - Simplified `SFLogger` interface.
   - Added `SFSlogLogger` interface for setting custom slog handler.
 
-Bug fixes:
-
-- The query `context.Context` is now propagated to cloud storage operations for PUT and GET queries, allowing for better cancellation handling (snowflakedb/gosnowflake#1690).
-
 New features:
 
 - Added support for Go 1.26, dropped support for Go 1.23 (snowflakedb/gosnowflake#1707).
@@ -67,10 +64,6 @@ Bug fixes:
 - The query `context.Context` is now propagated to cloud storage operations for PUT and GET queries, allowing for better cancellation handling (snowflakedb/gosnowflake#1690).
 - Fixed `tokenFilePath` DSN parameter triggering false validation error claiming both `token` and `tokenFilePath` were specified when only `tokenFilePath` was provided in the DSN string (snowflakedb/gosnowflake#1715).
 - Fixed minicore crash (SIGFPE) on fully statically linked Linux binaries by detecting static linking via ELF PT_INTERP inspection and skipping `dlopen` gracefully (snowflakedb/gosnowflake#1721).
-
-Internal changes:
-
-- Moved configuration to a dedicated internal package (snowflakedb/gosnowflake#1720).
 
 ## 1.19.0
 

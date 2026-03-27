@@ -64,6 +64,15 @@ const (
 	executionTypeStatement string  = "statement"
 )
 
+// sessionContext tracks the current server-side session identity
+// (database, schema, warehouse, role) as reported by query responses.
+type sessionContext struct {
+	database  string
+	schema    string
+	warehouse string
+	role      string
+}
+
 // snowflakeConn manages its own context.
 // External cancellation should not be supported because the connection
 // may be reused after the original query/request has completed.
@@ -77,6 +86,9 @@ type snowflakeConn struct {
 	queryContextCache   *queryContextCache
 	currentTimeProvider currentTimeProvider
 	syncParams          syncParams
+	currentSessionCtx   sessionContext
+	initialSessionCtx   sessionContext     // post-auth snapshot for dirty detection
+	initialParams       map[string]*string // post-auth snapshot of syncParams
 	idToken             string
 	mfaToken            string
 }
@@ -205,16 +217,16 @@ func (sc *snowflakeConn) exec(
 
 	logger.WithContext(ctx).Debugf("Exec/Query: queryId=%v SUCCESS with total=%v, returned=%v ", data.Data.QueryID, data.Data.Total, data.Data.Returned)
 	if data.Data.FinalDatabaseName != "" {
-		sc.cfg.Database = data.Data.FinalDatabaseName
+		sc.currentSessionCtx.database = data.Data.FinalDatabaseName
 	}
 	if data.Data.FinalSchemaName != "" {
-		sc.cfg.Schema = data.Data.FinalSchemaName
+		sc.currentSessionCtx.schema = data.Data.FinalSchemaName
 	}
 	if data.Data.FinalWarehouseName != "" {
-		sc.cfg.Warehouse = data.Data.FinalWarehouseName
+		sc.currentSessionCtx.warehouse = data.Data.FinalWarehouseName
 	}
 	if data.Data.FinalRoleName != "" {
-		sc.cfg.Role = data.Data.FinalRoleName
+		sc.currentSessionCtx.role = data.Data.FinalRoleName
 	}
 	sc.populateSessionParameters(data.Data.Parameters)
 	return data, err
@@ -510,6 +522,52 @@ func (sc *snowflakeConn) CheckNamedValue(nv *driver.NamedValue) error {
 		return nil
 	}
 	return driver.ErrSkip
+}
+
+// ResetSession implements driver.SessionResetter.
+// It is called by database/sql when a pooled connection is about to be reused.
+// If the session state has drifted from the post-authentication snapshot,
+// the connection is discarded by returning driver.ErrBadConn.
+func (sc *snowflakeConn) ResetSession(ctx context.Context) error {
+	logger.WithContext(ctx).Debug("ResetSession")
+	if sc.rest == nil {
+		return driver.ErrBadConn
+	}
+	if sc.isSessionDirty() {
+		logger.WithContext(ctx).Info("Session is dirty, discarding connection")
+		return driver.ErrBadConn
+	}
+	return nil
+}
+
+// isSessionDirty reports whether the session state has changed since authentication.
+func (sc *snowflakeConn) isSessionDirty() bool {
+	if sc.currentSessionCtx != sc.initialSessionCtx {
+		logger.Debugf("session context changed: current=%+v, initial=%+v", sc.currentSessionCtx, sc.initialSessionCtx)
+		return true
+	}
+	currentParams := sc.syncParams.snapshot()
+	if len(currentParams) != len(sc.initialParams) {
+		logger.Debugf("session parameter count changed: current=%d, initial=%d", len(currentParams), len(sc.initialParams))
+		return true
+	}
+	for k, initialVal := range sc.initialParams {
+		currentVal, ok := currentParams[k]
+		if !ok {
+			logger.Debugf("session parameter removed: %s", k)
+			return true
+		}
+		if initialVal == nil || currentVal == nil {
+			if initialVal != currentVal {
+				logger.Debugf("session parameter changed: %s: nil mismatch", k)
+				return true
+			}
+		} else if *currentVal != *initialVal {
+			logger.Debugf("session parameter changed: %s: %q -> %q", k, *initialVal, *currentVal)
+			return true
+		}
+	}
+	return false
 }
 
 func (sc *snowflakeConn) GetQueryStatus(

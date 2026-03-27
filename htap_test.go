@@ -1,7 +1,6 @@
 package gosnowflake
 
 import (
-	"context"
 	"database/sql/driver"
 	"fmt"
 	"reflect"
@@ -427,80 +426,80 @@ func TestHTAPOptimizations(t *testing.T) {
 				runID := time.Now().UnixMilli()
 				t.Run("Schema", func(t *testing.T) {
 					newSchema := fmt.Sprintf("test_schema_%v", runID)
-					if strings.EqualFold(sct.sc.cfg.Schema, newSchema) {
+					if strings.EqualFold(sct.sc.currentSessionCtx.schema, newSchema) {
 						t.Errorf("schema should not be switched")
 					}
 
 					sct.mustExec(fmt.Sprintf("CREATE SCHEMA %v", newSchema), nil)
 					defer sct.mustExec(fmt.Sprintf("DROP SCHEMA %v", newSchema), nil)
 
-					if !strings.EqualFold(sct.sc.cfg.Schema, newSchema) {
-						t.Errorf("schema should be switched, expected %v, got %v", newSchema, sct.sc.cfg.Schema)
+					if !strings.EqualFold(sct.sc.currentSessionCtx.schema, newSchema) {
+						t.Errorf("schema should be switched, expected %v, got %v", newSchema, sct.sc.currentSessionCtx.schema)
 					}
 
 					query := sct.mustQuery("SELECT 1", nil)
 					query.Close()
 
-					if !strings.EqualFold(sct.sc.cfg.Schema, newSchema) {
-						t.Errorf("schema should be switched, expected %v, got %v", newSchema, sct.sc.cfg.Schema)
+					if !strings.EqualFold(sct.sc.currentSessionCtx.schema, newSchema) {
+						t.Errorf("schema should be switched, expected %v, got %v", newSchema, sct.sc.currentSessionCtx.schema)
 					}
 				})
 				t.Run("Database", func(t *testing.T) {
 					newDatabase := fmt.Sprintf("test_database_%v", runID)
-					if strings.EqualFold(sct.sc.cfg.Database, newDatabase) {
+					if strings.EqualFold(sct.sc.currentSessionCtx.database, newDatabase) {
 						t.Errorf("database should not be switched")
 					}
 
 					sct.mustExec(fmt.Sprintf("CREATE DATABASE %v", newDatabase), nil)
 					defer sct.mustExec(fmt.Sprintf("DROP DATABASE %v", newDatabase), nil)
 
-					if !strings.EqualFold(sct.sc.cfg.Database, newDatabase) {
-						t.Errorf("database should be switched, expected %v, got %v", newDatabase, sct.sc.cfg.Database)
+					if !strings.EqualFold(sct.sc.currentSessionCtx.database, newDatabase) {
+						t.Errorf("database should be switched, expected %v, got %v", newDatabase, sct.sc.currentSessionCtx.database)
 					}
 
 					query := sct.mustQuery("SELECT 1", nil)
 					query.Close()
 
-					if !strings.EqualFold(sct.sc.cfg.Database, newDatabase) {
-						t.Errorf("database should be switched, expected %v, got %v", newDatabase, sct.sc.cfg.Database)
+					if !strings.EqualFold(sct.sc.currentSessionCtx.database, newDatabase) {
+						t.Errorf("database should be switched, expected %v, got %v", newDatabase, sct.sc.currentSessionCtx.database)
 					}
 				})
 				t.Run("Warehouse", func(t *testing.T) {
 					newWarehouse := fmt.Sprintf("test_warehouse_%v", runID)
-					if strings.EqualFold(sct.sc.cfg.Warehouse, newWarehouse) {
+					if strings.EqualFold(sct.sc.currentSessionCtx.warehouse, newWarehouse) {
 						t.Errorf("warehouse should not be switched")
 					}
 
 					sct.mustExec(fmt.Sprintf("CREATE WAREHOUSE %v", newWarehouse), nil)
 					defer sct.mustExec(fmt.Sprintf("DROP WAREHOUSE %v", newWarehouse), nil)
 
-					if !strings.EqualFold(sct.sc.cfg.Warehouse, newWarehouse) {
-						t.Errorf("warehouse should be switched, expected %v, got %v", newWarehouse, sct.sc.cfg.Warehouse)
+					if !strings.EqualFold(sct.sc.currentSessionCtx.warehouse, newWarehouse) {
+						t.Errorf("warehouse should be switched, expected %v, got %v", newWarehouse, sct.sc.currentSessionCtx.warehouse)
 					}
 
 					query := sct.mustQuery("SELECT 1", nil)
 					query.Close()
 
-					if !strings.EqualFold(sct.sc.cfg.Warehouse, newWarehouse) {
-						t.Errorf("warehouse should be switched, expected %v, got %v", newWarehouse, sct.sc.cfg.Warehouse)
+					if !strings.EqualFold(sct.sc.currentSessionCtx.warehouse, newWarehouse) {
+						t.Errorf("warehouse should be switched, expected %v, got %v", newWarehouse, sct.sc.currentSessionCtx.warehouse)
 					}
 				})
 				t.Run("Role", func(t *testing.T) {
-					if strings.EqualFold(sct.sc.cfg.Role, "PUBLIC") {
+					if strings.EqualFold(sct.sc.currentSessionCtx.role, "PUBLIC") {
 						t.Errorf("role should not be public for this test")
 					}
 
 					sct.mustExec("USE ROLE public", nil)
 
-					if !strings.EqualFold(sct.sc.cfg.Role, "PUBLIC") {
-						t.Errorf("role should be switched, expected public, got %v", sct.sc.cfg.Role)
+					if !strings.EqualFold(sct.sc.currentSessionCtx.role, "PUBLIC") {
+						t.Errorf("role should be switched, expected public, got %v", sct.sc.currentSessionCtx.role)
 					}
 
 					query := sct.mustQuery("SELECT 1", nil)
 					query.Close()
 
-					if !strings.EqualFold(sct.sc.cfg.Role, "PUBLIC") {
-						t.Errorf("role should be switched, expected public, got %v", sct.sc.cfg.Role)
+					if !strings.EqualFold(sct.sc.currentSessionCtx.role, "PUBLIC") {
+						t.Errorf("role should be switched, expected public, got %v", sct.sc.currentSessionCtx.role)
 					}
 				})
 				t.Run("Session param - DATE_OUTPUT_FORMAT", func(t *testing.T) {
@@ -527,56 +526,5 @@ func TestHTAPOptimizations(t *testing.T) {
 				})
 			})
 		})
-	}
-}
-
-func TestConnIsCleanAfterClose(t *testing.T) {
-	// We create a new db here to not use the default pool as we can leave it in dirty state.
-	t.Skip("Fails, because connection is returned to a pool dirty")
-	ctx := context.Background()
-	runID := time.Now().UnixMilli()
-
-	db := openDB(t)
-	defer db.Close()
-	db.SetMaxOpenConns(1)
-
-	conn, err := db.Conn(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Close()
-
-	dbt := DBTest{t, conn}
-
-	dbt.mustExec(forceJSON)
-
-	var dbName string
-	rows1 := dbt.mustQuery("SELECT CURRENT_DATABASE()")
-	rows1.Next()
-	assertNilF(t, rows1.Scan(&dbName))
-
-	newDbName := fmt.Sprintf("test_database_%v", runID)
-	dbt.mustExec("CREATE DATABASE " + newDbName)
-
-	assertNilF(t, rows1.Close())
-	assertNilF(t, conn.Close())
-
-	conn2, err := db.Conn(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	dbt2 := DBTest{t, conn2}
-
-	var dbName2 string
-	rows2 := dbt2.mustQuery("SELECT CURRENT_DATABASE()")
-	defer func() {
-		assertNilF(t, rows2.Close())
-	}()
-	rows2.Next()
-	assertNilF(t, rows2.Scan(&dbName2))
-
-	if !strings.EqualFold(dbName, dbName2) {
-		t.Errorf("fresh connection from pool should have original database")
 	}
 }
