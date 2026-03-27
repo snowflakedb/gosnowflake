@@ -13,7 +13,7 @@
                 "CLIENT_ENVIRONMENT": {
                   "CORE_VERSION": "0.0.1",
                   "CGO_ENABLED": true,
-                  "LINKING_MODE": "unknown"
+                  "LINKING_MODE": "dynamic"
                 }
               }
             },
@@ -27,6 +27,12 @@
               "expression": "$.data.CLIENT_ENVIRONMENT.CORE_LOAD_ERROR",
               "absent": "(absent)"
             }
+          },
+          {
+            "matchesJsonPath": "$.data.CLIENT_ENVIRONMENT[?(@.LIBC_FAMILY =~ /^(glibc|musl)$/)]"
+          },
+          {
+            "matchesJsonPath": "$.data.CLIENT_ENVIRONMENT[?(@.LIBC_VERSION =~ /\\d+\\.\\d+.*/)]"
           }
         ]
       },
