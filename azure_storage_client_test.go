@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"io"
@@ -596,6 +597,129 @@ func TestUploadFileToAzureClientCastFail(t *testing.T) {
 	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Fatal("should have failed")
+	}
+}
+
+func TestUploadFileToAzureSetsBlobContentMD5(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "azblob/storage/users/456/",
+		LocationType: "AZURE",
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	srcFile := path.Join(dir, "/test_data/put_get_1.txt")
+	srcContent, err := os.ReadFile(srcFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedMD5 := md5.Sum(srcContent)
+	var capturedMD5 []byte
+	uploadMeta := fileMetadata{
+		name:               "data1.txt.gz",
+		stageLocationType:  "AZURE",
+		noSleepingTime:     true,
+		parallel:           1,
+		client:             azureCli,
+		sha256Digest:       "123456789abcdef",
+		stageInfo:          &info,
+		dstFileName:        "data1.txt.gz",
+		srcFileName:        srcFile,
+		encryptionMaterial: &snowflakeFileEncryption{QueryStageMasterKey: "abCdEFO0upIT36dAxGsa0w==", QueryID: "01abc874-0406-1bf0-0000-53b10668e056", SMKID: 92019681909886},
+		encryptMeta:        testEncryptionMeta(),
+		overwrite:          true,
+		dstCompressionType: compressionTypes["GZIP"],
+		options:            &SnowflakeFileTransferOptions{MultiPartThreshold: multiPartThreshold},
+		mockAzureClient: &azureObjectAPIMock{
+			UploadFileFunc: func(ctx context.Context, file *os.File, o *azblob.UploadFileOptions) (azblob.UploadFileResponse, error) {
+				if o.HTTPHeaders != nil {
+					capturedMD5 = o.HTTPHeaders.BlobContentMD5
+				}
+				return azblob.UploadFileResponse{}, nil
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{sc: &snowflakeConn{cfg: &Config{}}},
+	}
+
+	uploadMeta.realSrcFileName = uploadMeta.srcFileName
+	fi, err := os.Stat(uploadMeta.srcFileName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadMeta.uploadSize = fi.Size()
+
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if capturedMD5 == nil {
+		t.Fatal("expected BlobContentMD5 to be set, got nil")
+	}
+	if !bytes.Equal(capturedMD5, expectedMD5[:]) {
+		t.Fatalf("BlobContentMD5 mismatch: got %x, want %x", capturedMD5, expectedMD5[:])
+	}
+}
+
+func TestUploadStreamToAzureSetsBlobContentMD5(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "azblob/storage/users/456/",
+		LocationType: "AZURE",
+	}
+
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	src := []byte{65, 66, 67}
+	expectedMD5 := md5.Sum(src)
+	var capturedMD5 []byte
+	uploadMeta := fileMetadata{
+		name:               "data1.txt.gz",
+		stageLocationType:  "AZURE",
+		noSleepingTime:     true,
+		parallel:           1,
+		client:             azureCli,
+		sha256Digest:       "123456789abcdef",
+		stageInfo:          &info,
+		dstFileName:        "data1.txt.gz",
+		srcStream:          bytes.NewBuffer(src),
+		encryptionMaterial: &snowflakeFileEncryption{QueryStageMasterKey: "abCdEFO0upIT36dAxGsa0w==", QueryID: "01abc874-0406-1bf0-0000-53b10668e056", SMKID: 92019681909886},
+		encryptMeta:        testEncryptionMeta(),
+		overwrite:          true,
+		dstCompressionType: compressionTypes["GZIP"],
+		options:            &SnowflakeFileTransferOptions{MultiPartThreshold: multiPartThreshold},
+		mockAzureClient: &azureObjectAPIMock{
+			UploadStreamFunc: func(ctx context.Context, body io.Reader, o *azblob.UploadStreamOptions) (azblob.UploadStreamResponse, error) {
+				if o.HTTPHeaders != nil {
+					capturedMD5 = o.HTTPHeaders.BlobContentMD5
+				}
+				return azblob.UploadStreamResponse{}, nil
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{sc: &snowflakeConn{cfg: &Config{}}},
+	}
+
+	uploadMeta.realSrcStream = uploadMeta.srcStream
+
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if capturedMD5 == nil {
+		t.Fatal("expected BlobContentMD5 to be set, got nil")
+	}
+	if !bytes.Equal(capturedMD5, expectedMD5[:]) {
+		t.Fatalf("BlobContentMD5 mismatch: got %x, want %x", capturedMD5, expectedMD5[:])
 	}
 }
 
