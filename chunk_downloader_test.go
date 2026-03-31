@@ -34,7 +34,7 @@ func TestWithArrowBatchesWhenQueryReturnsNoRowsWhenUsingNativeGoSQLInterface(t *
 	runDBTest(t, func(dbt *DBTest) {
 		var rows driver.Rows
 		var err error
-		err = dbt.conn.Raw(func(x interface{}) error {
+		err = dbt.conn.Raw(func(x any) error {
 			rows, err = x.(driver.QueryerContext).QueryContext(ia.EnableArrowBatches(context.Background()), "SELECT 1 WHERE 0 = 1", nil)
 			return err
 		})

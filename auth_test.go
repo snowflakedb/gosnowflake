@@ -622,7 +622,7 @@ func TestUnitAuthenticateJWT(t *testing.T) {
 		tokenString := ar.Data.Token
 
 		// Validate token using the local test key's public key
-		_, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		_, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 			}

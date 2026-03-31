@@ -187,7 +187,7 @@ func TestBindingJSONInterface(t *testing.T) {
 		if !rows.Next() {
 			dbt.Error("failed to query")
 		}
-		var v1, v2, v2a, v3, v4, v5, v6 interface{}
+		var v1, v2, v2a, v3, v4, v5, v6 any
 		if err := rows.Scan(&v1, &v2, &v2a, &v3, &v4, &v5, &v6); err != nil {
 			dbt.Errorf("failed to scan: %#v", err)
 		}

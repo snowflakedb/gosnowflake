@@ -64,7 +64,7 @@ func runAsyncDriverQuery(conn *sql.Conn, query string) driver.Rows {
 	var rows driver.Rows
 
 	// Unwrap connection
-	err := conn.Raw(func(x interface{}) error {
+	err := conn.Raw(func(x any) error {
 		var err error
 		// Execute asynchronous query
 		rows, err = withTimePrinted(func() (driver.Rows, error) {

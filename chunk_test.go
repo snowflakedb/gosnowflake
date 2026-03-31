@@ -510,7 +510,7 @@ func TestRetainChunkWOHighPrecision(t *testing.T) {
 		var rows driver.Rows
 		var err error
 
-		err = dbt.conn.Raw(func(connection interface{}) error {
+		err = dbt.conn.Raw(func(connection any) error {
 			rows, err = connection.(driver.QueryerContext).QueryContext(ia.EnableArrowBatches(context.Background()), "select 0", nil)
 			return err
 		})

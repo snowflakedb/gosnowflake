@@ -363,7 +363,7 @@ func validateOCSP(ocspRes *ocsp.Response) *ocspStatus {
 			err: &SnowflakeError{
 				Number:      ErrOCSPInvalidValidity,
 				Message:     sferrors.ErrMsgOCSPInvalidValidity,
-				MessageArgs: []interface{}{ocspRes.ProducedAt, ocspRes.ThisUpdate, ocspRes.NextUpdate},
+				MessageArgs: []any{ocspRes.ProducedAt, ocspRes.ThisUpdate, ocspRes.NextUpdate},
 			},
 		}
 	}
@@ -383,7 +383,7 @@ func returnOCSPStatus(ocspRes *ocsp.Response) *ocspStatus {
 			err: &SnowflakeError{
 				Number:      ErrOCSPStatusRevoked,
 				Message:     sferrors.ErrMsgOCSPStatusRevoked,
-				MessageArgs: []interface{}{ocspRes.RevocationReason, ocspRes.RevokedAt},
+				MessageArgs: []any{ocspRes.RevocationReason, ocspRes.RevokedAt},
 			},
 		}
 	case ocsp.Unknown:
@@ -410,7 +410,7 @@ func checkOCSPCacheServer(
 	totalTimeout time.Duration) (
 	cacheContent *map[string]*certCacheValue,
 	ocspS *ocspStatus) {
-	var respd map[string][]interface{}
+	var respd map[string][]any
 	headers := make(map[string]string)
 	res, err := newRetryHTTP(ctx, client, req, ocspServerHost, headers, totalTimeout, OcspMaxRetryCount, defaultTimeProvider, nil).execute()
 	if err != nil {
@@ -629,7 +629,7 @@ func (ov *ocspValidator) getRevocationStatus(ctx context.Context, subject, issue
 			err: &SnowflakeError{
 				Number:      ErrOCSPNoOCSPResponderURL,
 				Message:     sferrors.ErrMsgOCSPNoOCSPResponderURL,
-				MessageArgs: []interface{}{subject.Subject},
+				MessageArgs: []any{subject.Subject},
 			},
 		}
 	}
@@ -715,7 +715,7 @@ func (ov *ocspValidator) verifyPeerCertificate(ctx context.Context, verifiedChai
 }
 
 func (ov *ocspValidator) canEarlyExitForOCSP(results []*ocspStatus, verifiedChain []*x509.Certificate) *ocspStatus {
-	msg := ""
+	var msg strings.Builder
 	if ov.mode == OCSPFailOpenFalse {
 		// Fail closed. any error is returned to stop connection
 		for _, r := range results {
@@ -737,12 +737,12 @@ func (ov *ocspValidator) canEarlyExitForOCSP(results []*ocspStatus, verifiedChai
 				return r
 			}
 			if r != nil && r.code != ocspStatusGood && r.err != nil {
-				msg += "\n" + r.err.Error()
+				msg.WriteString("\n" + r.err.Error())
 			}
 		}
 	}
-	if len(msg) > 0 {
-		logger.Debugf("OCSP responder didn't respond correctly. Assuming certificate is not revoked. Detail: %v", msg[1:])
+	if len(msg.String()) > 0 {
+		logger.Debugf("OCSP responder didn't respond correctly. Assuming certificate is not revoked. Detail: %v", msg.String()[1:])
 	}
 	return nil
 }
@@ -887,7 +887,7 @@ func initOCSPCache() {
 		}
 	}()
 
-	buf := make(map[string][]interface{})
+	buf := make(map[string][]any)
 	r := bufio.NewReader(f)
 	dec := json.NewDecoder(r)
 	for {
@@ -916,7 +916,7 @@ func initOCSPCache() {
 	cacheUpdated = false
 }
 
-func extractTsAndOcspRespBase64(value []interface{}) (bool, float64, string) {
+func extractTsAndOcspRespBase64(value []any) (bool, float64, string) {
 	ts, ok := value[0].(float64)
 	if !ok {
 		logger.Warnf("cannot cast %v as float64", value[0])
@@ -1028,10 +1028,10 @@ func (ov *ocspValidator) writeOCSPCacheFile() {
 		}
 	}()
 
-	buf := make(map[string][]interface{})
+	buf := make(map[string][]any)
 	for k, v := range ocspResponseCache {
 		cacheKeyInBase64 := encodeCertIDKey(&k)
-		buf[cacheKeyInBase64] = []interface{}{v.ts, v.ocspRespBase64}
+		buf[cacheKeyInBase64] = []any{v.ts, v.ocspRespBase64}
 	}
 
 	j, err := json.Marshal(buf)

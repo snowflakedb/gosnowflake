@@ -30,7 +30,7 @@ type cloudUtil interface {
 	nativeDownloadFile(context.Context, *fileMetadata, string, int64, int64) error
 }
 
-type cloudClient interface{}
+type cloudClient any
 
 type remoteStorageUtil struct {
 	cfg       *Config

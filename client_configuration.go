@@ -138,8 +138,8 @@ func parseClientConfiguration(filePath string) (*ClientConfig, error) {
 	return &clientConfig, nil
 }
 
-func getUnknownValues(fileContents []byte) map[string]interface{} {
-	var values map[string]interface{}
+func getUnknownValues(fileContents []byte) map[string]any {
+	var values map[string]any
 	err := json.Unmarshal(fileContents, &values)
 	if err != nil {
 		return nil
@@ -147,8 +147,8 @@ func getUnknownValues(fileContents []byte) map[string]interface{} {
 	if values["common"] == nil {
 		return nil
 	}
-	commonValues := values["common"].(map[string]interface{})
-	lowercaseCommonValues := make(map[string]interface{}, len(commonValues))
+	commonValues := values["common"].(map[string]any)
+	lowercaseCommonValues := make(map[string]any, len(commonValues))
 	for k, v := range commonValues {
 		lowercaseCommonValues[strings.ToLower(k)] = v
 	}

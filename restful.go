@@ -136,14 +136,14 @@ type renewSessionResponseMain struct {
 }
 
 type cancelQueryResponse struct {
-	Data    interface{} `json:"data"`
-	Message string      `json:"message"`
-	Code    string      `json:"code"`
-	Success bool        `json:"success"`
+	Data    any    `json:"data"`
+	Message string `json:"message"`
+	Code    string `json:"code"`
+	Success bool   `json:"success"`
 }
 
 type telemetryResponse struct {
-	Data    interface{}       `json:"data,omitempty"`
+	Data    any               `json:"data,omitempty"`
 	Message string            `json:"message"`
 	Code    string            `json:"code"`
 	Success bool              `json:"success"`
@@ -308,7 +308,7 @@ func postRestfulQueryHelper(
 		Number:      ErrFailedToPostQuery,
 		SQLState:    SQLStateConnectionFailure,
 		Message:     errors2.ErrMsgFailedToPostQuery,
-		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+		MessageArgs: []any{resp.StatusCode, fullURL},
 	}
 }
 
@@ -362,7 +362,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 		Number:      ErrFailedToCloseSession,
 		SQLState:    SQLStateConnectionFailure,
 		Message:     errors2.ErrMsgFailedToCloseSession,
-		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+		MessageArgs: []any{resp.StatusCode, fullURL},
 	}
 }
 
@@ -429,7 +429,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 		Number:      ErrFailedToRenewSession,
 		SQLState:    SQLStateConnectionFailure,
 		Message:     errors2.ErrMsgFailedToRenew,
-		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+		MessageArgs: []any{resp.StatusCode, fullURL},
 	}
 }
 
@@ -518,7 +518,7 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID UUID, time
 		Number:      ErrFailedToCancelQuery,
 		SQLState:    SQLStateConnectionFailure,
 		Message:     errors2.ErrMsgFailedToCancelQuery,
-		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+		MessageArgs: []any{resp.StatusCode, fullURL},
 	}
 }
 

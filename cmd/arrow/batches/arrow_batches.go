@@ -76,7 +76,7 @@ func main() {
 	defer conn.Close()
 
 	var rows driver.Rows
-	err = conn.Raw(func(x interface{}) error {
+	err = conn.Raw(func(x any) error {
 		rows, err = x.(driver.QueryerContext).QueryContext(ctx, query, nil)
 		return err
 	})

@@ -20,7 +20,7 @@ import (
 type customLogger struct {
 	buf    *bytes.Buffer
 	level  string
-	fields map[string]interface{}
+	fields map[string]any
 	mu     sync.Mutex
 }
 
@@ -28,11 +28,11 @@ func newCustomLogger() *customLogger {
 	return &customLogger{
 		buf:    &bytes.Buffer{},
 		level:  "info",
-		fields: make(map[string]interface{}),
+		fields: make(map[string]any),
 	}
 }
 
-func (l *customLogger) formatMessage(level, format string, args ...interface{}) {
+func (l *customLogger) formatMessage(level, format string, args ...any) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -51,27 +51,27 @@ func (l *customLogger) formatMessage(level, format string, args ...interface{}) 
 	fmt.Fprintf(l.buf, "%s: %s%s\n", level, msg, fieldStr)
 }
 
-func (l *customLogger) Tracef(format string, args ...interface{}) {
+func (l *customLogger) Tracef(format string, args ...any) {
 	l.formatMessage("TRACE", format, args...)
 }
 
-func (l *customLogger) Debugf(format string, args ...interface{}) {
+func (l *customLogger) Debugf(format string, args ...any) {
 	l.formatMessage("DEBUG", format, args...)
 }
 
-func (l *customLogger) Infof(format string, args ...interface{}) {
+func (l *customLogger) Infof(format string, args ...any) {
 	l.formatMessage("INFO", format, args...)
 }
 
-func (l *customLogger) Warnf(format string, args ...interface{}) {
+func (l *customLogger) Warnf(format string, args ...any) {
 	l.formatMessage("WARN", format, args...)
 }
 
-func (l *customLogger) Errorf(format string, args ...interface{}) {
+func (l *customLogger) Errorf(format string, args ...any) {
 	l.formatMessage("ERROR", format, args...)
 }
 
-func (l *customLogger) Fatalf(format string, args ...interface{}) {
+func (l *customLogger) Fatalf(format string, args ...any) {
 	l.formatMessage("FATAL", format, args...)
 }
 
@@ -99,8 +99,8 @@ func (l *customLogger) Fatal(msg string) {
 	l.formatMessage("FATAL", "%s", fmt.Sprint(msg))
 }
 
-func (l *customLogger) WithField(key string, value interface{}) gosnowflake.LogEntry {
-	newFields := make(map[string]interface{})
+func (l *customLogger) WithField(key string, value any) gosnowflake.LogEntry {
+	newFields := make(map[string]any)
 	maps.Copy(newFields, l.fields)
 	newFields[key] = value
 
@@ -111,7 +111,7 @@ func (l *customLogger) WithField(key string, value interface{}) gosnowflake.LogE
 }
 
 func (l *customLogger) WithFields(fields map[string]any) gosnowflake.LogEntry {
-	newFields := make(map[string]interface{})
+	newFields := make(map[string]any)
 	maps.Copy(newFields, l.fields)
 	maps.Copy(newFields, fields)
 
@@ -122,7 +122,7 @@ func (l *customLogger) WithFields(fields map[string]any) gosnowflake.LogEntry {
 }
 
 func (l *customLogger) WithContext(ctx context.Context) gosnowflake.LogEntry {
-	newFields := make(map[string]interface{})
+	newFields := make(map[string]any)
 	maps.Copy(newFields, l.fields)
 
 	// Extract context fields
@@ -189,10 +189,10 @@ func (l *customLogger) Reset() {
 // customLogEntry implements gosnowflake.LogEntry
 type customLogEntry struct {
 	logger *customLogger
-	fields map[string]interface{}
+	fields map[string]any
 }
 
-func (e *customLogEntry) formatMessage(level, format string, args ...interface{}) {
+func (e *customLogEntry) formatMessage(level, format string, args ...any) {
 	e.logger.mu.Lock()
 	defer e.logger.mu.Unlock()
 
@@ -211,27 +211,27 @@ func (e *customLogEntry) formatMessage(level, format string, args ...interface{}
 	fmt.Fprintf(e.logger.buf, "%s: %s%s\n", level, msg, fieldStr)
 }
 
-func (e *customLogEntry) Tracef(format string, args ...interface{}) {
+func (e *customLogEntry) Tracef(format string, args ...any) {
 	e.formatMessage("TRACE", format, args...)
 }
 
-func (e *customLogEntry) Debugf(format string, args ...interface{}) {
+func (e *customLogEntry) Debugf(format string, args ...any) {
 	e.formatMessage("DEBUG", format, args...)
 }
 
-func (e *customLogEntry) Infof(format string, args ...interface{}) {
+func (e *customLogEntry) Infof(format string, args ...any) {
 	e.formatMessage("INFO", format, args...)
 }
 
-func (e *customLogEntry) Warnf(format string, args ...interface{}) {
+func (e *customLogEntry) Warnf(format string, args ...any) {
 	e.formatMessage("WARN", format, args...)
 }
 
-func (e *customLogEntry) Errorf(format string, args ...interface{}) {
+func (e *customLogEntry) Errorf(format string, args ...any) {
 	e.formatMessage("ERROR", format, args...)
 }
 
-func (e *customLogEntry) Fatalf(format string, args ...interface{}) {
+func (e *customLogEntry) Fatalf(format string, args ...any) {
 	e.formatMessage("FATAL", format, args...)
 }
 
@@ -281,7 +281,7 @@ func assertJSONFormat(t *testing.T, output string) {
 		if line == "" {
 			continue
 		}
-		var js map[string]interface{}
+		var js map[string]any
 		if err := json.Unmarshal([]byte(line), &js); err != nil {
 			t.Errorf("Expected valid JSON, got error: %v, line: %s", err, line)
 		}

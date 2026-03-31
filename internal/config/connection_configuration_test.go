@@ -338,7 +338,7 @@ func TestLoadConnectionConfigWitNonExistingDSN(t *testing.T) {
 }
 
 func TestParseInt(t *testing.T) {
-	var i interface{}
+	var i any
 
 	i = 20
 	num, err := ParseInt(i)
@@ -366,7 +366,7 @@ func TestParseInt(t *testing.T) {
 }
 
 func TestParseBool(t *testing.T) {
-	var i interface{}
+	var i any
 
 	i = true
 	b, err := ParseBool(i)
@@ -394,7 +394,7 @@ func TestParseBool(t *testing.T) {
 }
 
 func TestParseDuration(t *testing.T) {
-	var i interface{}
+	var i any
 
 	i = 300
 	dur, err := ParseDuration(i)
@@ -423,7 +423,7 @@ func TestParseDuration(t *testing.T) {
 
 type paramList struct {
 	testParams []string
-	values     []interface{}
+	values     []any
 }
 
 func testGeneratePKCS8String(key *rsa.PrivateKey) string {
@@ -444,30 +444,30 @@ func TestParseToml(t *testing.T) {
 				"tracing", "tmpDirPath", "tmp_dir_path", "clientConfigFile", "client_config_file", "oauth_authorization_url", "oauth_client_id",
 				"oauth_client_secret", "oauth_token_request_url", "oauth_redirect_uri", "oauth_scope",
 				"workload_identity_provider", "workload_identity_entra_resource", "proxyHost", "noProxy", "proxyUser", "proxyPassword", "proxyProtocol"},
-			values: []interface{}{"value"},
+			values: []any{"value"},
 		},
 		{
 			testParams: []string{"privatekey", "private_key"},
-			values:     []interface{}{testGeneratePKCS8String(localTestKey)},
+			values:     []any{testGeneratePKCS8String(localTestKey)},
 		},
 		{
 			testParams: []string{"port", "maxRetryCount", "max_retry_count", "clientTimeout", "client_timeout", "jwtClientTimeout", "jwt_client_timeout", "loginTimeout",
 				"login_timeout", "requestTimeout", "request_timeout", "jwtTimeout", "jwt_timeout", "externalBrowserTimeout", "external_browser_timeout", "proxyPort"},
-			values: []interface{}{"300", 500},
+			values: []any{"300", 500},
 		},
 		{
 			testParams: []string{"ocspFailOpen", "ocsp_fail_open", "PasscodeInPassword", "passcode_in_password", "validateDEFAULTParameters", "validate_default_parameters",
 				"clientRequestMFAtoken", "client_request_mfa_token", "clientStoreTemporaryCredential", "client_store_temporary_credential", "disableQueryContextCache", "disable_query_context_cache", "disable_ocsp_checks",
 				"includeRetryReason", "include_retry_reason", "disableConsoleLogin", "disable_console_login", "disableSamlUrlCheck", "disable_saml_url_check"},
-			values: []interface{}{true, "true", false, "false"},
+			values: []any{true, "true", false, "false"},
 		},
 		{
 			testParams: []string{"connectionDiagnosticsEnabled", "connection_diagnostics_enabled"},
-			values:     []interface{}{true, false},
+			values:     []any{true, false},
 		},
 		{
 			testParams: []string{"connectionDiagnosticsAllowlistFile", "connection_diagnostics_allowlist_file"},
-			values:     []interface{}{"myallowlist.json"},
+			values:     []any{"myallowlist.json"},
 		},
 	}
 
@@ -476,7 +476,7 @@ func TestParseToml(t *testing.T) {
 			for _, value := range testCase.values {
 				t.Run(param, func(t *testing.T) {
 					cfg := &Config{}
-					connectionMap := make(map[string]interface{})
+					connectionMap := make(map[string]any)
 					connectionMap[param] = value
 					err := ParseToml(cfg, connectionMap)
 					if err != nil {
@@ -494,17 +494,17 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 			testParams: []string{"user", "password", "host", "account", "warehouse", "database",
 				"schema", "role", "region", "protocol", "passcode", "application", "token", "privateKey",
 				"tracing", "tmpDirPath", "clientConfigFile", "wrongParams", "token_file_path", "proxyhost", "noproxy", "proxyUser", "proxyPassword", "proxyProtocol"},
-			values: []interface{}{1, false},
+			values: []any{1, false},
 		},
 		{
 			testParams: []string{"port", "maxRetryCount", "clientTimeout", "jwtClientTimeout", "loginTimeout",
 				"requestTimeout", "jwtTimeout", "externalBrowserTimeout", "authenticator"},
-			values: []interface{}{"wrong_value", false},
+			values: []any{"wrong_value", false},
 		},
 		{
 			testParams: []string{"ocspFailOpen", "PasscodeInPassword", "validateDEFAULTParameters", "clientRequestMFAtoken",
 				"clientStoreTemporaryCredential", "disableQueryContextCache", "includeRetryReason", "disableConsoleLogin", "disableSamlUrlCheck"},
-			values: []interface{}{"wrong_value", 1},
+			values: []any{"wrong_value", 1},
 		},
 	}
 
@@ -513,7 +513,7 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 			for _, value := range testCase.values {
 				t.Run(param, func(t *testing.T) {
 					cfg := &Config{}
-					connectionMap := make(map[string]interface{})
+					connectionMap := make(map[string]any)
 					connectionMap[param] = value
 					err := ParseToml(cfg, connectionMap)
 					if err == nil {

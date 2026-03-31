@@ -34,7 +34,7 @@ func LocationWithOffsetString(offsets string) (loc *time.Location, err error) {
 			Number:      ErrInvalidOffsetStr,
 			SQLState:    SQLStateInvalidDataTimeFormat,
 			Message:     errors.ErrMsgInvalidOffsetStr,
-			MessageArgs: []interface{}{offsets},
+			MessageArgs: []any{offsets},
 		}
 	}
 	if offsets[0] != '-' && offsets[0] != '+' {
@@ -42,7 +42,7 @@ func LocationWithOffsetString(offsets string) (loc *time.Location, err error) {
 			Number:      ErrInvalidOffsetStr,
 			SQLState:    SQLStateInvalidDataTimeFormat,
 			Message:     errors.ErrMsgInvalidOffsetStr,
-			MessageArgs: []interface{}{offsets},
+			MessageArgs: []any{offsets},
 		}
 	}
 	s := 1

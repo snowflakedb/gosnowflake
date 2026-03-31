@@ -15,7 +15,7 @@ const (
 
 type execBindParameter struct {
 	Type   string         `json:"type"`
-	Value  interface{}    `json:"value"`
+	Value  any            `json:"value"`
 	Format string         `json:"fmt,omitempty"`
 	Schema *bindingSchema `json:"schema,omitempty"`
 }
@@ -26,7 +26,7 @@ type execRequest struct {
 	SequenceID   uint64                       `json:"sequenceId"`
 	IsInternal   bool                         `json:"isInternal"`
 	DescribeOnly bool                         `json:"describeOnly,omitempty"`
-	Parameters   map[string]interface{}       `json:"parameters,omitempty"`
+	Parameters   map[string]any               `json:"parameters,omitempty"`
 	Bindings     map[string]execBindParameter `json:"bindings,omitempty"`
 	BindStage    string                       `json:"bindStage,omitempty"`
 	QueryContext requestQueryContext          `json:"queryContextDTO"`

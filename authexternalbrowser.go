@@ -198,7 +198,7 @@ func getTokenFromResponse(response string) (string, error) {
 			Number:      ErrFailedToParseResponse,
 			SQLState:    SQLStateConnectionRejected,
 			Message:     errors2.ErrMsgFailedToParseResponse,
-			MessageArgs: []interface{}{response},
+			MessageArgs: []any{response},
 		}
 	}
 	token := strings.TrimPrefix(arr[0], start)
@@ -294,7 +294,7 @@ func doAuthenticateByExternalBrowser(ctx context.Context, sr *snowflakeRestful, 
 						Number:      ErrFailedToGetExternalBrowserResponse,
 						SQLState:    SQLStateConnectionRejected,
 						Message:     errors2.ErrMsgFailedToGetExternalBrowserResponse,
-						MessageArgs: []interface{}{err},
+						MessageArgs: []any{err},
 					}
 				}
 				break

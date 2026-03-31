@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"runtime"
 	"strconv"
 	"strings"
@@ -85,9 +86,7 @@ func (sc *snowflakeConn) connectionTelemetry(cfg *Config) {
 		},
 		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
 	}
-	for k, v := range sc.syncParams.All() {
-		data.Message[k] = v
-	}
+	maps.Insert(data.Message, sc.syncParams.All())
 	if err := sc.telemetry.addLog(data); err != nil {
 		logger.WithContext(sc.ctx).Warnf("cannot add telemetry log: %v", err)
 	}

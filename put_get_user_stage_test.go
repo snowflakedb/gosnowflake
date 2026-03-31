@@ -136,7 +136,7 @@ func TestPutLoadFromUserStage(t *testing.T) {
 			assertNilF(t, rows.Close())
 		}()
 		var s0, s1, s2, s3, s4, s5 string
-		var s6, s7, s8, s9 interface{}
+		var s6, s7, s8, s9 any
 		orders100 := fmt.Sprintf("s3://%v/%v/orders_100.csv.gz",
 			data.userBucket, data.stage)
 		orders101 := fmt.Sprintf("s3://%v/%v/orders_101.csv.gz",

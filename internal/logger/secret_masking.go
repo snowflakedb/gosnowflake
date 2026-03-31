@@ -18,7 +18,7 @@ type secretMaskingLogger struct {
 var _ SFLogger = (*secretMaskingLogger)(nil)
 
 // Unwrap returns the inner logger (for introspection by easy_logging)
-func (l *secretMaskingLogger) Unwrap() interface{} {
+func (l *secretMaskingLogger) Unwrap() any {
 	return l.inner
 }
 
@@ -32,7 +32,7 @@ func newSecretMaskingLogger(inner SFLogger) *secretMaskingLogger {
 }
 
 // Helper methods for masking
-func (l *secretMaskingLogger) maskValue(value interface{}) interface{} {
+func (l *secretMaskingLogger) maskValue(value any) any {
 	if str, ok := value.(string); ok {
 		return l.maskString(str)
 	}
@@ -50,37 +50,37 @@ func (l *secretMaskingLogger) maskString(value string) string {
 }
 
 // Implement all formatted logging methods (*f variants)
-func (l *secretMaskingLogger) Tracef(format string, args ...interface{}) {
+func (l *secretMaskingLogger) Tracef(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := l.maskString(message)
 	l.inner.Trace(maskedMessage)
 }
 
-func (l *secretMaskingLogger) Debugf(format string, args ...interface{}) {
+func (l *secretMaskingLogger) Debugf(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := l.maskString(message)
 	l.inner.Debug(maskedMessage)
 }
 
-func (l *secretMaskingLogger) Infof(format string, args ...interface{}) {
+func (l *secretMaskingLogger) Infof(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := l.maskString(message)
 	l.inner.Info(maskedMessage)
 }
 
-func (l *secretMaskingLogger) Warnf(format string, args ...interface{}) {
+func (l *secretMaskingLogger) Warnf(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := l.maskString(message)
 	l.inner.Warn(maskedMessage)
 }
 
-func (l *secretMaskingLogger) Errorf(format string, args ...interface{}) {
+func (l *secretMaskingLogger) Errorf(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := l.maskString(message)
 	l.inner.Error(maskedMessage)
 }
 
-func (l *secretMaskingLogger) Fatalf(format string, args ...interface{}) {
+func (l *secretMaskingLogger) Fatalf(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := l.maskString(message)
 	l.inner.Fatal(maskedMessage)
@@ -113,7 +113,7 @@ func (l *secretMaskingLogger) Fatal(msg string) {
 
 // Implement structured logging methods
 // Note: These return interface{} to maintain compatibility with the adapter layer
-func (l *secretMaskingLogger) WithField(key string, value interface{}) LogEntry {
+func (l *secretMaskingLogger) WithField(key string, value any) LogEntry {
 	maskedValue := l.maskValue(value)
 	result := l.inner.WithField(key, maskedValue)
 	return &secretMaskingEntry{
@@ -181,37 +181,37 @@ type secretMaskingEntry struct {
 var _ LogEntry = (*secretMaskingEntry)(nil)
 
 // Implement all formatted logging methods (*f variants)
-func (e *secretMaskingEntry) Tracef(format string, args ...interface{}) {
+func (e *secretMaskingEntry) Tracef(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := MaskSecrets(message)
 	e.inner.Trace(maskedMessage)
 }
 
-func (e *secretMaskingEntry) Debugf(format string, args ...interface{}) {
+func (e *secretMaskingEntry) Debugf(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := MaskSecrets(message)
 	e.inner.Debug(maskedMessage)
 }
 
-func (e *secretMaskingEntry) Infof(format string, args ...interface{}) {
+func (e *secretMaskingEntry) Infof(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := MaskSecrets(message)
 	e.inner.Info(maskedMessage)
 }
 
-func (e *secretMaskingEntry) Warnf(format string, args ...interface{}) {
+func (e *secretMaskingEntry) Warnf(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := MaskSecrets(message)
 	e.inner.Warn(maskedMessage)
 }
 
-func (e *secretMaskingEntry) Errorf(format string, args ...interface{}) {
+func (e *secretMaskingEntry) Errorf(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := MaskSecrets(message)
 	e.inner.Error(maskedMessage)
 }
 
-func (e *secretMaskingEntry) Fatalf(format string, args ...interface{}) {
+func (e *secretMaskingEntry) Fatalf(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	maskedMessage := MaskSecrets(message)
 	e.inner.Fatal(maskedMessage)

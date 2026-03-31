@@ -182,27 +182,27 @@ func (log *rawLogger) logWithSkip(skip int, level sflog.Level, msg string) {
 // Implement all formatted logging methods (*f variants)
 // Skip depth = 3 assumes standard wrapper chain: levelFilteringLogger -> secretMaskingLogger -> rawLogger
 // If wrapper chain changes, update this value. See TestSkipDepthWarning test.
-func (log *rawLogger) Tracef(format string, args ...interface{}) {
+func (log *rawLogger) Tracef(format string, args ...any) {
 	log.logWithSkip(3, sflog.LevelTrace, fmt.Sprintf(format, args...))
 }
 
-func (log *rawLogger) Debugf(format string, args ...interface{}) {
+func (log *rawLogger) Debugf(format string, args ...any) {
 	log.logWithSkip(3, sflog.LevelDebug, fmt.Sprintf(format, args...))
 }
 
-func (log *rawLogger) Infof(format string, args ...interface{}) {
+func (log *rawLogger) Infof(format string, args ...any) {
 	log.logWithSkip(3, sflog.LevelInfo, fmt.Sprintf(format, args...))
 }
 
-func (log *rawLogger) Warnf(format string, args ...interface{}) {
+func (log *rawLogger) Warnf(format string, args ...any) {
 	log.logWithSkip(3, sflog.LevelWarn, fmt.Sprintf(format, args...))
 }
 
-func (log *rawLogger) Errorf(format string, args ...interface{}) {
+func (log *rawLogger) Errorf(format string, args ...any) {
 	log.logWithSkip(3, sflog.LevelError, fmt.Sprintf(format, args...))
 }
 
-func (log *rawLogger) Fatalf(format string, args ...interface{}) {
+func (log *rawLogger) Fatalf(format string, args ...any) {
 	log.logWithSkip(3, sflog.LevelFatal, fmt.Sprintf(format, args...))
 	os.Exit(1)
 }
@@ -236,7 +236,7 @@ func (log *rawLogger) Fatal(msg string) {
 }
 
 // Structured logging methods
-func (log *rawLogger) WithField(key string, value interface{}) LogEntry {
+func (log *rawLogger) WithField(key string, value any) LogEntry {
 	return &slogEntry{
 		logger:  log.inner.With(slog.Any(key, value)),
 		enabled: &log.enabled,
@@ -313,27 +313,27 @@ func (e *slogEntry) logWithSkip(skip int, level sflog.Level, msg string) {
 // Implement all formatted logging methods (*f variants)
 // Skip depth = 3 assumes standard wrapper chain: levelFilteringEntry -> secretMaskingEntry -> slogEntry
 // If wrapper chain changes, update this value. See TestSkipDepthWarning test.
-func (e *slogEntry) Tracef(format string, args ...interface{}) {
+func (e *slogEntry) Tracef(format string, args ...any) {
 	e.logWithSkip(3, sflog.LevelTrace, fmt.Sprintf(format, args...))
 }
 
-func (e *slogEntry) Debugf(format string, args ...interface{}) {
+func (e *slogEntry) Debugf(format string, args ...any) {
 	e.logWithSkip(3, sflog.LevelDebug, fmt.Sprintf(format, args...))
 }
 
-func (e *slogEntry) Infof(format string, args ...interface{}) {
+func (e *slogEntry) Infof(format string, args ...any) {
 	e.logWithSkip(3, sflog.LevelInfo, fmt.Sprintf(format, args...))
 }
 
-func (e *slogEntry) Warnf(format string, args ...interface{}) {
+func (e *slogEntry) Warnf(format string, args ...any) {
 	e.logWithSkip(3, sflog.LevelWarn, fmt.Sprintf(format, args...))
 }
 
-func (e *slogEntry) Errorf(format string, args ...interface{}) {
+func (e *slogEntry) Errorf(format string, args ...any) {
 	e.logWithSkip(3, sflog.LevelError, fmt.Sprintf(format, args...))
 }
 
-func (e *slogEntry) Fatalf(format string, args ...interface{}) {
+func (e *slogEntry) Fatalf(format string, args ...any) {
 	e.logWithSkip(3, sflog.LevelFatal, fmt.Sprintf(format, args...))
 	os.Exit(1)
 }
@@ -385,7 +385,7 @@ func (log *rawLogger) CloseFileOnLoggerReplace(file *os.File) error {
 
 // ReplaceGlobalLogger closes the current logger's file (for easy_logging support)
 // The actual global logger replacement is handled by the main package
-func (log *rawLogger) ReplaceGlobalLogger(newLogger interface{}) {
+func (log *rawLogger) ReplaceGlobalLogger(newLogger any) {
 	if log.file != nil {
 		_ = log.file.Close()
 	}

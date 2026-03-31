@@ -11,5 +11,5 @@ type EasyLoggingSupport interface {
 
 // Unwrapper is a common interface for unwrapping wrapped loggers
 type Unwrapper interface {
-	Unwrap() interface{}
+	Unwrap() any
 }

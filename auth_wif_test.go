@@ -341,7 +341,7 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to decode credential: %v", err)
 				}
-				var credentialMap map[string]interface{}
+				var credentialMap map[string]any
 				if err := json.Unmarshal(decoded, &credentialMap); err != nil {
 					t.Fatalf("Failed to unmarshal credential JSON: %v", err)
 				}

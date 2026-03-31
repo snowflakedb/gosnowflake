@@ -253,7 +253,7 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 				SQLState:    sfa.data.SQLState,
 				QueryID:     sfa.data.QueryID,
 				Message:     errors2.ErrMsgInternalNotMatchEncryptMaterial,
-				MessageArgs: []interface{}{len(sfa.data.SrcLocations), len(sfa.encryptionMaterial)},
+				MessageArgs: []any{len(sfa.data.SrcLocations), len(sfa.encryptionMaterial)},
 			}, sfa.sc)
 		}
 
@@ -267,7 +267,7 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 				SQLState:    sfa.data.SQLState,
 				QueryID:     sfa.data.QueryID,
 				Message:     errors2.ErrMsgLocalPathNotDirectory,
-				MessageArgs: []interface{}{sfa.localLocation},
+				MessageArgs: []any{sfa.localLocation},
 			}, sfa.sc)
 		}
 	}
@@ -290,7 +290,7 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 			SQLState:    sfa.data.SQLState,
 			QueryID:     sfa.data.QueryID,
 			Message:     errors2.ErrMsgInvalidStageFs,
-			MessageArgs: []interface{}{sfa.stageLocationType},
+			MessageArgs: []any{sfa.stageLocationType},
 		}, sfa.sc)
 	}
 	return nil
@@ -360,7 +360,7 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 				SQLState:    sfa.data.SQLState,
 				QueryID:     sfa.data.QueryID,
 				Message:     errors2.ErrMsgFileNotExists,
-				MessageArgs: []interface{}{fileName},
+				MessageArgs: []any{fileName},
 			}, sfa.sc)
 		}
 		// Handles bulk inserts by checking if sourceStream exists.
@@ -379,7 +379,7 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 						SQLState:    sfa.data.SQLState,
 						QueryID:     sfa.data.QueryID,
 						Message:     errors2.ErrMsgFailToReadDataFromBuffer,
-						MessageArgs: []interface{}{fileName},
+						MessageArgs: []any{fileName},
 					}, sfa.sc)
 				}
 				sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
@@ -411,7 +411,7 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 						SQLState:    sfa.data.SQLState,
 						QueryID:     sfa.data.QueryID,
 						Message:     errors2.ErrMsgFileNotExists,
-						MessageArgs: []interface{}{fileName},
+						MessageArgs: []any{fileName},
 					}, sfa.sc)
 				} else if fi.IsDir() {
 					return exceptionTelemetry(&SnowflakeError{
@@ -419,7 +419,7 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 						SQLState:    sfa.data.SQLState,
 						QueryID:     sfa.data.QueryID,
 						Message:     errors2.ErrMsgFileNotExists,
-						MessageArgs: []interface{}{fileName},
+						MessageArgs: []any{fileName},
 					}, sfa.sc)
 				}
 				sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
@@ -487,7 +487,7 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 				SQLState:    sfa.data.SQLState,
 				QueryID:     sfa.data.QueryID,
 				Message:     errors2.ErrMsgFeatureNotSupported,
-				MessageArgs: []interface{}{userSpecifiedSourceCompression},
+				MessageArgs: []any{userSpecifiedSourceCompression},
 			}, sfa.sc)
 		}
 		autoDetect = false
@@ -526,7 +526,7 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 					SQLState:    sfa.data.SQLState,
 					QueryID:     sfa.data.QueryID,
 					Message:     errors2.ErrMsgFeatureNotSupported,
-					MessageArgs: []interface{}{userSpecifiedSourceCompression},
+					MessageArgs: []any{userSpecifiedSourceCompression},
 				}, sfa.sc)
 			}
 		} else {
@@ -545,7 +545,7 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 					SQLState:    sfa.data.SQLState,
 					QueryID:     sfa.data.QueryID,
 					Message:     errors2.ErrMsgFeatureNotSupported,
-					MessageArgs: []interface{}{userSpecifiedSourceCompression},
+					MessageArgs: []any{userSpecifiedSourceCompression},
 				}, sfa.sc)
 			}
 		} else {
@@ -629,7 +629,7 @@ func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() erro
 				SQLState:    sfa.data.SQLState,
 				QueryID:     sfa.data.QueryID,
 				Message:     errors2.ErrMsgCommandNotRecognized,
-				MessageArgs: []interface{}{sfa.commandType},
+				MessageArgs: []any{sfa.commandType},
 			}, sfa.sc)
 		}
 	}

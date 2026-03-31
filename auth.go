@@ -115,7 +115,7 @@ type authRequestData struct {
 	ExtAuthnDuoMethod       string                       `json:"EXT_AUTHN_DUO_METHOD,omitempty"`
 	Passcode                string                       `json:"PASSCODE,omitempty"`
 	Authenticator           string                       `json:"AUTHENTICATOR,omitempty"`
-	SessionParameters       map[string]interface{}       `json:"SESSION_PARAMETERS,omitempty"`
+	SessionParameters       map[string]any               `json:"SESSION_PARAMETERS,omitempty"`
 	ClientEnvironment       authRequestClientEnvironment `json:"CLIENT_ENVIRONMENT"`
 	BrowserModeRedirectPort string                       `json:"BROWSER_MODE_REDIRECT_PORT,omitempty"`
 	ProofKey                string                       `json:"PROOF_KEY,omitempty"`
@@ -127,8 +127,8 @@ type authRequest struct {
 }
 
 type nameValueParameter struct {
-	Name  string      `json:"name"`
-	Value interface{} `json:"value"`
+	Name  string `json:"name"`
+	Value any    `json:"value"`
 }
 
 type authResponseSessionInfo struct {
@@ -208,7 +208,7 @@ func postAuth(
 			Number:      ErrCodeServiceUnavailable,
 			SQLState:    SQLStateConnectionWasNotEstablished,
 			Message:     sferrors.ErrMsgServiceUnavailable,
-			MessageArgs: []interface{}{resp.StatusCode, fullURL},
+			MessageArgs: []any{resp.StatusCode, fullURL},
 		}
 	case http.StatusUnauthorized, http.StatusForbidden:
 		// failed to connect to db. account name may be wrong
@@ -216,7 +216,7 @@ func postAuth(
 			Number:      ErrCodeFailedToConnect,
 			SQLState:    SQLStateConnectionRejected,
 			Message:     sferrors.ErrMsgFailedToConnect,
-			MessageArgs: []interface{}{resp.StatusCode, fullURL},
+			MessageArgs: []any{resp.StatusCode, fullURL},
 		}
 	}
 	b, err := io.ReadAll(resp.Body)
@@ -230,7 +230,7 @@ func postAuth(
 		Number:      ErrFailedToAuth,
 		SQLState:    SQLStateConnectionRejected,
 		Message:     sferrors.ErrMsgFailedToAuth,
-		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+		MessageArgs: []any{resp.StatusCode, fullURL},
 	}
 }
 
@@ -293,7 +293,7 @@ func authenticate(
 	clientEnvironment.CertRevocationCheckMode = sc.cfg.CertRevocationCheckMode.String()
 	clientEnvironment.Platform = getDetectedPlatforms()
 
-	sessionParameters := make(map[string]interface{})
+	sessionParameters := make(map[string]any)
 	for k, v := range sc.syncParams.All() {
 		// upper casing to normalize keys
 		sessionParameters[strings.ToUpper(k)] = v
@@ -416,7 +416,7 @@ func newAuthRequestClientEnvironment() authRequestClientEnvironment {
 	}
 }
 
-func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface{},
+func createRequestBody(sc *snowflakeConn, sessionParameters map[string]any,
 	clientEnvironment authRequestClientEnvironment, proofKey []byte, samlResponse []byte,
 ) ([]byte, error) {
 	requestMain := authRequestData{

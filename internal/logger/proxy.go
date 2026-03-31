@@ -17,32 +17,32 @@ type Proxy struct{}
 var _ sflog.SFLogger = (*Proxy)(nil)
 
 // Tracef implements the Tracef method of the SFLogger interface by delegating to the global logger.
-func (p *Proxy) Tracef(format string, args ...interface{}) {
+func (p *Proxy) Tracef(format string, args ...any) {
 	GetLogger().Tracef(format, args...)
 }
 
 // Debugf implements the Debugf method of the SFLogger interface by delegating to the global logger.
-func (p *Proxy) Debugf(format string, args ...interface{}) {
+func (p *Proxy) Debugf(format string, args ...any) {
 	GetLogger().Debugf(format, args...)
 }
 
 // Infof implements the Infof method of the SFLogger interface by delegating to the global logger.
-func (p *Proxy) Infof(format string, args ...interface{}) {
+func (p *Proxy) Infof(format string, args ...any) {
 	GetLogger().Infof(format, args...)
 }
 
 // Warnf implements the Warnf method of the SFLogger interface by delegating to the global logger.
-func (p *Proxy) Warnf(format string, args ...interface{}) {
+func (p *Proxy) Warnf(format string, args ...any) {
 	GetLogger().Warnf(format, args...)
 }
 
 // Errorf implements the Errorf method of the SFLogger interface by delegating to the global logger.
-func (p *Proxy) Errorf(format string, args ...interface{}) {
+func (p *Proxy) Errorf(format string, args ...any) {
 	GetLogger().Errorf(format, args...)
 }
 
 // Fatalf implements the Fatalf method of the SFLogger interface by delegating to the global logger.
-func (p *Proxy) Fatalf(format string, args ...interface{}) {
+func (p *Proxy) Fatalf(format string, args ...any) {
 	GetLogger().Fatalf(format, args...)
 }
 
@@ -77,7 +77,7 @@ func (p *Proxy) Fatal(msg string) {
 }
 
 // WithField implements the WithField method of the SFLogger interface by delegating to the global logger.
-func (p *Proxy) WithField(key string, value interface{}) sflog.LogEntry {
+func (p *Proxy) WithField(key string, value any) sflog.LogEntry {
 	return GetLogger().WithField(key, value)
 }
 
