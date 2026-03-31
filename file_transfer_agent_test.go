@@ -585,6 +585,166 @@ func TestUpdateMetadataWithPresignedUrlError(t *testing.T) {
 	})
 }
 
+func TestUpdateMetadataSkipsSecondQueryWithGcsDownscopedToken(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "gcs-blob/storage/users/456/",
+		LocationType: "GCS",
+		Creds: execResponseCredentials{
+			GcsAccessToken: "ya29.downscoped-token-test",
+		},
+	}
+
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	postQueryCalled := false
+	presignedURLMock := func(_ context.Context, _ *snowflakeRestful,
+		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
+		_ UUID, _ *Config) (*execResponse, error) {
+		postQueryCalled = true
+		t.Fatal("FuncPostQuery should not be called when a downscoped token is present")
+		return nil, nil
+	}
+
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "GCS",
+		noSleepingTime:    true,
+		client:            gcsCli,
+		sha256Digest:      "123456789abcdef",
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		srcFileName:       path.Join(dir, "/test_data/data1.txt"),
+		overwrite:         true,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: multiPartThreshold,
+		},
+	}
+
+	sr := &snowflakeRestful{
+		FuncPostQuery: presignedURLMock,
+	}
+	sfa := &snowflakeFileTransferAgent{
+		ctx: context.Background(),
+		sc: &snowflakeConn{
+			cfg:  &Config{},
+			rest: sr,
+		},
+		commandType:       uploadCommand,
+		command:           "put file:///tmp/test_data/data1.txt @~",
+		stageLocationType: gcsClient,
+		stageInfo:         &info,
+		fileMetadata:      []*fileMetadata{&uploadMeta},
+	}
+
+	err = sfa.updateFileMetadataWithPresignedURL()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if postQueryCalled {
+		t.Fatal("should not have issued a second query when downscoped token is available")
+	}
+	if uploadMeta.stageInfo != &info {
+		t.Fatal("stageInfo on metadata should remain unchanged")
+	}
+}
+
+func TestUpdateMetadataStillQueriesWithPresignedUrlOnGcs(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "gcs-blob/storage/users/456/",
+		LocationType: "GCS",
+	}
+
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testURL := "https://storage.google.com/gcs-blob/storage/users/456?Signature=testsignature456"
+
+	postQueryCalled := false
+	presignedURLMock := func(_ context.Context, _ *snowflakeRestful,
+		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
+		_ UUID, _ *Config) (*execResponse, error) {
+		postQueryCalled = true
+		dd := &execResponseData{
+			QueryID: "01aa2e8b-0405-ab7c-0000-53b10632f626",
+			Command: string(uploadCommand),
+			StageInfo: execResponseStageInfo{
+				LocationType: "GCS",
+				Location:     "gcspuscentral1-4506459564-stage/users/456",
+				Path:         "users/456",
+				Region:       "US_CENTRAL1",
+				PresignedURL: testURL,
+			},
+		}
+		return &execResponse{
+			Data:    *dd,
+			Message: "",
+			Code:    "0",
+			Success: true,
+		}, nil
+	}
+
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "GCS",
+		noSleepingTime:    true,
+		client:            gcsCli,
+		sha256Digest:      "123456789abcdef",
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		srcFileName:       path.Join(dir, "/test_data/data1.txt"),
+		overwrite:         true,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: multiPartThreshold,
+		},
+	}
+
+	sr := &snowflakeRestful{
+		FuncPostQuery: presignedURLMock,
+	}
+	sfa := &snowflakeFileTransferAgent{
+		ctx: context.Background(),
+		sc: &snowflakeConn{
+			cfg:  &Config{},
+			rest: sr,
+		},
+		commandType:       uploadCommand,
+		command:           "put file:///tmp/test_data/data1.txt @~",
+		stageLocationType: gcsClient,
+		stageInfo: &execResponseStageInfo{
+			Location:     "gcs-blob/storage/users/456/",
+			LocationType: "GCS",
+		},
+		fileMetadata: []*fileMetadata{&uploadMeta},
+	}
+
+	err = sfa.updateFileMetadataWithPresignedURL()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !postQueryCalled {
+		t.Fatal("FuncPostQuery should have been called for presigned URL flow (no downscoped token)")
+	}
+	if uploadMeta.presignedURL == nil {
+		t.Fatal("presignedURL should have been set on metadata")
+	}
+	if testURL != uploadMeta.presignedURL.String() {
+		t.Fatalf("presigned URL mismatch. expected: %v, got: %v", testURL, uploadMeta.presignedURL.String())
+	}
+}
+
 func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
 	if isWindows {
 		t.Skip("permission model is different")

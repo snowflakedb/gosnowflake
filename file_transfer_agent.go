@@ -567,6 +567,11 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() error {
 	// presigned URL only applies to GCS
 	if sfa.stageLocationType == gcsClient {
+		// SNOW-3309225 - When a downscoped token is available, the token already covers the entire stage prefix so per-file
+		// re-querying is unnecessary. Skipping  the extra round-trip also avoids a path mismatch on versioned stages.
+		if sfa.stageInfo != nil && sfa.stageInfo.Creds.GcsAccessToken != "" {
+			return nil
+		}
 		switch sfa.commandType {
 		case uploadCommand:
 			filePathToBeReplaced := sfa.getLocalFilePathFromCommand(sfa.command)
