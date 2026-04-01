@@ -595,9 +595,7 @@ func TestUpdateMetadataSkipsSecondQueryWithGcsDownscopedToken(t *testing.T) {
 	}
 
 	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assertNilF(t, err, fmt.Sprintf("os.Getwd was unsuccessful, error: %v", err))
 
 	postQueryCalled := false
 	presignedURLMock := func(_ context.Context, _ *snowflakeRestful,
@@ -609,9 +607,8 @@ func TestUpdateMetadataSkipsSecondQueryWithGcsDownscopedToken(t *testing.T) {
 	}
 
 	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	assertNilF(t, err, fmt.Sprintf("could not create gcsCli, error: %v", err))
+
 	uploadMeta := fileMetadata{
 		name:              "data1.txt.gz",
 		stageLocationType: "GCS",
@@ -644,15 +641,9 @@ func TestUpdateMetadataSkipsSecondQueryWithGcsDownscopedToken(t *testing.T) {
 	}
 
 	err = sfa.updateFileMetadataWithPresignedURL()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if postQueryCalled {
-		t.Fatal("should not have issued a second query when downscoped token is available")
-	}
-	if uploadMeta.stageInfo != &info {
-		t.Fatal("stageInfo on metadata should remain unchanged")
-	}
+	assertNilF(t, err, fmt.Sprintf("unexpected error in updateFileMetadataWithPresignedURL, error: %v", err))
+	assertFalseF(t, postQueryCalled, "should not have issued a second query when downscoped token is available")
+	assertEqualF(t, uploadMeta.stageInfo, &info, "stageInfo on metadata should remain unchanged")
 }
 
 func TestUpdateMetadataStillQueriesWithPresignedUrlOnGcs(t *testing.T) {
@@ -662,9 +653,7 @@ func TestUpdateMetadataStillQueriesWithPresignedUrlOnGcs(t *testing.T) {
 	}
 
 	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assertNilF(t, err, fmt.Sprintf("os.Getwd was unsuccessful, error: %v", err))
 
 	testURL := "https://storage.google.com/gcs-blob/storage/users/456?Signature=testsignature456"
 
@@ -693,9 +682,8 @@ func TestUpdateMetadataStillQueriesWithPresignedUrlOnGcs(t *testing.T) {
 	}
 
 	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	assertNilF(t, err, fmt.Sprintf("could not create gcsCli, error: %v", err))
+
 	uploadMeta := fileMetadata{
 		name:              "data1.txt.gz",
 		stageLocationType: "GCS",
@@ -731,18 +719,10 @@ func TestUpdateMetadataStillQueriesWithPresignedUrlOnGcs(t *testing.T) {
 	}
 
 	err = sfa.updateFileMetadataWithPresignedURL()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !postQueryCalled {
-		t.Fatal("FuncPostQuery should have been called for presigned URL flow (no downscoped token)")
-	}
-	if uploadMeta.presignedURL == nil {
-		t.Fatal("presignedURL should have been set on metadata")
-	}
-	if testURL != uploadMeta.presignedURL.String() {
-		t.Fatalf("presigned URL mismatch. expected: %v, got: %v", testURL, uploadMeta.presignedURL.String())
-	}
+	assertNilF(t, err, fmt.Sprintf("unexpected error in updateFileMetadataWithPresignedURL: %v", err))
+	assertTrueF(t, postQueryCalled, "FuncPostQuery should have been called for presigned URL flow (no downscoped token)")
+	assertNotNilF(t, uploadMeta.presignedURL, "presignedURL should have been set on metadata")
+	assertEqualF(t, testURL, uploadMeta.presignedURL.String(), fmt.Sprintf("presigned URL %v does not match testUrl %v", uploadMeta.presignedURL.String(), testURL))
 }
 
 func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
