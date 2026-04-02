@@ -1,18 +1,148 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os/exec"
 	"sync"
 	"testing"
 	"time"
 )
 
+func doPayloadTest(t *testing.T, label string, client *http.Client, targetURL string, body []byte) {
+	req, err := http.NewRequest("POST", targetURL, bytes.NewReader(body))
+	if err != nil {
+		t.Logf("[%s] Failed to create request: %v", label, err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", userAgent)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Logf("[%s] Request error: %v", label, err)
+		return
+	}
+	respBody, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	t.Logf("[%s] Status=%d Proto=%s Body=%s", label, resp.StatusCode, resp.Proto, string(respBody))
+}
+
 func TestExternalBrowserSuccessful(t *testing.T) {
 	cfg := setupExternalBrowserTest(t)
+
+	baseURL := fmt.Sprintf("https://%s:%d/session/authenticator-request", cfg.Host, cfg.Port)
+	urlWithRequestID := baseURL + "?requestId=" + NewUUID().String()
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	// Build the exact same payload the driver sends in getIdpURLProofKey
+	clientEnv := newAuthRequestClientEnvironment()
+	clientEnv.Application = clientType
+	driverPayload := authRequest{
+		Data: authRequestData{
+			ClientAppID:             clientType,
+			ClientAppVersion:        SnowflakeGoDriverVersion,
+			AccountName:             cfg.Account,
+			LoginName:               cfg.User,
+			ClientEnvironment:       clientEnv,
+			Authenticator:           "EXTERNALBROWSER",
+			BrowserModeRedirectPort: "12345",
+		},
+	}
+	driverBody, _ := json.Marshal(driverPayload)
+
+	minimalBody := []byte(fmt.Sprintf(`{"data":{"CLIENT_APP_ID":"Go","CLIENT_APP_VERSION":"%s","ACCOUNT_NAME":"%s","LOGIN_NAME":"%s","AUTHENTICATOR":"EXTERNALBROWSER","BROWSER_MODE_REDIRECT_PORT":"12345"}}`,
+		SnowflakeGoDriverVersion, cfg.Account, cfg.User))
+
+	// Payload with CLIENT_ENVIRONMENT but no extra fields
+	envOnlyPayload := authRequest{
+		Data: authRequestData{
+			ClientAppID:             clientType,
+			ClientAppVersion:        SnowflakeGoDriverVersion,
+			AccountName:             cfg.Account,
+			LoginName:               cfg.User,
+			Authenticator:           "EXTERNALBROWSER",
+			BrowserModeRedirectPort: "12345",
+			ClientEnvironment: authRequestClientEnvironment{
+				Application: clientType,
+				Os:          "linux",
+			},
+		},
+	}
+	envOnlyBody, _ := json.Marshal(envOnlyPayload)
+
+	t.Logf("=== PAYLOAD COMPARISON ===")
+	t.Logf("Base URL: %s", baseURL)
+	t.Logf("URL with requestId: %s", urlWithRequestID)
+	t.Logf("Minimal body (%d bytes): %s", len(minimalBody), string(minimalBody))
+	t.Logf("Env-only body (%d bytes): %s", len(envOnlyBody), string(envOnlyBody))
+	t.Logf("Driver body (%d bytes): %s", len(driverBody), string(driverBody))
+
+	// Test 1: minimal payload, no requestId
+	doPayloadTest(t, "1-minimal", client, baseURL, minimalBody)
+	// Test 2: minimal payload + requestId query param
+	doPayloadTest(t, "2-minimal+requestId", client, urlWithRequestID, minimalBody)
+	// Test 3: full driver payload, no requestId
+	doPayloadTest(t, "3-driver-body", client, baseURL, driverBody)
+	// Test 4: full driver payload + requestId
+	doPayloadTest(t, "4-driver-body+requestId", client, urlWithRequestID, driverBody)
+	// Test 5: env-only payload, no requestId
+	doPayloadTest(t, "5-env-only", client, baseURL, envOnlyBody)
+	// Test 6: env-only payload + requestId
+	doPayloadTest(t, "6-env-only+requestId", client, urlWithRequestID, envOnlyBody)
+
+	// Now test with the driver's actual OCSP transport
+	transportFactory := newTransportFactory(cfg, &snowflakeTelemetry{})
+	ocspTransport, err := transportFactory.createTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
+	if err != nil {
+		t.Logf("Failed to create OCSP transport: %v", err)
+	} else {
+		ocspClient := &http.Client{Timeout: 10 * time.Second, Transport: ocspTransport}
+		// Test 7: full driver payload + requestId + OCSP transport (exactly like the driver)
+		doPayloadTest(t, "7-driver-body+requestId+OCSP", ocspClient, urlWithRequestID, driverBody)
+		// Test 8: minimal payload + OCSP transport
+		doPayloadTest(t, "8-minimal+OCSP", ocspClient, baseURL, minimalBody)
+	}
+
+	// Now test with stripped account name (like DSN processing does)
+	strippedAccount := cfg.Account
+	if idx := len(strippedAccount); idx > 0 {
+		if dotIdx := findDotInAccount(cfg.Account); dotIdx > 0 {
+			strippedAccount = cfg.Account[:dotIdx]
+		}
+	}
+	if strippedAccount != cfg.Account {
+		strippedPayload := authRequest{
+			Data: authRequestData{
+				ClientAppID:             clientType,
+				ClientAppVersion:        SnowflakeGoDriverVersion,
+				AccountName:             strippedAccount,
+				LoginName:               cfg.User,
+				ClientEnvironment:       clientEnv,
+				Authenticator:           "EXTERNALBROWSER",
+				BrowserModeRedirectPort: "12345",
+			},
+		}
+		strippedBody, _ := json.Marshal(strippedPayload)
+		t.Logf("Stripped account: %s (was %s)", strippedAccount, cfg.Account)
+		t.Logf("Stripped body (%d bytes): %s", len(strippedBody), string(strippedBody))
+		// Test 9: driver payload with stripped account
+		doPayloadTest(t, "9-stripped-account", client, baseURL, strippedBody)
+		// Test 10: driver payload with stripped account + requestId + OCSP
+		if ocspTransport != nil {
+			ocspClient := &http.Client{Timeout: 10 * time.Second, Transport: ocspTransport}
+			doPayloadTest(t, "10-stripped+requestId+OCSP", ocspClient, urlWithRequestID, strippedBody)
+		}
+	}
+
+	t.Logf("=== END PAYLOAD COMPARISON ===")
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -25,6 +155,15 @@ func TestExternalBrowserSuccessful(t *testing.T) {
 		assertNilE(t, err, fmt.Sprintf("Connection failed due to %v", err))
 	}()
 	wg.Wait()
+}
+
+func findDotInAccount(account string) int {
+	for i, c := range account {
+		if c == '.' {
+			return i
+		}
+	}
+	return -1
 }
 
 func TestExternalBrowserFailed(t *testing.T) {
@@ -181,8 +320,12 @@ func verifyConnectionToSnowflakeAuthTests(t *testing.T, cfg *Config) (err error)
 
 func setupExternalBrowserTest(t *testing.T) *Config {
 	skipAuthTests(t, "Skipping External Browser tests")
+	if err := GetLogger().SetLogLevel("debug"); err != nil {
+		t.Logf("failed to set log level: %v", err)
+	}
 	cleanupBrowserProcesses(t)
 	cfg, err := getAuthTestsConfig(t, AuthTypeExternalBrowser)
 	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))
+	cfg.Tracing = "debug"
 	return cfg
 }
