@@ -8,6 +8,7 @@ Bug fixes:
 - Replaced global `paramsMutex` with per-connection `syncParams` to encapsulate parameter synchronization and avoid cross-connection contention (snowflakedb/gosnoflake#1747).
 - `Config.Params` map is not modified anymore, to avoid changing parameter values across connections of the same connection pool (snowflakedb/gosnowflake#1747).
 - Set `BlobContentMD5` on Azure uploads so that multi-part uploads have the blob content-MD5 property populated (snowflakedb/gosnowflake#1757).
+- Fixed 403 errors from Google/GCP/GCS PUT queries on versioned stages (snowflakedb/gosnowflake#1760).
 
 Internal changes:
 
