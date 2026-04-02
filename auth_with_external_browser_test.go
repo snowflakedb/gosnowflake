@@ -38,18 +38,22 @@ func TestExternalBrowserSuccessful(t *testing.T) {
 	cfg := setupExternalBrowserTest(t)
 
 	baseURL := fmt.Sprintf("https://%s:%d/session/authenticator-request", cfg.Host, cfg.Port)
-	urlWithRequestID := baseURL + "?requestId=" + NewUUID().String()
 	client := &http.Client{Timeout: 10 * time.Second}
+	acct := cfg.Account
+	user := cfg.User
+	ver := SnowflakeGoDriverVersion
 
-	// Build the exact same payload the driver sends in getIdpURLProofKey
+	base := fmt.Sprintf(`"CLIENT_APP_ID":"Go","CLIENT_APP_VERSION":"%s","ACCOUNT_NAME":"%s","LOGIN_NAME":"%s","AUTHENTICATOR":"EXTERNALBROWSER","BROWSER_MODE_REDIRECT_PORT":"12345"`, ver, acct, user)
+
+	// Build the full driver payload for reference
 	clientEnv := newAuthRequestClientEnvironment()
 	clientEnv.Application = clientType
 	driverPayload := authRequest{
 		Data: authRequestData{
 			ClientAppID:             clientType,
 			ClientAppVersion:        SnowflakeGoDriverVersion,
-			AccountName:             cfg.Account,
-			LoginName:               cfg.User,
+			AccountName:             acct,
+			LoginName:               user,
 			ClientEnvironment:       clientEnv,
 			Authenticator:           "EXTERNALBROWSER",
 			BrowserModeRedirectPort: "12345",
@@ -57,91 +61,48 @@ func TestExternalBrowserSuccessful(t *testing.T) {
 	}
 	driverBody, _ := json.Marshal(driverPayload)
 
-	minimalBody := []byte(fmt.Sprintf(`{"data":{"CLIENT_APP_ID":"Go","CLIENT_APP_VERSION":"%s","ACCOUNT_NAME":"%s","LOGIN_NAME":"%s","AUTHENTICATOR":"EXTERNALBROWSER","BROWSER_MODE_REDIRECT_PORT":"12345"}}`,
-		SnowflakeGoDriverVersion, cfg.Account, cfg.User))
+	tests := []struct {
+		label string
+		body  string
+	}{
+		// A: baseline
+		{"A-minimal", fmt.Sprintf(`{"data":{%s}}`, base)},
 
-	// Payload with CLIENT_ENVIRONMENT but no extra fields
-	envOnlyPayload := authRequest{
-		Data: authRequestData{
-			ClientAppID:             clientType,
-			ClientAppVersion:        SnowflakeGoDriverVersion,
-			AccountName:             cfg.Account,
-			LoginName:               cfg.User,
-			Authenticator:           "EXTERNALBROWSER",
-			BrowserModeRedirectPort: "12345",
-			ClientEnvironment: authRequestClientEnvironment{
-				Application: clientType,
-				Os:          "linux",
-			},
-		},
-	}
-	envOnlyBody, _ := json.Marshal(envOnlyPayload)
+		// B: isolate SVN_REVISION vs CLIENT_ENVIRONMENT
+		{"B1-add-SVN_REVISION", fmt.Sprintf(`{"data":{%s,"SVN_REVISION":""}}`, base)},
+		{"B2-add-CLIENT_ENV-empty", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{}}}`, base)},
+		{"B3-add-both-empty", fmt.Sprintf(`{"data":{%s,"SVN_REVISION":"","CLIENT_ENVIRONMENT":{}}}`, base)},
 
-	t.Logf("=== PAYLOAD COMPARISON ===")
-	t.Logf("Base URL: %s", baseURL)
-	t.Logf("URL with requestId: %s", urlWithRequestID)
-	t.Logf("Minimal body (%d bytes): %s", len(minimalBody), string(minimalBody))
-	t.Logf("Env-only body (%d bytes): %s", len(envOnlyBody), string(envOnlyBody))
-	t.Logf("Driver body (%d bytes): %s", len(driverBody), string(driverBody))
+		// C: CLIENT_ENVIRONMENT with individual fields
+		{"C1-env-APPLICATION", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"APPLICATION":"Go"}}}`, base)},
+		{"C2-env-OS", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"OS":"linux"}}}`, base)},
+		{"C3-env-OS_VERSION", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"OS_VERSION":"Linux-5.4.181-99.354.amzn2.x86_64"}}}`, base)},
+		{"C4-env-OS_DETAILS", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"OS_DETAILS":{"ID":"debian","NAME":"Debian GNU/Linux"}}}}`, base)},
+		{"C5-env-GO_VERSION", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"GO_VERSION":"go1.25.0"}}}`, base)},
+		{"C6-env-ISA", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"ISA":"amd64"}}}`, base)},
+		{"C7-env-OCSP_MODE", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"OCSP_MODE":""}}}`, base)},
+		{"C8-env-CORE_VERSION", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"CORE_VERSION":"0.0.1"}}}`, base)},
+		{"C9-env-CORE_FILE_NAME", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"CORE_FILE_NAME":"libsf_mini_core_linux_amd64_glibc.so"}}}`, base)},
+		{"C10-env-CGO_ENABLED", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"CGO_ENABLED":true}}}`, base)},
+		{"C11-env-LINKING_MODE", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"LINKING_MODE":"dynamic"}}}`, base)},
+		{"C12-env-LIBC_FAMILY", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"LIBC_FAMILY":"glibc"}}}`, base)},
+		{"C13-env-LIBC_VERSION", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"LIBC_VERSION":"2.36"}}}`, base)},
 
-	// Test 1: minimal payload, no requestId
-	doPayloadTest(t, "1-minimal", client, baseURL, minimalBody)
-	// Test 2: minimal payload + requestId query param
-	doPayloadTest(t, "2-minimal+requestId", client, urlWithRequestID, minimalBody)
-	// Test 3: full driver payload, no requestId
-	doPayloadTest(t, "3-driver-body", client, baseURL, driverBody)
-	// Test 4: full driver payload + requestId
-	doPayloadTest(t, "4-driver-body+requestId", client, urlWithRequestID, driverBody)
-	// Test 5: env-only payload, no requestId
-	doPayloadTest(t, "5-env-only", client, baseURL, envOnlyBody)
-	// Test 6: env-only payload + requestId
-	doPayloadTest(t, "6-env-only+requestId", client, urlWithRequestID, envOnlyBody)
+		// D: combinations - add fields one by one to find the breaking combo
+		{"D1-env-APP+OS+VER", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"APPLICATION":"Go","OS":"linux","OS_VERSION":"Linux-5.4.181-99.354.amzn2.x86_64","GO_VERSION":"go1.25.0"}}}`, base)},
+		{"D2-env-all-no-core", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"APPLICATION":"Go","APPLICATION_PATH":"","OS":"linux","OS_VERSION":"Linux-5.4.181-99.354.amzn2.x86_64","OS_DETAILS":{"ID":"debian","NAME":"Debian GNU/Linux","PRETTY_NAME":"Debian GNU/Linux 12 (bookworm)","VERSION":"12 (bookworm)","VERSION_ID":"12"},"ISA":"amd64","OCSP_MODE":"","GO_VERSION":"go1.25.0"}}}`, base)},
+		{"D3-env-all-with-core", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"APPLICATION":"Go","APPLICATION_PATH":"","OS":"linux","OS_VERSION":"Linux-5.4.181-99.354.amzn2.x86_64","OS_DETAILS":{"ID":"debian","NAME":"Debian GNU/Linux","PRETTY_NAME":"Debian GNU/Linux 12 (bookworm)","VERSION":"12 (bookworm)","VERSION_ID":"12"},"ISA":"amd64","OCSP_MODE":"","GO_VERSION":"go1.25.0","CORE_VERSION":"0.0.1","CORE_FILE_NAME":"libsf_mini_core_linux_amd64_glibc.so","CGO_ENABLED":true}}}`, base)},
 
-	// Now test with the driver's actual OCSP transport
-	transportFactory := newTransportFactory(cfg, &snowflakeTelemetry{})
-	ocspTransport, err := transportFactory.createTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
-	if err != nil {
-		t.Logf("Failed to create OCSP transport: %v", err)
-	} else {
-		ocspClient := &http.Client{Timeout: 10 * time.Second, Transport: ocspTransport}
-		// Test 7: full driver payload + requestId + OCSP transport (exactly like the driver)
-		doPayloadTest(t, "7-driver-body+requestId+OCSP", ocspClient, urlWithRequestID, driverBody)
-		// Test 8: minimal payload + OCSP transport
-		doPayloadTest(t, "8-minimal+OCSP", ocspClient, baseURL, minimalBody)
+		// E: full driver body for reference
+		{"E-full-driver", string(driverBody)},
 	}
 
-	// Now test with stripped account name (like DSN processing does)
-	strippedAccount := cfg.Account
-	if idx := len(strippedAccount); idx > 0 {
-		if dotIdx := findDotInAccount(cfg.Account); dotIdx > 0 {
-			strippedAccount = cfg.Account[:dotIdx]
-		}
+	t.Logf("=== DEEP PAYLOAD INVESTIGATION ===")
+	for _, tt := range tests {
+		body := []byte(tt.body)
+		doPayloadTest(t, tt.label, client, baseURL, body)
 	}
-	if strippedAccount != cfg.Account {
-		strippedPayload := authRequest{
-			Data: authRequestData{
-				ClientAppID:             clientType,
-				ClientAppVersion:        SnowflakeGoDriverVersion,
-				AccountName:             strippedAccount,
-				LoginName:               cfg.User,
-				ClientEnvironment:       clientEnv,
-				Authenticator:           "EXTERNALBROWSER",
-				BrowserModeRedirectPort: "12345",
-			},
-		}
-		strippedBody, _ := json.Marshal(strippedPayload)
-		t.Logf("Stripped account: %s (was %s)", strippedAccount, cfg.Account)
-		t.Logf("Stripped body (%d bytes): %s", len(strippedBody), string(strippedBody))
-		// Test 9: driver payload with stripped account
-		doPayloadTest(t, "9-stripped-account", client, baseURL, strippedBody)
-		// Test 10: driver payload with stripped account + requestId + OCSP
-		if ocspTransport != nil {
-			ocspClient := &http.Client{Timeout: 10 * time.Second, Transport: ocspTransport}
-			doPayloadTest(t, "10-stripped+requestId+OCSP", ocspClient, urlWithRequestID, strippedBody)
-		}
-	}
-
-	t.Logf("=== END PAYLOAD COMPARISON ===")
+	t.Logf("=== END INVESTIGATION ===")
 
 	var wg sync.WaitGroup
 	wg.Add(2)
