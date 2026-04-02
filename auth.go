@@ -196,7 +196,7 @@ type authRequestClientEnvironment struct {
 type authRequestData struct {
 	ClientAppID             string                       `json:"CLIENT_APP_ID"`
 	ClientAppVersion        string                       `json:"CLIENT_APP_VERSION"`
-	SvnRevision             string                       `json:"SVN_REVISION"`
+	SvnRevision             string                       `json:"SVN_REVISION,omitempty"`
 	AccountName             string                       `json:"ACCOUNT_NAME"`
 	LoginName               string                       `json:"LOGIN_NAME,omitempty"`
 	Password                string                       `json:"PASSWORD,omitempty"`

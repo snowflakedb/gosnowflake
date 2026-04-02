@@ -93,8 +93,13 @@ func TestExternalBrowserSuccessful(t *testing.T) {
 		{"D2-env-all-no-core", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"APPLICATION":"Go","APPLICATION_PATH":"","OS":"linux","OS_VERSION":"Linux-5.4.181-99.354.amzn2.x86_64","OS_DETAILS":{"ID":"debian","NAME":"Debian GNU/Linux","PRETTY_NAME":"Debian GNU/Linux 12 (bookworm)","VERSION":"12 (bookworm)","VERSION_ID":"12"},"ISA":"amd64","OCSP_MODE":"","GO_VERSION":"go1.25.0"}}}`, base)},
 		{"D3-env-all-with-core", fmt.Sprintf(`{"data":{%s,"CLIENT_ENVIRONMENT":{"APPLICATION":"Go","APPLICATION_PATH":"","OS":"linux","OS_VERSION":"Linux-5.4.181-99.354.amzn2.x86_64","OS_DETAILS":{"ID":"debian","NAME":"Debian GNU/Linux","PRETTY_NAME":"Debian GNU/Linux 12 (bookworm)","VERSION":"12 (bookworm)","VERSION_ID":"12"},"ISA":"amd64","OCSP_MODE":"","GO_VERSION":"go1.25.0","CORE_VERSION":"0.0.1","CORE_FILE_NAME":"libsf_mini_core_linux_amd64_glibc.so","CGO_ENABLED":true}}}`, base)},
 
-		// E: full driver body for reference
-		{"E-full-driver", string(driverBody)},
+		// E: SVN_REVISION variations
+		{"E1-SVN_REVISION-empty", fmt.Sprintf(`{"data":{%s,"SVN_REVISION":""}}`, base)},
+		{"E2-SVN_REVISION-value", fmt.Sprintf(`{"data":{%s,"SVN_REVISION":"12345"}}`, base)},
+		{"E3-SVN_REVISION-null", fmt.Sprintf(`{"data":{%s,"SVN_REVISION":null}}`, base)},
+
+		// F: full driver body (now with omitempty fix)
+		{"F-full-driver", string(driverBody)},
 	}
 
 	t.Logf("=== DEEP PAYLOAD INVESTIGATION ===")
