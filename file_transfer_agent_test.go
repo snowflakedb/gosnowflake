@@ -617,7 +617,7 @@ func TestUpdateMetadataSkipsSecondQueryWithGcsDownscopedToken(t *testing.T) {
 		sha256Digest:      "123456789abcdef",
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
-		srcFileName:       path.Join(dir, "/test_data/data1.txt"),
+		srcFileName:       filepath.Join(dir, "test_data", "data1.txt"),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: multiPartThreshold,
@@ -692,7 +692,7 @@ func TestUpdateMetadataStillQueriesWithPresignedUrlOnGcs(t *testing.T) {
 		sha256Digest:      "123456789abcdef",
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
-		srcFileName:       path.Join(dir, "/test_data/data1.txt"),
+		srcFileName:       filepath.Join(dir, "test_data", "data1.txt"),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: multiPartThreshold,
