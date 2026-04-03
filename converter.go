@@ -2672,7 +2672,7 @@ func Array(a any, typ ...any) (any, error) {
 			return nil, errUnsupportedTimeArrayBind
 		}
 	case []any, *[]any:
-		// Support for bulk array binding insertion using []interface{}
+		// Support for bulk array binding insertion using []any / *[]any
 		if len(typ) < 1 {
 			return interfaceArrayBinding{
 				hasTimezone:       false,
@@ -2819,7 +2819,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (types.Snowflake
 			arr = append(arr, &v)
 		}
 	default:
-		// Support for bulk array binding insertion using []interface{}
+		// Support for bulk array binding insertion using []any / *[]any
 		nvValue := reflect.ValueOf(nv)
 		if nvValue.Kind() == reflect.Pointer {
 			value := reflect.Indirect(reflect.ValueOf(nv.Value))
