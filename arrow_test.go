@@ -190,6 +190,11 @@ func TestArrowIntPrecision(t *testing.T) {
 			}
 		}
 	})
+	_, err = db.Exec(forceARROW)
+	if err != nil {
+		t.Fatalf("failed to set ARROW as result type: %v", err)
+	}
+
 	t.Run("arrow_enabled_scan_big_int", func(t *testing.T) {
 		for _, tc := range intTestcases {
 			rows, err := db.Query(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
@@ -312,6 +317,11 @@ func TestArrowFloatPrecision(t *testing.T) {
 			}
 		}
 	})
+	_, err = db.Exec(forceARROW)
+	if err != nil {
+		t.Fatalf("failed to set ARROW as result type: %v", err)
+	}
+
 	t.Run("arrow_enabled_scan_float64", func(t *testing.T) {
 		for _, tc := range fltTestcases {
 			rows, err := db.Query(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
