@@ -151,7 +151,9 @@ func (rsu *remoteStorageUtil) uploadOneFileWithRetry(ctx context.Context, meta *
 				}
 				// check file header status and verify upload/skip
 				if meta.resStatus == notFoundFile {
-					time.Sleep(time.Second) // wait 1 second
+					if !meta.noSleepingTime {
+						time.Sleep(time.Second) // wait 1 second for S3 eventual consistency
+					}
 					continue
 				} else {
 					retryInner = false
