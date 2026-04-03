@@ -36,7 +36,7 @@ jobs:
           - name: Setup go
             uses: actions/setup-go@v5
             with:
-              go-version: '1.25'
+              go-version: '1.26'
           - name: golangci-lint
             uses: golangci/golangci-lint-action@v7
             with:
@@ -95,7 +95,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.25'
+            go-version: '1.26'
         - name: Test
           shell: bash
           env:
@@ -158,7 +158,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.25'
+            go-version: '1.26'
         - name: Test
           shell: bash
           env:
@@ -226,7 +226,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: ${{ matrix.go }}
+            go-version: '1.26'
         - name: Test
           shell: bash
           env:
@@ -261,7 +261,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.25'
+            go-version: '1.26'
         - name: Test
           shell: bash
           env:
@@ -285,7 +285,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.25'
+            go-version: '1.26'
         - name: Test
           shell: bash
           env:
@@ -308,7 +308,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.25'
+            go-version: '1.26'
         - uses: actions/setup-python@v5
           with:
             python-version: '3.x'
@@ -337,7 +337,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.25'
+            go-version: '1.26'
         - name: Test
           shell: bash
           env:
@@ -361,7 +361,7 @@ jobs:
               - cloud: 'AZURE'
                 go: '1.25.0'
               - cloud: 'GCP'
-                go: '1.26.0'
+                go: '1.26'
         name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.go }} on Rocky Linux 9
         steps:
             - uses: actions/checkout@v4
