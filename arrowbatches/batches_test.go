@@ -419,6 +419,7 @@ func TestTimestampConversionDistantDates(t *testing.T) {
 
 	for _, prec := range precisions {
 		t.Run(prec.name, func(t *testing.T) {
+			t.Parallel()
 			pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 			defer pool.AssertSize(t, 0)
 
