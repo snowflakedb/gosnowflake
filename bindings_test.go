@@ -1322,6 +1322,11 @@ func TestFunctionParameters(t *testing.T) {
 	})
 }
 
+// TestVariousBindingModes tests 24 parameter types × 3 binding modes.
+// Subtests share a hardcoded table name (BINDING_MODES) via CREATE OR REPLACE,
+// so they CANNOT run in parallel — concurrent subtests would overwrite each
+// other's tables. Making this parallel-safe would require unique table names
+// per subtest.
 func TestVariousBindingModes(t *testing.T) {
 	testcases := []struct {
 		testDesc  string

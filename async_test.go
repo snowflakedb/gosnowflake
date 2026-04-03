@@ -113,6 +113,9 @@ func TestAsyncQueryFail(t *testing.T) {
 	})
 }
 
+// TestMultipleAsyncQueries validates that shorter async queries return before
+// longer ones. The TIMELIMIT values (30 and 10) must have sufficient separation
+// to avoid flaky ordering. Do not reduce these values significantly.
 func TestMultipleAsyncQueries(t *testing.T) {
 	ctx := WithAsyncMode(context.Background())
 	s1 := "foo"
@@ -160,6 +163,10 @@ func retrieveRows(rows *sql.Rows, ch chan string) {
 	close(ch)
 }
 
+// TestLongRunningAsyncQuery validates the retry logic for async queries that
+// exceed Snowflake's 45-second threshold. After 45 seconds, the /results
+// endpoint returns "query in progress" (code 333334) and the driver must retry.
+// The 50-second wait MUST exceed 45 seconds to exercise this code path.
 func TestLongRunningAsyncQuery(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		ctx := WithMultiStatement(context.Background(), 0)
