@@ -928,6 +928,11 @@ func TestSmallTimestampBinding(t *testing.T) {
 	})
 }
 
+// TestTimestampConversionWithoutArrowBatches tests all 10 timestamp scales
+// (0-9) because each scale exercises a mathematically distinct code path in
+// the timestamp conversion logic. See TestTimestampConversionDistantDates in
+// arrowbatches/batches_test.go for rationale on why the full scale range is
+// required.
 func TestTimestampConversionWithoutArrowBatches(t *testing.T) {
 	timestamps := [3]string{
 		"2000-10-10 10:10:10.123456789", // neutral
