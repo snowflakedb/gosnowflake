@@ -112,7 +112,7 @@ func (l *secretMaskingLogger) Fatal(msg string) {
 }
 
 // Implement structured logging methods
-// Note: These return interface{} to maintain compatibility with the adapter layer
+// Note: These return LogEntry to maintain compatibility with the adapter layer
 func (l *secretMaskingLogger) WithField(key string, value any) LogEntry {
 	maskedValue := l.maskValue(value)
 	result := l.inner.WithField(key, maskedValue)

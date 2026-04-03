@@ -42,7 +42,7 @@ type (
 // SetLogKeys sets the context keys to be written to logs when logger.WithContext is used.
 // This function is thread-safe and can be called at runtime.
 func SetLogKeys(keys ...ContextKey) {
-	// Convert ContextKey to []interface{} for internal package
+	// Convert ContextKey to []any for internal package
 	ikeys := make([]any, len(keys))
 	for i, k := range keys {
 		ikeys[i] = k
@@ -54,7 +54,7 @@ func SetLogKeys(keys ...ContextKey) {
 func GetLogKeys() []ContextKey {
 	ikeys := loggerinternal.GetLogKeys()
 
-	// Convert []interface{} back to []ContextKey
+	// Convert []any back to []ContextKey
 	keys := make([]ContextKey, 0, len(ikeys))
 	for _, k := range ikeys {
 		if ck, ok := k.(ContextKey); ok {
