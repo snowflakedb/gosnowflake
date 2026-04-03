@@ -169,6 +169,11 @@ func TestJSONArray(t *testing.T) {
 	testArray(t, true)
 }
 
+// TestLargeSetJSONResultWithDecoder and TestLargeSetResultWithCustomJSONDecoder
+// validate JSON result decoding with row counts large enough to trigger chunked
+// result delivery from Snowflake. The row counts (10,000 and 20,000) are
+// calibrated to exercise the chunk download pipeline while staying within CI
+// timeout limits.
 func TestLargeSetJSONResultWithDecoder(t *testing.T) {
 	testLargeSetResult(t, 10000, true)
 }

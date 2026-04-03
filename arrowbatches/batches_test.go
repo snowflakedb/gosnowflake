@@ -398,6 +398,11 @@ func TestGetArrowBatchesJSONResponseError(t *testing.T) {
 	}
 }
 
+// TestTimestampConversionDistantDates tests all 10 timestamp scales (0-9)
+// because each scale exercises a mathematically distinct code path in
+// extractEpoch/extractFraction (converter.go). Past bugs have been
+// scale-specific: SNOW-526255 (time scale for arrow) and SNOW-2091309
+// (precision loss at scale 0). Do not reduce the scale range.
 func TestTimestampConversionDistantDates(t *testing.T) {
 	timestamps := [2]string{
 		"9999-12-12 23:59:59.999999999",
@@ -489,6 +494,10 @@ func TestTimestampConversionDistantDates(t *testing.T) {
 	}
 }
 
+// TestTimestampConversionWithOriginalTimestamp tests all 10 timestamp scales
+// (0-9) because each scale exercises a mathematically distinct code path in
+// extractEpoch/extractFraction. See TestTimestampConversionDistantDates for
+// rationale on why the full scale range is required.
 func TestTimestampConversionWithOriginalTimestamp(t *testing.T) {
 	timestamps := [3]string{
 		"2000-10-10 10:10:10.123456789",

@@ -1758,6 +1758,9 @@ func testLargeSetResult(t *testing.T, numrows int, json bool) {
 	})
 }
 
+// TestPingpongQuery validates that the driver's ping-pong keepalive protocol
+// maintains the connection during long-running queries. TIMELIMIT=>60 must be
+// long enough to trigger the ping-pong mechanism. Do not reduce this value.
 func TestPingpongQuery(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		numrows := 1
