@@ -94,9 +94,8 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:               &Config{},
-		rest:              sr,
-		queryContextCache: (&queryContextCache{}).init(),
+		cfg:  &Config{},
+		rest: sr,
 	}
 	if _, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
 		false /* describeOnly */, nil); err != nil {
@@ -333,9 +332,8 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:               &Config{},
-		rest:              sr,
-		queryContextCache: (&queryContextCache{}).init(),
+		cfg:  &Config{},
+		rest: sr,
 	}
 	if _, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
 		false /* describeOnly */, nil); err != nil {
@@ -385,9 +383,8 @@ func TestExecContextPropagationIntegrationTest(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:               &Config{},
-		rest:              sr,
-		queryContextCache: (&queryContextCache{}).init(),
+		cfg:  &Config{},
+		rest: sr,
 	}
 
 	_, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
@@ -406,9 +403,8 @@ func TestServiceName(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:               &Config{},
-		rest:              sr,
-		queryContextCache: (&queryContextCache{}).init(),
+		cfg:  &Config{},
+		rest: sr,
 	}
 
 	expectServiceName := serviceNameStub
@@ -446,10 +442,9 @@ func TestCloseIgnoreSessionGone(t *testing.T) {
 		FuncCloseSession: closeSessionMock,
 	}
 	sc := &snowflakeConn{
-		cfg:               &Config{},
-		rest:              sr,
-		telemetry:         testTelemetry,
-		queryContextCache: (&queryContextCache{}).init(),
+		cfg:       &Config{},
+		rest:      sr,
+		telemetry: testTelemetry,
 	}
 
 	if sc.Close() != nil {

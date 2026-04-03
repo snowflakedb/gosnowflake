@@ -74,7 +74,7 @@ type snowflakeConn struct {
 	sequenceCounter     uint64
 	telemetry           *snowflakeTelemetry
 	internal            InternalClient
-	queryContextCache   *queryContextCache
+	queryContextCache   queryContextCache
 	currentTimeProvider currentTimeProvider
 	syncParams          syncParams
 	idToken             string
@@ -108,7 +108,7 @@ func (sc *snowflakeConn) exec(
 	counter := atomic.AddUint64(&sc.sequenceCounter, 1) // query sequence counter
 	_, _, sessionID := safeGetTokens(sc.rest)
 	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
-	queryContext, err := buildQueryContext(sc.queryContextCache)
+	queryContext, err := buildQueryContext(&sc.queryContextCache)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error while building query context: %v", err)
 	}
@@ -170,10 +170,6 @@ func (sc *snowflakeConn) exec(
 		}
 	}
 	logger.WithContext(ctx).Debugf("Success: %v, Code: %v", data.Success, code)
-	if !data.Success {
-		err = exceptionTelemetry(populateErrorFields(code, data), sc)
-		return nil, err
-	}
 
 	if !sc.cfg.DisableQueryContextCache && data.Data.QueryContext != nil {
 		queryContext, err := extractQueryContext(data)
@@ -182,6 +178,11 @@ func (sc *snowflakeConn) exec(
 		} else {
 			sc.queryContextCache.add(sc, queryContext.Entries...)
 		}
+	}
+
+	if !data.Success {
+		err = exceptionTelemetry(populateErrorFields(code, data), sc)
+		return nil, err
 	}
 
 	// handle PUT/GET commands
@@ -599,7 +600,6 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		sequenceCounter:     0,
 		ctx:                 ctx,
 		cfg:                 &config,
-		queryContextCache:   (&queryContextCache{}).init(),
 		currentTimeProvider: defaultTimeProvider,
 	}
 	initPlatformDetection()

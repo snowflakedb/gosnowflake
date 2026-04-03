@@ -9,6 +9,7 @@ Bug fixes:
 - `Config.Params` map is not modified anymore, to avoid changing parameter values across connections of the same connection pool (snowflakedb/gosnowflake#1747).
 - Set `BlobContentMD5` on Azure uploads so that multi-part uploads have the blob content-MD5 property populated (snowflakedb/gosnowflake#1757).
 - Fixed 403 errors from Google/GCP/GCS PUT queries on versioned stages (snowflakedb/gosnowflake#1760).
+- Fixed not updating query context cache for failed queries (snowflakedb/gosnowflake#1763).
 
 Internal changes:
 
@@ -16,6 +17,7 @@ Internal changes:
 - Modernized Go syntax idioms throughout the codebase.
 - Added libc family, version and dynamic linking marker to client environment telemetry (snowflakedb/gosnowflake#1750).
 - Bumped a few libraries to fix vulnerabilities (snowflakedb/gosnowflake#1751, snowflakedb/gosnowflake#1756).
+- Depointerised query context cache in `snowflakeConn` (snowflakedb/gosnowflake#1763).
 
 ## 2.0.0
 

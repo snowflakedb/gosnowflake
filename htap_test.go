@@ -3,7 +3,9 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -12,7 +14,7 @@ import (
 )
 
 func TestSortingByPriority(t *testing.T) {
-	qcc := (&queryContextCache{}).init()
+	qcc := queryContextCache{}
 	sc := htapTestSnowflakeConn()
 
 	qceA := queryContextEntry{ID: 12, Timestamp: 123, Priority: 7, Context: "a"}
@@ -47,7 +49,7 @@ func TestSortingByPriority(t *testing.T) {
 }
 
 func TestAddingQcesWithTheSameIdAndLaterTimestamp(t *testing.T) {
-	qcc := (&queryContextCache{}).init()
+	qcc := queryContextCache{}
 	sc := htapTestSnowflakeConn()
 
 	qceA := queryContextEntry{ID: 12, Timestamp: 123, Priority: 7, Context: "a"}
@@ -77,7 +79,7 @@ func TestAddingQcesWithTheSameIdAndLaterTimestamp(t *testing.T) {
 }
 
 func TestAddingQcesWithTheSameIdAndSameTimestamp(t *testing.T) {
-	qcc := (&queryContextCache{}).init()
+	qcc := queryContextCache{}
 	sc := htapTestSnowflakeConn()
 
 	qceA := queryContextEntry{ID: 12, Timestamp: 123, Priority: 7, Context: "a"}
@@ -107,7 +109,7 @@ func TestAddingQcesWithTheSameIdAndSameTimestamp(t *testing.T) {
 }
 
 func TestAddingQcesWithTheSameIdAndEarlierTimestamp(t *testing.T) {
-	qcc := (&queryContextCache{}).init()
+	qcc := queryContextCache{}
 	sc := htapTestSnowflakeConn()
 
 	qceA := queryContextEntry{ID: 12, Timestamp: 123, Priority: 7, Context: "a"}
@@ -137,7 +139,7 @@ func TestAddingQcesWithTheSameIdAndEarlierTimestamp(t *testing.T) {
 }
 
 func TestAddingQcesWithDifferentId(t *testing.T) {
-	qcc := (&queryContextCache{}).init()
+	qcc := queryContextCache{}
 	sc := htapTestSnowflakeConn()
 
 	qceA := queryContextEntry{ID: 12, Timestamp: 123, Priority: 7, Context: "a"}
@@ -248,7 +250,7 @@ func TestPruneBySessionValue(t *testing.T) {
 				syncParams: syncParams{params: params},
 			}
 
-			qcc := (&queryContextCache{}).init()
+			qcc := queryContextCache{}
 
 			qcc.add(sc, qce1)
 			qcc.add(sc, qce2)
@@ -273,7 +275,7 @@ func TestPruneByDefaultValue(t *testing.T) {
 		cfg: &Config{},
 	}
 
-	qcc := (&queryContextCache{}).init()
+	qcc := queryContextCache{}
 	qcc.add(sc, qce1)
 	qcc.add(sc, qce2)
 	qcc.add(sc, qce3)
@@ -297,7 +299,7 @@ func TestNoQcesClearsCache(t *testing.T) {
 		cfg: &Config{},
 	}
 
-	qcc := (&queryContextCache{}).init()
+	qcc := queryContextCache{}
 	qcc.add(sc, qce1)
 
 	if len(qcc.entries) != 1 {
@@ -308,6 +310,72 @@ func TestNoQcesClearsCache(t *testing.T) {
 
 	if len(qcc.entries) != 0 {
 		t.Errorf("after adding empty context list cache should be cleared")
+	}
+}
+
+func TestQCCUpdatedAfterQueryResponse(t *testing.T) {
+	// Create initial QCC entry
+	initialEntry := queryContextEntry{ID: 1, Timestamp: 100, Priority: 1, Context: "initial"}
+
+	// Create query context that would be returned in the response
+	newEntry := queryContextEntry{ID: 2, Timestamp: 200, Priority: 2, Context: "new"}
+	queryContextJSON := fmt.Sprintf(`{"entries":[{"id":%d,"timestamp":%d,"priority":%d,"context":"%s"}]}`,
+		newEntry.ID, newEntry.Timestamp, newEntry.Priority, newEntry.Context)
+
+	testCases := []bool{true, false}
+
+	for _, success := range testCases {
+		t.Run(fmt.Sprintf("success=%v", success), func(t *testing.T) {
+			// Mock response with query context
+			postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values,
+				_ map[string]string, _ []byte, _ time.Duration, _ UUID, _ *Config) (*execResponse, error) {
+				code := "0"
+				message := ""
+				if !success {
+					code = "1234"
+					message = "Query failed"
+				}
+				return &execResponse{
+					Data: execResponseData{
+						QueryContext: json.RawMessage(queryContextJSON),
+					},
+					Message: message,
+					Code:    code,
+					Success: success,
+				}, nil
+			}
+
+			sr := &snowflakeRestful{
+				FuncPostQuery: postQueryMock,
+			}
+
+			sc := &snowflakeConn{
+				cfg:  &Config{},
+				rest: sr,
+			}
+			sc.queryContextCache.add(sc, initialEntry)
+
+			// Execute query
+			_, err := sc.ExecContext(context.Background(), "SELECT 1", nil)
+			if !success {
+				assertNotNilF(t, err, "expected error for failed query")
+			} else {
+				assertNilF(t, err, "unexpected error for successful query")
+			}
+
+			// Verify QCC WAS updated in both cases - should now contain both entries
+			assertEqualE(t, len(sc.queryContextCache.entries), 2, "expected 2 entries in QCC")
+
+			// Verify new entry was added (entries are sorted by priority)
+			found := false
+			for _, entry := range sc.queryContextCache.entries {
+				if entry.ID == newEntry.ID {
+					found = true
+					break
+				}
+			}
+			assertTrueE(t, found, "new QCC entry not found after query")
+		})
 	}
 }
 
