@@ -56,10 +56,10 @@ const (
 type interfaceArrayBinding struct {
 	hasTimezone       bool
 	tzType            timezoneType
-	timezoneTypeArray interface{}
+	timezoneTypeArray any
 }
 
-func isInterfaceArrayBinding(t interface{}) bool {
+func isInterfaceArrayBinding(t any) bool {
 	switch t.(type) {
 	case interfaceArrayBinding:
 		return true
@@ -2586,7 +2586,7 @@ type (
 
 // Array takes in a column of a row to be inserted via array binding, bulk or
 // otherwise, and converts it into a native snowflake type for binding
-func Array(a interface{}, typ ...any) (interface{}, error) {
+func Array(a any, typ ...any) (any, error) {
 
 	switch t := a.(type) {
 	case []int:
@@ -2671,7 +2671,7 @@ func Array(a interface{}, typ ...any) (interface{}, error) {
 		default:
 			return nil, errUnsupportedTimeArrayBind
 		}
-	case []interface{}, *[]interface{}:
+	case []any, *[]any:
 		// Support for bulk array binding insertion using []interface{}
 		if len(typ) < 1 {
 			return interfaceArrayBinding{

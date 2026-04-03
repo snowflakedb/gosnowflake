@@ -50,11 +50,11 @@ func (rs *RowsExtended) NextResultSet() bool {
 	return rs.rows.NextResultSet()
 }
 
-func (rs *RowsExtended) Scan(dest ...interface{}) error {
+func (rs *RowsExtended) Scan(dest ...any) error {
 	return rs.rows.Scan(dest...)
 }
 
-func (rs *RowsExtended) mustScan(dest ...interface{}) {
+func (rs *RowsExtended) mustScan(dest ...any) {
 	err := rs.rows.Scan(dest...)
 	assertNilF(rs.t, err)
 }
@@ -189,7 +189,7 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 		clientPrefetchThreadsKey: &two,
 	}
 	sc := &snowflakeConn{
-		cfg: &Config{},
+		cfg:        &Config{},
 		syncParams: syncParams{params: params},
 	}
 	rows.sc = sc
@@ -271,7 +271,7 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 		clientPrefetchThreadsKey: &three,
 	}
 	sc := &snowflakeConn{
-		cfg: &Config{},
+		cfg:        &Config{},
 		syncParams: syncParams{params: params},
 	}
 	rows.sc = sc

@@ -245,17 +245,17 @@ func (dbt *DBTest) mustQueryT(t *testing.T, query string, args ...any) (rows *Ro
 	}
 }
 
-func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExtended) {
+func (dbt *DBTest) mustQuery(query string, args ...any) (rows *RowsExtended) {
 	dbt.Helper()
 	return dbt.mustQueryT(dbt.T, query, args...)
 }
 
-func (dbt *DBTest) mustQueryContext(ctx context.Context, query string, args ...interface{}) (rows *RowsExtended) {
+func (dbt *DBTest) mustQueryContext(ctx context.Context, query string, args ...any) (rows *RowsExtended) {
 	dbt.Helper()
 	return dbt.mustQueryContextT(ctx, dbt.T, query, args...)
 }
 
-func (dbt *DBTest) mustQueryContextT(ctx context.Context, t *testing.T, query string, args ...interface{}) (rows *RowsExtended) {
+func (dbt *DBTest) mustQueryContextT(ctx context.Context, t *testing.T, query string, args ...any) (rows *RowsExtended) {
 	t.Helper()
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(ctx)
@@ -292,7 +292,7 @@ func (dbt *DBTest) query(query string, args ...any) (*sql.Rows, error) {
 	return dbt.conn.QueryContext(context.Background(), query, args...)
 }
 
-func (dbt *DBTest) mustQueryAssertCount(query string, expected int, args ...interface{}) {
+func (dbt *DBTest) mustQueryAssertCount(query string, expected int, args ...any) {
 	rows := dbt.mustQuery(query, args...)
 	defer rows.Close()
 	cnt := 0
@@ -315,7 +315,7 @@ func (dbt *DBTest) fail(method, query string, err error) {
 	dbt.Fatalf("error on %s [%s]: %s", method, query, err.Error())
 }
 
-func (dbt *DBTest) mustExec(query string, args ...interface{}) (res sql.Result) {
+func (dbt *DBTest) mustExec(query string, args ...any) (res sql.Result) {
 	return dbt.mustExecContext(context.Background(), query, args...)
 }
 
@@ -323,7 +323,7 @@ func (dbt *DBTest) mustExecT(t *testing.T, query string, args ...any) (res sql.R
 	return dbt.mustExecContextT(context.Background(), t, query, args...)
 }
 
-func (dbt *DBTest) mustExecContext(ctx context.Context, query string, args ...interface{}) (res sql.Result) {
+func (dbt *DBTest) mustExecContext(ctx context.Context, query string, args ...any) (res sql.Result) {
 	res, err := dbt.conn.ExecContext(ctx, query, args...)
 	if err != nil {
 		dbt.fail("exec context", query, err)
@@ -592,7 +592,7 @@ func TestEmptyQueryWithRequestID(t *testing.T) {
 		query := "select 1"
 		ctx := WithRequestID(context.Background(), NewUUID())
 		rows := dbt.conn.QueryRowContext(ctx, query)
-		var v1 interface{}
+		var v1 any
 		if err := rows.Scan(&v1); err != nil {
 			dbt.Errorf("should not have failed with valid request id. err: %v", err)
 		}
@@ -1145,7 +1145,7 @@ func parseTestUUID(str string) testUUID {
 // Scan implements sql.Scanner so UUIDs can be read from databases transparently.
 // Currently, database types that map to string and []byte are supported. Please
 // consult database-specific driver documentation for matching types.
-func (uuid *testUUID) Scan(src interface{}) error {
+func (uuid *testUUID) Scan(src any) error {
 	switch src := src.(type) {
 	case nil:
 		return nil
@@ -1267,7 +1267,7 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 		return
 	}
 
-	var dst interface{}
+	var dst any
 	if err = rows.Scan(&dst); err != nil {
 		dbt.Errorf("%s: %s", dbtype, err)
 		return
@@ -1305,7 +1305,7 @@ func TestSimpleDateTimeTimestampFetch(t *testing.T) {
 }
 
 func testSimpleDateTimeTimestampFetch(t *testing.T, json bool) {
-	var scan = func(rows *RowsExtended, cd interface{}, ct interface{}, cts interface{}) {
+	var scan = func(rows *RowsExtended, cd any, ct any, cts any) {
 		if err := rows.Scan(cd, ct, cts); err != nil {
 			t.Fatal(err)
 		}
@@ -1669,7 +1669,7 @@ func testNULL(t *testing.T, json bool) {
 		dbt.mustExec("CREATE OR REPLACE TABLE test (dummmy1 int, value int, dummy2 int)")
 		dbt.mustExec("INSERT INTO test VALUES (?, ?, ?)", 1, nil, 2)
 
-		var dummy1, out, dummy2 interface{}
+		var dummy1, out, dummy2 any
 		rows := dbt.mustQuery("SELECT * FROM test")
 		defer func() {
 			assertNilF(t, rows.Close())

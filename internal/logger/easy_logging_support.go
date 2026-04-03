@@ -7,7 +7,7 @@ import (
 
 // CloseFileOnLoggerReplace closes a log file when the logger is replaced.
 // This is used by the easy logging feature to manage log file handles.
-func CloseFileOnLoggerReplace(sflog interface{}, file *os.File) error {
+func CloseFileOnLoggerReplace(sflog any, file *os.File) error {
 	// Try to get the underlying default logger
 	if ell, ok := unwrapToEasyLoggingLogger(sflog); ok {
 		return ell.CloseFileOnLoggerReplace(file)
@@ -17,13 +17,13 @@ func CloseFileOnLoggerReplace(sflog interface{}, file *os.File) error {
 
 // IsEasyLoggingLogger checks if the given logger is based on the default logger implementation.
 // This is used by easy logging to determine if reconfiguration is allowed.
-func IsEasyLoggingLogger(sflog interface{}) bool {
+func IsEasyLoggingLogger(sflog any) bool {
 	_, ok := unwrapToEasyLoggingLogger(sflog)
 	return ok
 }
 
 // unwrapToEasyLoggingLogger unwraps a logger to get to the underlying default logger if present
-func unwrapToEasyLoggingLogger(sflog interface{}) (EasyLoggingSupport, bool) {
+func unwrapToEasyLoggingLogger(sflog any) (EasyLoggingSupport, bool) {
 	current := sflog
 
 	// Special case: if this is a Proxy, get the actual global logger

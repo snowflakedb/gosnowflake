@@ -555,7 +555,7 @@ func FillMissingConfigParameters(cfg *Config) error {
 		return &sferrors.SnowflakeError{
 			Number:      sferrors.ErrCodeFailedToParseHost,
 			Message:     sferrors.ErrMsgFailedToParseHost,
-			MessageArgs: []interface{}{cfg.Host},
+			MessageArgs: []any{cfg.Host},
 		}
 	}
 	if cfg.TLSConfigName != "" {
@@ -664,7 +664,7 @@ func parseAccountHostPort(cfg *Config, posAt, posSlash int, dsn string) (err err
 				err = &sferrors.SnowflakeError{
 					Number:      sferrors.ErrCodeFailedToParsePort,
 					Message:     sferrors.ErrMsgFailedToParsePort,
-					MessageArgs: []interface{}{dsn[k+1 : posSlash]},
+					MessageArgs: []any{dsn[k+1 : posSlash]},
 				}
 				return
 			}

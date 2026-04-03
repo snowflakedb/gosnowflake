@@ -153,15 +153,15 @@ func buildCredCacheDirPath(confs []cacheDirConf) (string, error) {
 	return "", errors.New("no credentials cache directory found")
 }
 
-func (ssm *fileBasedSecureStorageManager) getTokens(data map[string]any) map[string]interface{} {
+func (ssm *fileBasedSecureStorageManager) getTokens(data map[string]any) map[string]any {
 	val, ok := data["tokens"]
 	if !ok {
-		return map[string]interface{}{}
+		return map[string]any{}
 	}
 
-	tokens, ok := val.(map[string]interface{})
+	tokens, ok := val.(map[string]any)
 	if !ok {
-		return map[string]interface{}{}
+		return map[string]any{}
 	}
 
 	return tokens

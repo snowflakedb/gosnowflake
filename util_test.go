@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"maps"
 	"math/rand"
 	"os"
 	"runtime"
@@ -515,10 +516,7 @@ func TestSyncParamsAll(t *testing.T) {
 	t.Run("iterates all entries", func(t *testing.T) {
 		a, b := "1", "2"
 		sp := newSyncParams(map[string]*string{"a": &a, "b": &b})
-		got := map[string]string{}
-		for k, v := range sp.All() {
-			got[k] = v
-		}
+		got := maps.Collect(sp.All())
 		assertEqualE(t, len(got), 2)
 		assertEqualE(t, got["a"], "1")
 		assertEqualE(t, got["b"], "2")

@@ -14,12 +14,12 @@ type ClientLogContextHook func(context.Context) string
 // LogEntry allows for logging using a snapshot of field values.
 // No implementation-specific logging details should be placed into this interface.
 type LogEntry interface {
-	Tracef(format string, args ...interface{})
-	Debugf(format string, args ...interface{})
-	Infof(format string, args ...interface{})
-	Warnf(format string, args ...interface{})
-	Errorf(format string, args ...interface{})
-	Fatalf(format string, args ...interface{})
+	Tracef(format string, args ...any)
+	Debugf(format string, args ...any)
+	Infof(format string, args ...any)
+	Warnf(format string, args ...any)
+	Errorf(format string, args ...any)
+	Fatalf(format string, args ...any)
 
 	Trace(msg string)
 	Debug(msg string)
@@ -33,7 +33,7 @@ type LogEntry interface {
 // No implementation-specific logging details should be placed into this interface.
 type SFLogger interface {
 	LogEntry
-	WithField(key string, value interface{}) LogEntry
+	WithField(key string, value any) LogEntry
 	WithFields(fields map[string]any) LogEntry
 
 	SetLogLevel(level string) error

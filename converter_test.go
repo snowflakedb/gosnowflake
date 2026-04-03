@@ -342,10 +342,10 @@ func TestArrowToValues(t *testing.T) {
 		logical         string
 		physical        string
 		rowType         query.ExecResponseRowType
-		values          interface{}
+		values          any
 		builder         array.Builder
-		append          func(b array.Builder, vs interface{})
-		compare         func(src interface{}, dst []snowflakeValue) int
+		append          func(b array.Builder, vs any)
+		compare         func(src any, dst []snowflakeValue) int
 		higherPrecision bool
 	}{
 		{
@@ -353,7 +353,7 @@ func TestArrowToValues(t *testing.T) {
 			physical:        "number", // default: number(38, 0)
 			values:          []int64{1, 2},
 			builder:         array.NewInt64Builder(pool),
-			append:          func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
+			append:          func(b array.Builder, vs any) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
 			higherPrecision: true,
 		},
 		{
@@ -362,7 +362,7 @@ func TestArrowToValues(t *testing.T) {
 			rowType:  query.ExecResponseRowType{Scale: 5},
 			values:   []string{"1.05430", "2.08983"},
 			builder:  array.NewInt64Builder(pool),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, s := range vs.([]string) {
 					num, ok := stringFloatToInt(s, 5)
 					if !ok {
@@ -371,7 +371,7 @@ func TestArrowToValues(t *testing.T) {
 					b.(*array.Int64Builder).Append(num)
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]string)
 				for i := range srcvs {
 					num, ok := stringFloatToInt(srcvs[i], 5)
@@ -394,7 +394,7 @@ func TestArrowToValues(t *testing.T) {
 			rowType:  query.ExecResponseRowType{Scale: 5},
 			values:   []string{"1.05430", "2.08983"},
 			builder:  array.NewInt64Builder(pool),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, s := range vs.([]string) {
 					num, ok := stringFloatToInt(s, 5)
 					if !ok {
@@ -403,7 +403,7 @@ func TestArrowToValues(t *testing.T) {
 					b.(*array.Int64Builder).Append(num)
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]string)
 				for i := range srcvs {
 					num, ok := stringFloatToInt(srcvs[i], 5)
@@ -425,7 +425,7 @@ func TestArrowToValues(t *testing.T) {
 			physical: "number(38,0)",
 			values:   []string{"10000000000000000000000000000000000000", "-12345678901234567890123456789012345678"},
 			builder:  array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 30, Scale: 2}),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, s := range vs.([]string) {
 					num, ok := stringIntToDecimal(s)
 					if !ok {
@@ -434,7 +434,7 @@ func TestArrowToValues(t *testing.T) {
 					b.(*array.Decimal128Builder).Append(num)
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]string)
 				for i := range srcvs {
 					num, ok := stringIntToDecimal(srcvs[i])
@@ -457,7 +457,7 @@ func TestArrowToValues(t *testing.T) {
 			rowType:  query.ExecResponseRowType{Scale: 37},
 			values:   []string{"1.2345678901234567890123456789012345678", "-9.9999999999999999999999999999999999999"},
 			builder:  array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 38, Scale: 37}),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, s := range vs.([]string) {
 					num, ok := stringFloatToDecimal(s, 37)
 					if !ok {
@@ -466,7 +466,7 @@ func TestArrowToValues(t *testing.T) {
 					b.(*array.Decimal128Builder).Append(num)
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]string)
 				for i := range srcvs {
 					num, ok := stringFloatToDecimal(srcvs[i], 37)
@@ -488,8 +488,8 @@ func TestArrowToValues(t *testing.T) {
 			physical: "int8",
 			values:   []int8{1, 2},
 			builder:  array.NewInt8Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			append:   func(b array.Builder, vs any) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]int8)
 				for i := range srcvs {
 					if int64(srcvs[i]) != dst[i].(int64) {
@@ -505,8 +505,8 @@ func TestArrowToValues(t *testing.T) {
 			physical: "int16",
 			values:   []int16{1, 2},
 			builder:  array.NewInt16Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			append:   func(b array.Builder, vs any) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]int16)
 				for i := range srcvs {
 					if int64(srcvs[i]) != dst[i].(int64) {
@@ -523,7 +523,7 @@ func TestArrowToValues(t *testing.T) {
 			values:   []string{"1.2345", "2.3456"},
 			rowType:  query.ExecResponseRowType{Scale: 4},
 			builder:  array.NewInt16Builder(pool),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, s := range vs.([]string) {
 					num, ok := stringFloatToInt(s, 4)
 					if !ok {
@@ -532,7 +532,7 @@ func TestArrowToValues(t *testing.T) {
 					b.(*array.Int16Builder).Append(int16(num))
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]string)
 				for i := range srcvs {
 					num, ok := stringFloatToInt(srcvs[i], 4)
@@ -555,7 +555,7 @@ func TestArrowToValues(t *testing.T) {
 			values:   []string{"1.2345", "2.3456"},
 			rowType:  query.ExecResponseRowType{Scale: 4},
 			builder:  array.NewInt16Builder(pool),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, s := range vs.([]string) {
 					num, ok := stringFloatToInt(s, 4)
 					if !ok {
@@ -564,7 +564,7 @@ func TestArrowToValues(t *testing.T) {
 					b.(*array.Int16Builder).Append(int16(num))
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]string)
 				for i := range srcvs {
 					num, ok := stringFloatToInt(srcvs[i], 4)
@@ -586,8 +586,8 @@ func TestArrowToValues(t *testing.T) {
 			physical: "int32",
 			values:   []int32{1, 2},
 			builder:  array.NewInt32Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			append:   func(b array.Builder, vs any) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]int32)
 				for i := range srcvs {
 					if int64(srcvs[i]) != dst[i] {
@@ -604,7 +604,7 @@ func TestArrowToValues(t *testing.T) {
 			values:   []string{"1.23456", "2.34567"},
 			rowType:  query.ExecResponseRowType{Scale: 5},
 			builder:  array.NewInt32Builder(pool),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, s := range vs.([]string) {
 					num, ok := stringFloatToInt(s, 5)
 					if !ok {
@@ -613,7 +613,7 @@ func TestArrowToValues(t *testing.T) {
 					b.(*array.Int32Builder).Append(int32(num))
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]string)
 				for i := range srcvs {
 					num, ok := stringFloatToInt(srcvs[i], 5)
@@ -636,7 +636,7 @@ func TestArrowToValues(t *testing.T) {
 			values:   []string{"1.23456", "2.34567"},
 			rowType:  query.ExecResponseRowType{Scale: 5},
 			builder:  array.NewInt32Builder(pool),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, s := range vs.([]string) {
 					num, ok := stringFloatToInt(s, 5)
 					if !ok {
@@ -645,7 +645,7 @@ func TestArrowToValues(t *testing.T) {
 					b.(*array.Int32Builder).Append(int32(num))
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]string)
 				for i := range srcvs {
 					num, ok := stringFloatToInt(srcvs[i], 5)
@@ -667,40 +667,40 @@ func TestArrowToValues(t *testing.T) {
 			physical:        "int64",
 			values:          []int64{1, 2},
 			builder:         array.NewInt64Builder(pool),
-			append:          func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
+			append:          func(b array.Builder, vs any) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
 			higherPrecision: true,
 		},
 		{
 			logical: "boolean",
 			values:  []bool{true, false},
 			builder: array.NewBooleanBuilder(pool),
-			append:  func(b array.Builder, vs interface{}) { b.(*array.BooleanBuilder).AppendValues(vs.([]bool), valids) },
+			append:  func(b array.Builder, vs any) { b.(*array.BooleanBuilder).AppendValues(vs.([]bool), valids) },
 		},
 		{
 			logical:  "real",
 			physical: "float",
 			values:   []float64{1, 2},
 			builder:  array.NewFloat64Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Float64Builder).AppendValues(vs.([]float64), valids) },
+			append:   func(b array.Builder, vs any) { b.(*array.Float64Builder).AppendValues(vs.([]float64), valids) },
 		},
 		{
 			logical:  "text",
 			physical: "string",
 			values:   []string{"foo", "bar"},
 			builder:  array.NewStringBuilder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.StringBuilder).AppendValues(vs.([]string), valids) },
+			append:   func(b array.Builder, vs any) { b.(*array.StringBuilder).AppendValues(vs.([]string), valids) },
 		},
 		{
 			logical: "binary",
 			values:  [][]byte{[]byte("foo"), []byte("bar")},
 			builder: array.NewBinaryBuilder(pool, arrow.BinaryTypes.Binary),
-			append:  func(b array.Builder, vs interface{}) { b.(*array.BinaryBuilder).AppendValues(vs.([][]byte), valids) },
+			append:  func(b array.Builder, vs any) { b.(*array.BinaryBuilder).AppendValues(vs.([][]byte), valids) },
 		},
 		{
 			logical: "date",
 			values:  []time.Time{time.Now(), localTime},
 			builder: array.NewDate32Builder(pool),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, d := range vs.([]time.Time) {
 					b.(*array.Date32Builder).Append(arrow.Date32(d.Unix()))
 				}
@@ -711,12 +711,12 @@ func TestArrowToValues(t *testing.T) {
 			values:  []time.Time{time.Now(), time.Now()},
 			rowType: query.ExecResponseRowType{Scale: 9},
 			builder: array.NewInt64Builder(pool),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, t := range vs.([]time.Time) {
 					b.(*array.Int64Builder).Append(t.UnixNano())
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]time.Time)
 				for i := range srcvs {
 					if srcvs[i].Nanosecond() != dst[i].(time.Time).Nanosecond() {
@@ -732,12 +732,12 @@ func TestArrowToValues(t *testing.T) {
 			values:  []time.Time{time.Now(), localTime},
 			rowType: query.ExecResponseRowType{Scale: 9},
 			builder: array.NewInt64Builder(pool),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, t := range vs.([]time.Time) {
 					b.(*array.Int64Builder).Append(t.UnixNano())
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]time.Time)
 				for i := range srcvs {
 					if srcvs[i].UnixNano() != dst[i].(time.Time).UnixNano() {
@@ -752,12 +752,12 @@ func TestArrowToValues(t *testing.T) {
 			values:  []time.Time{time.Now(), localTime},
 			rowType: query.ExecResponseRowType{Scale: 9},
 			builder: array.NewInt64Builder(pool),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, t := range vs.([]time.Time) {
 					b.(*array.Int64Builder).Append(t.UnixNano())
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]time.Time)
 				for i := range srcvs {
 					if srcvs[i].UnixNano() != dst[i].(time.Time).UnixNano() {
@@ -771,7 +771,7 @@ func TestArrowToValues(t *testing.T) {
 			logical: "timestamp_tz",
 			values:  []time.Time{time.Now(), localTime},
 			builder: array.NewStructBuilder(pool, tzStruct),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				sb := b.(*array.StructBuilder)
 				valids = []bool{true, true}
 				sb.AppendValues(valids)
@@ -780,7 +780,7 @@ func TestArrowToValues(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.UnixNano()))
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]time.Time)
 				for i := range srcvs {
 					if srcvs[i].Unix() != dst[i].(time.Time).Unix() {
@@ -794,12 +794,12 @@ func TestArrowToValues(t *testing.T) {
 			logical: "array",
 			values:  [][]string{{"foo", "bar"}, {"baz", "quz", "quux"}},
 			builder: array.NewStringBuilder(pool),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, a := range vs.([][]string) {
 					b.(*array.StringBuilder).Append(fmt.Sprint(a))
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([][]string)
 				for i, o := range srcvs {
 					if fmt.Sprint(o) != dst[i].(string) {
@@ -813,12 +813,12 @@ func TestArrowToValues(t *testing.T) {
 			logical: "object",
 			values:  []testObj{{0, "foo"}, {1, "bar"}},
 			builder: array.NewStringBuilder(pool),
-			append: func(b array.Builder, vs interface{}) {
+			append: func(b array.Builder, vs any) {
 				for _, o := range vs.([]testObj) {
 					b.(*array.StringBuilder).Append(fmt.Sprint(o))
 				}
 			},
-			compare: func(src interface{}, dst []snowflakeValue) int {
+			compare: func(src any, dst []snowflakeValue) int {
 				srcvs := src.([]testObj)
 				for i, o := range srcvs {
 					if fmt.Sprint(o) != dst[i].(string) {
@@ -1176,7 +1176,7 @@ func TestNumbersScanType(t *testing.T) {
 	}
 }
 
-func mustArray(v interface{}, typ ...any) driver.Value {
+func mustArray(v any, typ ...any) driver.Value {
 	array, err := Array(v, typ...)
 	if err != nil {
 		panic(fmt.Sprintf("failed to convert to array: %v", err))

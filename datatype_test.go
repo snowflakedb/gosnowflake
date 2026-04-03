@@ -52,7 +52,7 @@ func TestDataTypeMode(t *testing.T) {
 func TestPopulateSnowflakeParameter(t *testing.T) {
 	columns := []string{"key", "value", "default", "level", "description", "set_by_user", "set_in_job", "set_on", "set_by_thread_id", "set_by_thread_name", "set_by_class", "parameter_comment", "type", "is_expired", "expires_at", "set_by_controlling_parameter", "activate_version", "partial_rollout"}
 	p := SnowflakeParameter{}
-	cols := make([]interface{}, len(columns))
+	cols := make([]any, len(columns))
 	for i := range columns {
 		cols[i] = populateSnowflakeParameter(columns[i], &p)
 	}

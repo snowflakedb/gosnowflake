@@ -115,7 +115,7 @@ func (sc *snowflakeConn) exec(
 	req := execRequest{
 		SQLText:      query,
 		AsyncExec:    noResult,
-		Parameters:   map[string]interface{}{},
+		Parameters:   map[string]any{},
 		IsInternal:   isInternal,
 		DescribeOnly: describeOnly,
 		SequenceID:   counter,

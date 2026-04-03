@@ -13,7 +13,7 @@ type SnowflakeError struct {
 	SQLState       string
 	QueryID        string
 	Message        string
-	MessageArgs    []interface{}
+	MessageArgs    []any
 	IncludeQueryID bool // TODO: populate this in connection
 }
 

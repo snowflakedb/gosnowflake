@@ -59,7 +59,7 @@ func (rows *snowflakeRows) getLocation() *time.Location {
 	return rows.location
 }
 
-type snowflakeValue interface{}
+type snowflakeValue any
 
 type chunkRowType struct {
 	RowSet   []*string

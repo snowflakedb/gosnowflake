@@ -725,7 +725,7 @@ func TestGetQueryStatus(t *testing.T) {
 		qid := rows.(SnowflakeResult).GetQueryID()
 
 		// use conn as type holder for SnowflakeConnection placeholder
-		var conn interface{} = sct.sc
+		var conn any = sct.sc
 		qStatus, err := conn.(SnowflakeConnection).GetQueryStatus(sct.sc.ctx, qid)
 		if err != nil {
 			t.Errorf("failed to get query status err = %s", err.Error())

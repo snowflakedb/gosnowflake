@@ -144,9 +144,9 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 	}
 	numRows := len(column)
 	csvRows := make([][]byte, 0)
-	rows := make([][]interface{}, 0)
+	rows := make([][]any, 0)
 	for range numRows {
-		rows = append(rows, make([]interface{}, numColumns))
+		rows = append(rows, make([]any, numColumns))
 	}
 
 	for rowIdx := range numRows {
@@ -166,7 +166,7 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 			return nil, exceptionTelemetry(&SnowflakeError{
 				Number:      ErrBindSerialization,
 				Message:     errors.ErrMsgBindColumnMismatch,
-				MessageArgs: []interface{}{colIdx, iNumRows, numRows},
+				MessageArgs: []any{colIdx, iNumRows, numRows},
 			}, bu.sc)
 		}
 		for rowIdx := range numRows {
@@ -184,7 +184,7 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 	return csvRows, nil
 }
 
-func (bu *bindUploader) createCSVRecord(data []interface{}) []byte {
+func (bu *bindUploader) createCSVRecord(data []any) []byte {
 	var b strings.Builder
 	b.Grow(1024)
 	for i := range data {
@@ -252,7 +252,7 @@ func getBindValues(bindings []driver.NamedValue, params *syncParams) (map[string
 				return nil, err
 			}
 		} else {
-			var val interface{}
+			var val any
 			var bv bindingValue
 			if t == types.SliceType {
 				// retrieve array binding data

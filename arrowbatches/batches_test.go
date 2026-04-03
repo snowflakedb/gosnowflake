@@ -148,7 +148,7 @@ func (tc *testConn) queryRows(ctx context.Context, t *testing.T, query string) (
 	t.Helper()
 	var rows driver.Rows
 	var err error
-	err = tc.conn.Raw(func(x interface{}) error {
+	err = tc.conn.Raw(func(x any) error {
 		queryer, ok := x.(driver.QueryerContext)
 		if !ok {
 			return fmt.Errorf("connection does not implement QueryerContext")
@@ -366,7 +366,7 @@ func TestGetArrowBatchesJSONResponseError(t *testing.T) {
 	}
 
 	var rows driver.Rows
-	err = conn.Raw(func(x interface{}) error {
+	err = conn.Raw(func(x any) error {
 		queryer, ok := x.(driver.QueryerContext)
 		if !ok {
 			return fmt.Errorf("connection does not implement QueryerContext")

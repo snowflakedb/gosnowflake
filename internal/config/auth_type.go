@@ -105,7 +105,7 @@ func DetermineAuthenticatorType(cfg *Config, value string) error {
 			return &sferrors.SnowflakeError{
 				Number:      sferrors.ErrCodeFailedToParseAuthenticator,
 				Message:     sferrors.ErrMsgFailedToParseAuthenticator,
-				MessageArgs: []interface{}{lowerCaseValue},
+				MessageArgs: []any{lowerCaseValue},
 			}
 		}
 
@@ -114,7 +114,7 @@ func DetermineAuthenticatorType(cfg *Config, value string) error {
 			return &sferrors.SnowflakeError{
 				Number:      sferrors.ErrCodeFailedToParseAuthenticator,
 				Message:     sferrors.ErrMsgFailedToParseAuthenticator,
-				MessageArgs: []interface{}{oktaURLString},
+				MessageArgs: []any{oktaURLString},
 			}
 		}
 
@@ -122,7 +122,7 @@ func DetermineAuthenticatorType(cfg *Config, value string) error {
 			return &sferrors.SnowflakeError{
 				Number:      sferrors.ErrCodeFailedToParseAuthenticator,
 				Message:     sferrors.ErrMsgFailedToParseAuthenticator,
-				MessageArgs: []interface{}{oktaURLString},
+				MessageArgs: []any{oktaURLString},
 			}
 		}
 		cfg.OktaURL = oktaURL

@@ -12,12 +12,12 @@ type mockLogger struct {
 	lastMessage string
 }
 
-func (m *mockLogger) Tracef(format string, args ...interface{}) {}
-func (m *mockLogger) Debugf(format string, args ...interface{}) {}
-func (m *mockLogger) Infof(format string, args ...interface{})  {}
-func (m *mockLogger) Warnf(format string, args ...interface{})  {}
-func (m *mockLogger) Errorf(format string, args ...interface{}) {}
-func (m *mockLogger) Fatalf(format string, args ...interface{}) {}
+func (m *mockLogger) Tracef(format string, args ...any) {}
+func (m *mockLogger) Debugf(format string, args ...any) {}
+func (m *mockLogger) Infof(format string, args ...any)  {}
+func (m *mockLogger) Warnf(format string, args ...any)  {}
+func (m *mockLogger) Errorf(format string, args ...any) {}
+func (m *mockLogger) Fatalf(format string, args ...any) {}
 
 func (m *mockLogger) Trace(msg string) {}
 func (m *mockLogger) Debug(msg string) {}
@@ -26,14 +26,14 @@ func (m *mockLogger) Warn(msg string)  {}
 func (m *mockLogger) Error(msg string) {}
 func (m *mockLogger) Fatal(msg string) {}
 
-func (m *mockLogger) WithField(key string, value interface{}) LogEntry { return m }
-func (m *mockLogger) WithFields(fields map[string]any) LogEntry        { return m }
-func (m *mockLogger) WithContext(ctx context.Context) LogEntry         { return m }
-func (m *mockLogger) SetLogLevel(level string) error                   { return nil }
-func (m *mockLogger) SetLogLevelInt(level sflog.Level) error           { return nil }
-func (m *mockLogger) GetLogLevel() string                              { return "info" }
-func (m *mockLogger) GetLogLevelInt() sflog.Level                      { return sflog.LevelInfo }
-func (m *mockLogger) SetOutput(output io.Writer)                       {}
+func (m *mockLogger) WithField(key string, value any) LogEntry  { return m }
+func (m *mockLogger) WithFields(fields map[string]any) LogEntry { return m }
+func (m *mockLogger) WithContext(ctx context.Context) LogEntry  { return m }
+func (m *mockLogger) SetLogLevel(level string) error            { return nil }
+func (m *mockLogger) SetLogLevelInt(level sflog.Level) error    { return nil }
+func (m *mockLogger) GetLogLevel() string                       { return "info" }
+func (m *mockLogger) GetLogLevelInt() sflog.Level               { return sflog.LevelInfo }
+func (m *mockLogger) SetOutput(output io.Writer)                {}
 
 // Compile-time verification that mockLogger implements SFLogger
 var _ SFLogger = (*mockLogger)(nil)

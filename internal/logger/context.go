@@ -11,26 +11,26 @@ import (
 // Storage for log keys and hooks (single source of truth)
 var (
 	contextConfigMu       sync.RWMutex
-	logKeys               []interface{}
+	logKeys               []any
 	clientLogContextHooks map[string]ClientLogContextHook
 )
 
 // SetLogKeys sets the context keys to be extracted from context
 // This function is thread-safe and can be called at runtime.
-func SetLogKeys(keys []interface{}) {
+func SetLogKeys(keys []any) {
 	contextConfigMu.Lock()
 	defer contextConfigMu.Unlock()
 
-	logKeys = make([]interface{}, len(keys))
+	logKeys = make([]any, len(keys))
 	copy(logKeys, keys)
 }
 
 // GetLogKeys returns a copy of the current log keys
-func GetLogKeys() []interface{} {
+func GetLogKeys() []any {
 	contextConfigMu.RLock()
 	defer contextConfigMu.RUnlock()
 
-	keysCopy := make([]interface{}, len(logKeys))
+	keysCopy := make([]any, len(logKeys))
 	copy(keysCopy, logKeys)
 	return keysCopy
 }

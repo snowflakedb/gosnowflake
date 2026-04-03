@@ -38,7 +38,7 @@ func TestWithOffsetString(t *testing.T) {
 			err: &SnowflakeError{
 				Number:      ErrInvalidOffsetStr,
 				Message:     errors2.ErrMsgInvalidOffsetStr,
-				MessageArgs: []interface{}{"1200"},
+				MessageArgs: []any{"1200"},
 			},
 		},
 		{
@@ -47,7 +47,7 @@ func TestWithOffsetString(t *testing.T) {
 			err: &SnowflakeError{
 				Number:      ErrInvalidOffsetStr,
 				Message:     errors2.ErrMsgInvalidOffsetStr,
-				MessageArgs: []interface{}{"x1200"},
+				MessageArgs: []any{"x1200"},
 			},
 		},
 		{
@@ -56,7 +56,7 @@ func TestWithOffsetString(t *testing.T) {
 			err: &SnowflakeError{
 				Number:      ErrInvalidOffsetStr,
 				Message:     errors2.ErrMsgInvalidOffsetStr,
-				MessageArgs: []interface{}{"+12001"},
+				MessageArgs: []any{"+12001"},
 			},
 		},
 		{
@@ -65,7 +65,7 @@ func TestWithOffsetString(t *testing.T) {
 			err: &SnowflakeError{
 				Number:      ErrInvalidOffsetStr,
 				Message:     errors2.ErrMsgInvalidOffsetStr,
-				MessageArgs: []interface{}{"x12001"},
+				MessageArgs: []any{"x12001"},
 			},
 		},
 		{

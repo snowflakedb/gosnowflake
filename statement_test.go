@@ -279,7 +279,7 @@ func TestGetQueryID(t *testing.T) {
 	ctx := context.Background()
 
 	runDBTest(t, func(dbt *DBTest) {
-		if err := dbt.conn.Raw(func(x interface{}) error {
+		if err := dbt.conn.Raw(func(x any) error {
 			rows, err := x.(driver.QueryerContext).QueryContext(ctx, "select 1", nil)
 			if err != nil {
 				return err
@@ -358,7 +358,7 @@ func TestE2EFetchResultByID(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if err = conn.Raw(func(x interface{}) error {
+	if err = conn.Raw(func(x any) error {
 		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "select * from test_fetch_result")
 		if err != nil {
 			return err
@@ -457,7 +457,7 @@ func TestStmtExec(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExecT(t, `create or replace table test_table(col1 int, col2 int)`)
 
-		if err := dbt.conn.Raw(func(x interface{}) error {
+		if err := dbt.conn.Raw(func(x any) error {
 			stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "insert into test_table values (1, 2)")
 			if err != nil {
 				t.Error(err)
@@ -487,7 +487,7 @@ func TestStmtExec_Error(t *testing.T) {
 		defer dbt.mustExecT(t, "drop table if exists test_table")
 
 		// Attempt to execute an invalid statement
-		if err := dbt.conn.Raw(func(x interface{}) error {
+		if err := dbt.conn.Raw(func(x any) error {
 			stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "insert into test_table values (?, ?)")
 			if err != nil {
 				t.Fatalf("failed to prepare statement: %v", err)

@@ -19,7 +19,7 @@ type levelFilteringLogger struct {
 var _ SFLogger = (*levelFilteringLogger)(nil)
 
 // Unwrap returns the inner logger (for introspection by easy_logging)
-func (l *levelFilteringLogger) Unwrap() interface{} {
+func (l *levelFilteringLogger) Unwrap() any {
 	return l.inner
 }
 
@@ -38,42 +38,42 @@ func newLevelFilteringLogger(inner SFLogger) SFLogger {
 }
 
 // Implement all formatted logging methods (*f variants)
-func (l *levelFilteringLogger) Tracef(format string, args ...interface{}) {
+func (l *levelFilteringLogger) Tracef(format string, args ...any) {
 	if !l.shouldLog(sflog.LevelTrace) {
 		return
 	}
 	l.inner.Tracef(format, args...)
 }
 
-func (l *levelFilteringLogger) Debugf(format string, args ...interface{}) {
+func (l *levelFilteringLogger) Debugf(format string, args ...any) {
 	if !l.shouldLog(sflog.LevelDebug) {
 		return
 	}
 	l.inner.Debugf(format, args...)
 }
 
-func (l *levelFilteringLogger) Infof(format string, args ...interface{}) {
+func (l *levelFilteringLogger) Infof(format string, args ...any) {
 	if !l.shouldLog(sflog.LevelInfo) {
 		return
 	}
 	l.inner.Infof(format, args...)
 }
 
-func (l *levelFilteringLogger) Warnf(format string, args ...interface{}) {
+func (l *levelFilteringLogger) Warnf(format string, args ...any) {
 	if !l.shouldLog(sflog.LevelWarn) {
 		return
 	}
 	l.inner.Warnf(format, args...)
 }
 
-func (l *levelFilteringLogger) Errorf(format string, args ...interface{}) {
+func (l *levelFilteringLogger) Errorf(format string, args ...any) {
 	if !l.shouldLog(sflog.LevelError) {
 		return
 	}
 	l.inner.Errorf(format, args...)
 }
 
-func (l *levelFilteringLogger) Fatalf(format string, args ...interface{}) {
+func (l *levelFilteringLogger) Fatalf(format string, args ...any) {
 	l.inner.Fatalf(format, args...)
 }
 
@@ -118,7 +118,7 @@ func (l *levelFilteringLogger) Fatal(msg string) {
 }
 
 // Implement structured logging methods - these return wrapped entries
-func (l *levelFilteringLogger) WithField(key string, value interface{}) sflog.LogEntry {
+func (l *levelFilteringLogger) WithField(key string, value any) sflog.LogEntry {
 	innerEntry := l.inner.WithField(key, value)
 	return &levelFilteringEntry{
 		parent: l,
@@ -178,42 +178,42 @@ type levelFilteringEntry struct {
 }
 
 // Implement all formatted logging methods for entry
-func (e *levelFilteringEntry) Tracef(format string, args ...interface{}) {
+func (e *levelFilteringEntry) Tracef(format string, args ...any) {
 	if !e.parent.shouldLog(sflog.LevelTrace) {
 		return
 	}
 	e.inner.Tracef(format, args...)
 }
 
-func (e *levelFilteringEntry) Debugf(format string, args ...interface{}) {
+func (e *levelFilteringEntry) Debugf(format string, args ...any) {
 	if !e.parent.shouldLog(sflog.LevelDebug) {
 		return
 	}
 	e.inner.Debugf(format, args...)
 }
 
-func (e *levelFilteringEntry) Infof(format string, args ...interface{}) {
+func (e *levelFilteringEntry) Infof(format string, args ...any) {
 	if !e.parent.shouldLog(sflog.LevelInfo) {
 		return
 	}
 	e.inner.Infof(format, args...)
 }
 
-func (e *levelFilteringEntry) Warnf(format string, args ...interface{}) {
+func (e *levelFilteringEntry) Warnf(format string, args ...any) {
 	if !e.parent.shouldLog(sflog.LevelWarn) {
 		return
 	}
 	e.inner.Warnf(format, args...)
 }
 
-func (e *levelFilteringEntry) Errorf(format string, args ...interface{}) {
+func (e *levelFilteringEntry) Errorf(format string, args ...any) {
 	if !e.parent.shouldLog(sflog.LevelError) {
 		return
 	}
 	e.inner.Errorf(format, args...)
 }
 
-func (e *levelFilteringEntry) Fatalf(format string, args ...interface{}) {
+func (e *levelFilteringEntry) Fatalf(format string, args ...any) {
 	e.inner.Fatalf(format, args...)
 }
 

@@ -108,7 +108,7 @@ type SnowflakeParameter struct {
 	Unknown                   string // Reserve for added parameter
 }
 
-func populateSnowflakeParameter(colname string, p *SnowflakeParameter) interface{} {
+func populateSnowflakeParameter(colname string, p *SnowflakeParameter) any {
 	switch colname {
 	case "key":
 		return &p.Key
@@ -162,7 +162,7 @@ func ScanSnowflakeParameter(rows *sql.Rows) (*SnowflakeParameter, error) {
 	}
 	colNum := len(columns)
 	p := SnowflakeParameter{}
-	cols := make([]interface{}, colNum)
+	cols := make([]any, colNum)
 	for i := range colNum {
 		cols[i] = populateSnowflakeParameter(columns[i], &p)
 	}

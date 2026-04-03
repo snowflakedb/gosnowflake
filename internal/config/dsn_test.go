@@ -671,7 +671,7 @@ func TestParseDSN(t *testing.T) {
 			ocspMode: ocspModeFailOpen,
 			err: &sferrors.SnowflakeError{
 				Message:     sferrors.ErrMsgFailedToParsePort,
-				MessageArgs: []interface{}{"NNNN"},
+				MessageArgs: []any{"NNNN"},
 				Number:      sferrors.ErrCodeFailedToParsePort,
 			},
 		},
@@ -2256,7 +2256,7 @@ func checkConfig(cfg Config, envMap map[string]configParamToValue) error {
 
 	value := reflect.ValueOf(cfg)
 	typeOfCfg := value.Type()
-	cfgValues := make(map[string]interface{}, value.NumField())
+	cfgValues := make(map[string]any, value.NumField())
 	for i := 0; i < value.NumField(); i++ {
 		if value.Field(i).CanInterface() {
 			cfgValues[typeOfCfg.Field(i).Name] = value.Field(i).Interface()

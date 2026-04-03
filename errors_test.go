@@ -19,7 +19,7 @@ func TestErrorMessage(t *testing.T) {
 	e = &SnowflakeError{
 		Number:      1,
 		Message:     "test message: %v, %v",
-		MessageArgs: []interface{}{"C1", "C2"},
+		MessageArgs: []any{"C1", "C2"},
 	}
 	if !strings.Contains(e.Error(), "000001") {
 		t.Errorf("failed to format error. %v", e)
@@ -33,7 +33,7 @@ func TestErrorMessage(t *testing.T) {
 	e = &SnowflakeError{
 		Number:      1,
 		Message:     "test message: %v, %v",
-		MessageArgs: []interface{}{"C1", "C2"},
+		MessageArgs: []any{"C1", "C2"},
 		SQLState:    "01112",
 	}
 	if !strings.Contains(e.Error(), "000001") {
@@ -51,7 +51,7 @@ func TestErrorMessage(t *testing.T) {
 	e = &SnowflakeError{
 		Number:      1,
 		Message:     "test message: %v, %v",
-		MessageArgs: []interface{}{"C1", "C2"},
+		MessageArgs: []any{"C1", "C2"},
 		SQLState:    "01112",
 		QueryID:     "abcdef-abcdef-abcdef",
 	}

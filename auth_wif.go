@@ -278,7 +278,7 @@ func (c *awsIdentityAttestationCreator) createBase64EncodedRequestCredential(req
 		headers[key] = values[0]
 	}
 
-	assertion := map[string]interface{}{
+	assertion := map[string]any{
 		"url":     req.URL.String(),
 		"method":  req.Method,
 		"headers": headers,
@@ -508,7 +508,7 @@ func extractSubIssWithoutVerifyingSignature(token string) (subject string, issue
 
 // extractClaimsMap parses a JWT token and returns its claims as a map.
 // It does not verify the token signature.
-func extractClaimsMap(token string) (map[string]interface{}, error) {
+func extractClaimsMap(token string) (map[string]any, error) {
 	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
 	claims := jwt.MapClaims{}
 	_, _, err := parser.ParseUnverified(token, claims)

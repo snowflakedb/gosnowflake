@@ -46,7 +46,7 @@ func LoadConnectionConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	tomlInfo := make(map[string]interface{})
+	tomlInfo := make(map[string]any)
 	_, err = toml.DecodeFile(tomlFilePath, &tomlInfo)
 	if err != nil {
 		return nil, err
@@ -58,7 +58,7 @@ func LoadConnectionConfig() (*Config, error) {
 			Message: sferrors.ErrMsgFailedToFindDSNInTomlFile,
 		}
 	}
-	connectionConfig, ok := dsnMap.(map[string]interface{})
+	connectionConfig, ok := dsnMap.(map[string]any)
 	if !ok {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func LoadConnectionConfig() (*Config, error) {
 }
 
 // ParseToml parses a TOML connection map into a Config.
-func ParseToml(cfg *Config, connectionMap map[string]interface{}) error {
+func ParseToml(cfg *Config, connectionMap map[string]any) error {
 	for key, value := range connectionMap {
 		if err := HandleSingleParam(cfg, key, value); err != nil {
 			return err
@@ -85,7 +85,7 @@ func ParseToml(cfg *Config, connectionMap map[string]interface{}) error {
 }
 
 // HandleSingleParam processes a single TOML parameter into a Config.
-func HandleSingleParam(cfg *Config, key string, value interface{}) error {
+func HandleSingleParam(cfg *Config, key string, value any) error {
 	var err error
 
 	// We normalize the key to handle both snake_case and camelCase.
@@ -240,12 +240,12 @@ func HandleSingleParam(cfg *Config, key string, value interface{}) error {
 	return checkParsingError(err, key, value)
 }
 
-func checkParsingError(err error, key string, value interface{}) error {
+func checkParsingError(err error, key string, value any) error {
 	if err != nil {
 		err = &sferrors.SnowflakeError{
 			Number:      sferrors.ErrCodeTomlFileParsingFailed,
 			Message:     sferrors.ErrMsgFailedToParseTomlFile,
-			MessageArgs: []interface{}{key, value},
+			MessageArgs: []any{key, value},
 		}
 		logger.Errorf("Parsed key: %s, value: %v is not an option for the connection config", key, value)
 		return err
@@ -255,7 +255,7 @@ func checkParsingError(err error, key string, value interface{}) error {
 }
 
 // ParseInt parses an interface value to int.
-func ParseInt(i interface{}) (int, error) {
+func ParseInt(i any) (int, error) {
 	v, ok := i.(string)
 	if !ok {
 		num, ok := i.(int)
@@ -268,7 +268,7 @@ func ParseInt(i interface{}) (int, error) {
 }
 
 // ParseBool parses an interface value to bool.
-func ParseBool(i interface{}) (bool, error) {
+func ParseBool(i any) (bool, error) {
 	v, ok := i.(string)
 	if !ok {
 		vv, ok := i.(bool)
@@ -280,7 +280,7 @@ func ParseBool(i interface{}) (bool, error) {
 	return strconv.ParseBool(v)
 }
 
-func parseConfigBool(i interface{}) (Bool, error) {
+func parseConfigBool(i any) (Bool, error) {
 	vv, err := ParseBool(i)
 	if err != nil {
 		return BoolFalse, err
@@ -292,7 +292,7 @@ func parseConfigBool(i interface{}) (Bool, error) {
 }
 
 // ParseDuration parses an interface value to time.Duration.
-func ParseDuration(i interface{}) (time.Duration, error) {
+func ParseDuration(i any) (time.Duration, error) {
 	v, ok := i.(string)
 	if !ok {
 		num, err := ParseInt(i)
@@ -328,7 +328,7 @@ func ReadToken(tokenPath string) (string, error) {
 	return string(token), nil
 }
 
-func parseString(i interface{}) (string, error) {
+func parseString(i any) (string, error) {
 	v, ok := i.(string)
 	if !ok {
 		return "", errors.New("failed to convert the value to string")
@@ -336,7 +336,7 @@ func parseString(i interface{}) (string, error) {
 	return v, nil
 }
 
-func parseStrings(i interface{}) ([]string, error) {
+func parseStrings(i any) ([]string, error) {
 	s, ok := i.(string)
 	if !ok {
 		return nil, errors.New("failed to convert the value to string")
@@ -390,7 +390,7 @@ func ValidateFilePermission(filePath string) error {
 		return &sferrors.SnowflakeError{
 			Number:      sferrors.ErrCodeInvalidFilePermission,
 			Message:     sferrors.ErrMsgInvalidExecutablePermissionToFile,
-			MessageArgs: []interface{}{filePath, permission},
+			MessageArgs: []any{filePath, permission},
 		}
 	}
 
@@ -398,7 +398,7 @@ func ValidateFilePermission(filePath string) error {
 		return &sferrors.SnowflakeError{
 			Number:      sferrors.ErrCodeInvalidFilePermission,
 			Message:     sferrors.ErrMsgInvalidWritablePermissionToFile,
-			MessageArgs: []interface{}{filePath, permission},
+			MessageArgs: []any{filePath, permission},
 		}
 	}
 

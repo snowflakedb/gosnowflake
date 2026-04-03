@@ -182,7 +182,7 @@ func (sc *snowflakeConn) checkQueryStatus(
 		return &queryRet, exceptionTelemetry(&SnowflakeError{
 			Number:         ErrQueryStatus,
 			Message:        errors.ErrMsgQueryStatus,
-			MessageArgs:    []interface{}{queryRet.ErrorCode, queryRet.ErrorMessage},
+			MessageArgs:    []any{queryRet.ErrorCode, queryRet.ErrorMessage},
 			IncludeQueryID: true,
 			QueryID:        qid,
 		}, sc)

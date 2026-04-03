@@ -115,7 +115,7 @@ func authenticateBySAML(
 			Number:      ErrCodeIdpConnectionError,
 			SQLState:    SQLStateConnectionRejected,
 			Message:     errors.ErrMsgIdpConnectionError,
-			MessageArgs: []interface{}{oktaURL, respd.Data.TokenURL, respd.Data.SSOURL},
+			MessageArgs: []any{oktaURL, respd.Data.TokenURL, respd.Data.SSOURL},
 		}
 	}
 	logger.WithContext(ctx).Info("step 3: query IDP token url to authenticate and retrieve access token")
@@ -162,7 +162,7 @@ func authenticateBySAML(
 				Number:      ErrCodeSSOURLNotMatch,
 				SQLState:    SQLStateConnectionRejected,
 				Message:     errors.ErrMsgSSOURLNotMatch,
-				MessageArgs: []interface{}{tgtURL, fullURL},
+				MessageArgs: []any{tgtURL, fullURL},
 			}
 		}
 	}
@@ -239,7 +239,7 @@ func postAuthSAML(
 			Number:      ErrCodeServiceUnavailable,
 			SQLState:    SQLStateConnectionWasNotEstablished,
 			Message:     errors.ErrMsgServiceUnavailable,
-			MessageArgs: []interface{}{resp.StatusCode, fullURL},
+			MessageArgs: []any{resp.StatusCode, fullURL},
 		}
 	case http.StatusUnauthorized, http.StatusForbidden:
 		// failed to connect to db. account name may be wrong
@@ -247,7 +247,7 @@ func postAuthSAML(
 			Number:      ErrCodeFailedToConnect,
 			SQLState:    SQLStateConnectionRejected,
 			Message:     errors.ErrMsgFailedToConnect,
-			MessageArgs: []interface{}{resp.StatusCode, fullURL},
+			MessageArgs: []any{resp.StatusCode, fullURL},
 		}
 	}
 	_, err = io.ReadAll(resp.Body)
@@ -259,7 +259,7 @@ func postAuthSAML(
 		Number:      ErrFailedToAuthSAML,
 		SQLState:    SQLStateConnectionRejected,
 		Message:     errors.ErrMsgFailedToAuthSAML,
-		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+		MessageArgs: []any{resp.StatusCode, fullURL},
 	}
 }
 
@@ -305,7 +305,7 @@ func postAuthOKTA(
 		Number:      ErrFailedToAuthOKTA,
 		SQLState:    SQLStateConnectionRejected,
 		Message:     errors.ErrMsgFailedToAuthOKTA,
-		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+		MessageArgs: []any{resp.StatusCode, fullURL},
 	}
 }
 
@@ -346,6 +346,6 @@ func getSSO(
 		Number:      ErrFailedToGetSSO,
 		SQLState:    SQLStateConnectionRejected,
 		Message:     errors.ErrMsgFailedToGetSSO,
-		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+		MessageArgs: []any{resp.StatusCode, fullURL},
 	}
 }

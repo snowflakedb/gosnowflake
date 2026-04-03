@@ -24,7 +24,7 @@ func TestArrowBatchDataProvider(t *testing.T) {
 		var rows driver.Rows
 		var err error
 
-		err = dbt.conn.Raw(func(x interface{}) error {
+		err = dbt.conn.Raw(func(x any) error {
 			queryer, implementsQueryContext := x.(driver.QueryerContext)
 			assertTrueF(t, implementsQueryContext, "snowflake connection driver does not implement queryerContext")
 

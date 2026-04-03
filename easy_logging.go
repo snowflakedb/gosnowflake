@@ -82,7 +82,7 @@ func easyLoggingInitError(err error) error {
 	return &SnowflakeError{
 		Number:      ErrCodeClientConfigFailed,
 		Message:     errors2.ErrMsgClientConfigFailed,
-		MessageArgs: []interface{}{err.Error()},
+		MessageArgs: []any{err.Error()},
 	}
 }
 

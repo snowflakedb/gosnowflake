@@ -153,7 +153,7 @@ func (tc *arrowTestConn) queryArrowBatches(t *testing.T, ctx context.Context, qu
 	t.Helper()
 	var rows driver.Rows
 	var err error
-	err = tc.conn.Raw(func(x interface{}) error {
+	err = tc.conn.Raw(func(x any) error {
 		queryer, ok := x.(driver.QueryerContext)
 		if !ok {
 			return fmt.Errorf("connection does not implement QueryerContext")

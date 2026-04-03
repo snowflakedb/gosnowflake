@@ -43,7 +43,7 @@ type (
 // This function is thread-safe and can be called at runtime.
 func SetLogKeys(keys ...ContextKey) {
 	// Convert ContextKey to []interface{} for internal package
-	ikeys := make([]interface{}, len(keys))
+	ikeys := make([]any, len(keys))
 	for i, k := range keys {
 		ikeys[i] = k
 	}
