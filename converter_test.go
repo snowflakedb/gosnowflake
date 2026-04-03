@@ -12,7 +12,6 @@ import (
 	"math/big"
 	"math/cmplx"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -945,26 +944,37 @@ func TestTimestampConversionWithoutArrowBatches(t *testing.T) {
 				t.Fatalf("failed to parse time: %v", err)
 			}
 			for _, tp := range types {
-				for scale := 0; scale <= 9; scale++ {
-					t.Run(tp+"("+strconv.Itoa(scale)+")_"+tsStr, func(t *testing.T) {
-						query := fmt.Sprintf("SELECT '%s'::%s(%v)", tsStr, tp, scale)
-						rows := sct.mustQueryContext(ctx, query, nil)
-						defer func() {
-							assertNilF(t, rows.Close())
-						}()
+				t.Run(tp+"_"+tsStr, func(t *testing.T) {
+					// Batch all 10 scales into a single multi-column query to reduce round trips.
+					var cols []string
+					for scale := 0; scale <= 9; scale++ {
+						cols = append(cols, fmt.Sprintf("'%s'::%s(%v)", tsStr, tp, scale))
+					}
+					query := "SELECT " + strings.Join(cols, ", ")
+					rows := sct.mustQueryContext(ctx, query, nil)
+					defer func() {
+						assertNilF(t, rows.Close())
+					}()
 
-						if rows.Next() {
-							var act time.Time
-							assertNilF(t, rows.Scan(&act))
-							exp := ts.Truncate(time.Duration(math.Pow10(9 - scale)))
-							if !exp.Equal(act) {
-								t.Fatalf("unexpected result. expected: %v, got: %v", exp, act)
-							}
-						} else {
-							t.Fatalf("failed to run query: %v", query)
+					if !rows.Next() {
+						t.Fatalf("failed to run query: %v", query)
+					}
+
+					scanVals := make([]time.Time, 10)
+					scanPtrs := make([]any, 10)
+					for i := range scanVals {
+						scanPtrs[i] = &scanVals[i]
+					}
+					assertNilF(t, rows.Scan(scanPtrs...))
+
+					for scale := 0; scale <= 9; scale++ {
+						exp := ts.Truncate(time.Duration(math.Pow10(9 - scale)))
+						act := scanVals[scale]
+						if !exp.Equal(act) {
+							t.Fatalf("scale %d: unexpected result. expected: %v, got: %v", scale, exp, act)
 						}
-					})
-				}
+					}
+				})
 			}
 		}
 	})

@@ -675,7 +675,7 @@ func TestS3UploadRetryWithHeaderNotFound(t *testing.T) {
 	uploadMeta := fileMetadata{
 		name:              "data1.txt.gz",
 		stageLocationType: "S3",
-		noSleepingTime:    false,
+		noSleepingTime:    true,
 		parallel:          initialParallel,
 		client:            s3Cli,
 		sha256Digest:      "123456789abcdef",
