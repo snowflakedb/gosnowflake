@@ -313,7 +313,7 @@ func TestNoQcesClearsCache(t *testing.T) {
 	}
 }
 
-func TestQCCNotUpdatedOnFailedQuery(t *testing.T) {
+func TestQCCUpdatedAfterQueryResponse(t *testing.T) {
 	// Create initial QCC entry
 	initialEntry := queryContextEntry{ID: 1, Timestamp: 100, Priority: 1, Context: "initial"}
 
@@ -350,11 +350,10 @@ func TestQCCNotUpdatedOnFailedQuery(t *testing.T) {
 			}
 
 			sc := &snowflakeConn{
-				cfg:               &Config{},
-				rest:              sr,
-				queryContextCache: queryContextCache{},
+				cfg:  &Config{},
+				rest: sr,
 			}
-			sc.queryContextCache.add(htapTestSnowflakeConn(), initialEntry)
+			sc.queryContextCache.add(sc, initialEntry)
 
 			// Execute query
 			_, err := sc.ExecContext(context.Background(), "SELECT 1", nil)
