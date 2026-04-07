@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestAsyncMode(t *testing.T) {
@@ -143,6 +144,8 @@ func TestMultipleAsyncQueries(t *testing.T) {
 			if res != s2 {
 				t.Fatalf("query failed. expected: %v, got: %v", s2, res)
 			}
+		case <-time.After(3 * time.Minute):
+			t.Fatal("timed out waiting for async queries to complete")
 		}
 	})
 }

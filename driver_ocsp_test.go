@@ -531,32 +531,45 @@ func TestExpiredCertificate(t *testing.T) {
 		LoginTimeout:  10 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenTrue,
 	}
-	var db *sql.DB
-	var err error
 	var testURL string
+	var err error
 	testURL, err = DSN(config)
 	assertNilF(t, err, "failed to build URL from Config")
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
-	}
-	defer db.Close()
-	if err = db.Ping(); err == nil {
-		t.Fatalf("should fail to ping. %v", testURL)
-	}
-	urlErr, ok := err.(*url.Error)
-	if !ok {
-		t.Fatalf("failed to extract error URL Error: %v", err)
-	}
-	_, ok = urlErr.Err.(x509.CertificateInvalidError)
-
-	if !ok {
+	const maxRetries = 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		var db *sql.DB
+		if db, err = sql.Open("snowflake", testURL); err != nil {
+			t.Fatalf("failed to open db. %v, err: %v", testURL, err)
+		}
+		err = db.Ping()
+		db.Close()
+		if err == nil {
+			t.Fatalf("should fail to ping. %v", testURL)
+		}
+		urlErr, ok := err.(*url.Error)
+		if !ok {
+			t.Fatalf("failed to extract error URL Error: %v", err)
+		}
+		if _, ok = urlErr.Err.(x509.CertificateInvalidError); ok {
+			return // got the expected certificate error
+		}
 		// Go 1.20 throws tls CertificateVerification error
 		errString := urlErr.Err.Error()
-		// badssl sometimes times out
-		if !strings.Contains(errString, "certificate has expired or is not yet valid") && !strings.Contains(errString, "timeout") && !strings.Contains(errString, "connection attempt failed") {
-			t.Fatalf("failed to extract error Certificate error: %v", err)
+		if strings.Contains(errString, "certificate has expired or is not yet valid") {
+			return // got the expected certificate error
 		}
+		// badssl.com sometimes returns transient errors; retry with exponential backoff
+		if strings.Contains(errString, "timeout") || strings.Contains(errString, "connection attempt failed") || strings.Contains(errString, "connection reset by peer") {
+			if attempt < maxRetries {
+				backoff := time.Duration(attempt*attempt) * 5 * time.Second
+				t.Logf("attempt %d/%d got transient error: %v, retrying in %v...", attempt, maxRetries, err, backoff)
+				time.Sleep(backoff)
+				continue
+			}
+			t.Skipf("skipping after %d transient failures from external service expired.badssl.com: %v", maxRetries, err)
+		}
+		t.Fatalf("failed to extract error Certificate error: %v", err)
 	}
 }
 
