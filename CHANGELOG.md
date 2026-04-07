@@ -15,6 +15,7 @@ Bug fixes:
 - Fixed PAT (Programmatic Access Token) `authenticator` to actually require the Token or TokenFilePath field, instead of silently accepting Password which was never forwarded (snowflakedb/gosnowflake#1772).
 - Fix logger reporting incorrect source location when called without `WithContext` (snowflakedb/gosnowflake#1768).
 - GCP WIF attestation now uses hostname `metadata.google.internal` instead of the IPv4 link-local address, so it works on IPv6-only GCP VMs (snowflakedb/gosnowflake#1775).
+- Fixed query failures on large inline results (e.g. 64MB LOB) caused by truncated HTTP response bodies. The driver now retries the query when `json.Decoder` returns `io.ErrUnexpectedEOF`, reusing the same request ID so Snowflake returns the cached result (snowflakedb/gosnowflake#1777).
 
 ## 2.0.1
 
