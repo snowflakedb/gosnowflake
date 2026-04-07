@@ -23,13 +23,8 @@ type queryContextEntry struct {
 }
 
 type queryContextCache struct {
-	mutex   *sync.Mutex
+	mutex   sync.Mutex
 	entries []queryContextEntry
-}
-
-func (qcc *queryContextCache) init() *queryContextCache {
-	qcc.mutex = &sync.Mutex{}
-	return qcc
 }
 
 func (qcc *queryContextCache) add(sc *snowflakeConn, qces ...queryContextEntry) {
