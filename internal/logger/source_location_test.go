@@ -86,9 +86,9 @@ func TestSourceLocationWithEntry(t *testing.T) {
 	}
 }
 
-// TestSkipDepthWarning documents the skip depth assumption and fails if wrappers change
-// This test intentionally checks implementation details to warn developers when skip depths need updating.
-func TestSkipDepthWarning(t *testing.T) {
+// TestSourceLocationAccuracy documents the source location behavior and fails if it breaks
+// This test intentionally checks implementation details to warn developers when source location detection changes.
+func TestSourceLocationAccuracy(t *testing.T) {
 	innerLogger := newRawLogger()
 	var buf bytes.Buffer
 	innerLogger.SetOutput(&buf)
@@ -99,20 +99,19 @@ func TestSkipDepthWarning(t *testing.T) {
 	filtered := newLevelFilteringLogger(masked)
 
 	// Log from this test
-	filtered.Debug("skip depth test") // Line 102 - This line should appear in source location
+	filtered.Debug("source location test") // Line 102 - This line should appear in source location
 
 	output := buf.String()
 
 	if !strings.Contains(output, "source_location_test.go:102") {
 		t.Errorf(`
-Skip depth appears incorrect!
+Source location appears incorrect!
 
 Expected source location: source_location_test.go:102
 Got: %s
 
-If you added/removed a wrapper layer, update the skip values in:
-  - internal/logger/slog_logger.go: rawLogger methods (currently skip=3)
-  - internal/logger/slog_logger.go: slogEntry methods (currently skip=3)
+The logger uses automatic caller detection by walking the stack and finding the first
+non-internal/logger frame. If this test fails, check findActualCaller() in slog_logger.go.
 
 Current wrapper chain for logger methods:
   Driver code -> levelFilteringLogger -> secretMaskingLogger -> rawLogger
