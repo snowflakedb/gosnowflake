@@ -2,6 +2,8 @@
 
 ## Upcoming Release
 
+## 1.19.1
+
 New features:
 
 - Dropped support for Go 1.23 and added support for Go 1.26.
