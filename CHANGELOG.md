@@ -14,6 +14,10 @@ Bug fixes:
 - Fixed empty `Account` when connecting with programmatic `Config` and `database/sql.Connector` by deriving `Account` from the first DNS label of `Host` in `FillMissingConfigParameters` when `Host` matches the Snowflake hostname pattern (snowflakedb/gosnowflake#1772).
 - Fixed PAT (Programmatic Access Token) `authenticator` to actually require the Token or TokenFilePath field, instead of silently accepting Password which was never forwarded (snowflakedb/gosnowflake#1772).
 
+Bug fixes:
+
+- Fix logger reporting incorrect source location when called without `WithContext` (snowflakedb/gosnowflake#1768).
+
 ## 2.0.1
 
 Bug fixes:

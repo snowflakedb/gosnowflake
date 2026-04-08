@@ -3,7 +3,6 @@ package logger
 import (
 	"context"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/v2/sflog"
 	"io"
 	"log/slog"
 	"os"
@@ -12,11 +11,56 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/snowflakedb/gosnowflake/v2/sflog"
 )
 
 // formatSource formats caller information for logging
 func formatSource(frame *runtime.Frame) (string, string) {
 	return path.Base(frame.Function), fmt.Sprintf("%s:%d", path.Base(frame.File), frame.Line)
+}
+
+// findActualCaller walks the call stack to find the first caller outside internal/logger package.
+// This allows the logger to report the correct source location regardless of wrapper layers.
+func findActualCaller() uintptr {
+	var pcs [16]uintptr
+	n := runtime.Callers(1, pcs[:])
+
+	frames := runtime.CallersFrames(pcs[:n])
+
+	// Track the last logger frame's PC as we iterate
+	var lastLoggerPC uintptr
+	sawLogger := false
+
+	for {
+		frame, more := frames.Next()
+
+		// A frame is considered part of the logger if it's in internal/logger package
+		// but NOT a test file (we want test files to be considered as callers).
+		// Normalize path separators to handle both Unix (/) and Windows (\) paths.
+		isLogger := strings.Contains(strings.ReplaceAll(frame.File, "\\", "/"), "internal/logger") && !strings.HasSuffix(frame.File, "_test.go")
+
+		if isLogger {
+			lastLoggerPC = frame.PC
+			sawLogger = true
+		} else if sawLogger {
+			// We've transitioned from logger to non-logger - this is the caller
+			return frame.PC
+		}
+
+		if !more {
+			break
+		}
+	}
+
+	// Fallback: if we saw logger frames, return the last one; otherwise return the last frame overall
+	if lastLoggerPC != 0 {
+		return lastLoggerPC
+	}
+	if n > 0 {
+		return pcs[n-1]
+	}
+	return 0
 }
 
 // rawLogger implements SFLogger using slog
@@ -165,73 +209,67 @@ func (log *rawLogger) SetHandler(handler slog.Handler) error {
 	return nil
 }
 
-// logWithSkip logs a message at the given level, skipping 'skip' frames when determining source location.
-// This is used internally to skip wrapper frames (levelFilteringLogger -> secretMaskingLogger -> rawLogger)
-// and report the actual caller's location.
-func (log *rawLogger) logWithSkip(skip int, level sflog.Level, msg string) {
+// log logs a message at the given level, automatically finding the actual caller outside internal/logger.
+func (log *rawLogger) log(level sflog.Level, msg string) {
 	if !log.isEnabled() {
 		return
 	}
-	var pcs [1]uintptr
-	// Skip: runtime.Callers itself + logWithSkip + specified skip
-	runtime.Callers(skip+2, pcs[:])
-	r := slog.NewRecord(time.Now(), slog.Level(level), msg, pcs[0])
+	pc := findActualCaller()
+	r := slog.NewRecord(time.Now(), slog.Level(level), msg, pc)
 	_ = log.handler.Handle(context.Background(), r)
 }
 
 // Implement all formatted logging methods (*f variants)
-// Skip depth = 3 assumes standard wrapper chain: levelFilteringLogger -> secretMaskingLogger -> rawLogger
-// If wrapper chain changes, update this value. See TestSkipDepthWarning test.
+// Uses automatic caller detection to find the actual caller outside internal/logger package.
 func (log *rawLogger) Tracef(format string, args ...any) {
-	log.logWithSkip(3, sflog.LevelTrace, fmt.Sprintf(format, args...))
+	log.log(sflog.LevelTrace, fmt.Sprintf(format, args...))
 }
 
 func (log *rawLogger) Debugf(format string, args ...any) {
-	log.logWithSkip(3, sflog.LevelDebug, fmt.Sprintf(format, args...))
+	log.log(sflog.LevelDebug, fmt.Sprintf(format, args...))
 }
 
 func (log *rawLogger) Infof(format string, args ...any) {
-	log.logWithSkip(3, sflog.LevelInfo, fmt.Sprintf(format, args...))
+	log.log(sflog.LevelInfo, fmt.Sprintf(format, args...))
 }
 
 func (log *rawLogger) Warnf(format string, args ...any) {
-	log.logWithSkip(3, sflog.LevelWarn, fmt.Sprintf(format, args...))
+	log.log(sflog.LevelWarn, fmt.Sprintf(format, args...))
 }
 
 func (log *rawLogger) Errorf(format string, args ...any) {
-	log.logWithSkip(3, sflog.LevelError, fmt.Sprintf(format, args...))
+	log.log(sflog.LevelError, fmt.Sprintf(format, args...))
 }
 
 func (log *rawLogger) Fatalf(format string, args ...any) {
-	log.logWithSkip(3, sflog.LevelFatal, fmt.Sprintf(format, args...))
+	log.log(sflog.LevelFatal, fmt.Sprintf(format, args...))
 	os.Exit(1)
 }
 
 // Implement all direct logging methods
-// Skip depth = 3 assumes standard wrapper chain: levelFilteringLogger -> secretMaskingLogger -> rawLogger
-// If wrapper chain changes, update this value. See TestSkipDepthWarning test.
+// Uses automatic caller detection to find the actual caller outside internal/logger package.
 func (log *rawLogger) Trace(msg string) {
-	log.logWithSkip(3, sflog.LevelTrace, msg)
+	log.log(sflog.LevelTrace, msg)
 }
 
 func (log *rawLogger) Debug(msg string) {
-	log.logWithSkip(3, sflog.LevelDebug, msg)
+	log.log(sflog.LevelDebug, msg)
 }
 
 func (log *rawLogger) Info(msg string) {
-	log.logWithSkip(3, sflog.LevelInfo, msg)
+	log.log(sflog.LevelInfo, msg)
 }
 
 func (log *rawLogger) Warn(msg string) {
-	log.logWithSkip(3, sflog.LevelWarn, msg)
+	log.log(sflog.LevelWarn, msg)
 }
 
 func (log *rawLogger) Error(msg string) {
-	log.logWithSkip(3, sflog.LevelError, msg)
+	log.log(sflog.LevelError, msg)
 }
 
 func (log *rawLogger) Fatal(msg string) {
-	log.logWithSkip(3, sflog.LevelFatal, msg)
+	log.log(sflog.LevelFatal, msg)
 	os.Exit(1)
 }
 
@@ -299,70 +337,67 @@ func (e *slogEntry) isEnabled() bool {
 	return *e.enabled
 }
 
-// logWithSkip logs a message at the given level, skipping 'skip' frames when determining source location.
-func (e *slogEntry) logWithSkip(skip int, level sflog.Level, msg string) {
+// log logs a message at the given level, automatically finding the actual caller outside internal/logger.
+func (e *slogEntry) log(level sflog.Level, msg string) {
 	if !e.isEnabled() {
 		return
 	}
-	var pcs [1]uintptr
-	runtime.Callers(skip+2, pcs[:]) // +2: runtime.Callers itself + logWithSkip
-	r := slog.NewRecord(time.Now(), slog.Level(level), msg, pcs[0])
+	pc := findActualCaller()
+	r := slog.NewRecord(time.Now(), slog.Level(level), msg, pc)
 	_ = e.logger.Handler().Handle(context.Background(), r)
 }
 
 // Implement all formatted logging methods (*f variants)
-// Skip depth = 3 assumes standard wrapper chain: levelFilteringEntry -> secretMaskingEntry -> slogEntry
-// If wrapper chain changes, update this value. See TestSkipDepthWarning test.
+// Uses automatic caller detection to find the actual caller outside internal/logger package.
 func (e *slogEntry) Tracef(format string, args ...any) {
-	e.logWithSkip(3, sflog.LevelTrace, fmt.Sprintf(format, args...))
+	e.log(sflog.LevelTrace, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Debugf(format string, args ...any) {
-	e.logWithSkip(3, sflog.LevelDebug, fmt.Sprintf(format, args...))
+	e.log(sflog.LevelDebug, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Infof(format string, args ...any) {
-	e.logWithSkip(3, sflog.LevelInfo, fmt.Sprintf(format, args...))
+	e.log(sflog.LevelInfo, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Warnf(format string, args ...any) {
-	e.logWithSkip(3, sflog.LevelWarn, fmt.Sprintf(format, args...))
+	e.log(sflog.LevelWarn, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Errorf(format string, args ...any) {
-	e.logWithSkip(3, sflog.LevelError, fmt.Sprintf(format, args...))
+	e.log(sflog.LevelError, fmt.Sprintf(format, args...))
 }
 
 func (e *slogEntry) Fatalf(format string, args ...any) {
-	e.logWithSkip(3, sflog.LevelFatal, fmt.Sprintf(format, args...))
+	e.log(sflog.LevelFatal, fmt.Sprintf(format, args...))
 	os.Exit(1)
 }
 
 // Implement all direct logging methods
-// Skip depth = 3 assumes standard wrapper chain: levelFilteringEntry -> secretMaskingEntry -> slogEntry
-// If wrapper chain changes, update this value. See TestSkipDepthWarning test.
+// Uses automatic caller detection to find the actual caller outside internal/logger package.
 func (e *slogEntry) Trace(msg string) {
-	e.logWithSkip(3, sflog.LevelTrace, msg)
+	e.log(sflog.LevelTrace, msg)
 }
 
 func (e *slogEntry) Debug(msg string) {
-	e.logWithSkip(3, sflog.LevelDebug, msg)
+	e.log(sflog.LevelDebug, msg)
 }
 
 func (e *slogEntry) Info(msg string) {
-	e.logWithSkip(3, sflog.LevelInfo, msg)
+	e.log(sflog.LevelInfo, msg)
 }
 
 func (e *slogEntry) Warn(msg string) {
-	e.logWithSkip(3, sflog.LevelWarn, msg)
+	e.log(sflog.LevelWarn, msg)
 }
 
 func (e *slogEntry) Error(msg string) {
-	e.logWithSkip(3, sflog.LevelError, msg)
+	e.log(sflog.LevelError, msg)
 }
 
 func (e *slogEntry) Fatal(msg string) {
-	e.logWithSkip(3, sflog.LevelFatal, msg)
+	e.log(sflog.LevelFatal, msg)
 	os.Exit(1)
 }
 
