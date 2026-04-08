@@ -49,7 +49,7 @@ if [[ "$SEQUENTIAL_TESTS" == "true" ]] ; then
         fi
         echo "=== Testing package: $pkg_path ===" >&2
         # Note: -coverprofile only works with single package, use -coverpkg for multiple
-        GODEBUG=$TEST_GO_DEBUG go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile="${pkg_path//\//_}_coverage.txt" -covermode=atomic -v "$pkg_path"
+        GODEBUG=$TEST_GO_DEBUG go test $GO_TEST_PARAMS -timeout 90m -race -coverpkg=./... -coverprofile="${pkg_path//\//_}_coverage.txt" -covermode=atomic -v "$pkg_path"
         if [[ $? -ne 0 ]]; then
           FAILED=1
           echo "[ERROR] Package $pkg_path tests failed" >&2
@@ -72,7 +72,7 @@ else
     GODEBUG=$TEST_GO_DEBUG go test $GO_TEST_PARAMS -timeout 90m -race -v ./... | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml
   else
     set +e
-    GODEBUG=$TEST_GO_DEBUG go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile=coverage.txt -covermode=atomic -v ./... | tee test-output.txt
+    GODEBUG=$TEST_GO_DEBUG go test $GO_TEST_PARAMS -timeout 90m -race -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -v ./... | tee test-output.txt
     TEST_EXIT_CODE=$?
     cat test-output.txt | go-junit-report > test-report.junit.xml
     exit $TEST_EXIT_CODE
