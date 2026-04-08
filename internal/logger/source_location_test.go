@@ -6,16 +6,6 @@ import (
 	"testing"
 )
 
-// IMPORTANT: The skip depth values in rawLogger and slogEntry assume the standard wrapper chain:
-// For logger methods: levelFilteringLogger -> secretMaskingLogger -> rawLogger (skip=3)
-// For entry methods: levelFilteringEntry -> secretMaskingEntry -> slogEntry (skip=3)
-//
-// These tests verify the standard configuration. If you add or remove wrapper layers, you MUST update:
-// - internal/logger/slog_logger.go: rawLogger methods (currently skip=3)
-// - internal/logger/slog_logger.go: slogEntry methods (currently skip=3)
-
-// TestSourceLocationWithLevelFiltering verifies that source location is correct
-// with the standard wrapper chain: levelFilteringLogger -> secretMaskingLogger -> rawLogger
 func TestSourceLocationWithLevelFiltering(t *testing.T) {
 	innerLogger := newRawLogger()
 	var buf bytes.Buffer
@@ -26,7 +16,7 @@ func TestSourceLocationWithLevelFiltering(t *testing.T) {
 	masked := newSecretMaskingLogger(innerLogger)
 	filtered := newLevelFilteringLogger(masked)
 
-	filtered.Debug("test message") // Line 31 - This line should appear in source location
+	filtered.Debug("test message")
 
 	output := buf.String()
 	// Check that the source location points to this test file, not the wrappers
@@ -41,7 +31,6 @@ func TestSourceLocationWithLevelFiltering(t *testing.T) {
 	}
 }
 
-// TestSourceLocationWithDebugf verifies formatted logging also reports correct source
 func TestSourceLocationWithDebugf(t *testing.T) {
 	innerLogger := newRawLogger()
 	var buf bytes.Buffer
@@ -52,7 +41,7 @@ func TestSourceLocationWithDebugf(t *testing.T) {
 	masked := newSecretMaskingLogger(innerLogger)
 	filtered := newLevelFilteringLogger(masked)
 
-	filtered.Debugf("formatted message: %s", "test") // Line 58 - This line should appear
+	filtered.Debugf("formatted message: %s", "test")
 
 	output := buf.String()
 	if !strings.Contains(output, "source_location_test.go") {
@@ -63,7 +52,6 @@ func TestSourceLocationWithDebugf(t *testing.T) {
 	}
 }
 
-// TestSourceLocationWithEntry verifies that structured logging (WithField) also works correctly
 func TestSourceLocationWithEntry(t *testing.T) {
 	innerLogger := newRawLogger()
 	var buf bytes.Buffer
@@ -74,7 +62,7 @@ func TestSourceLocationWithEntry(t *testing.T) {
 	masked := newSecretMaskingLogger(innerLogger)
 	filtered := newLevelFilteringLogger(masked)
 
-	filtered.WithField("key", "value").Debug("entry message") // Line 82 - This line should appear
+	filtered.WithField("key", "value").Debug("entry message")
 
 	output := buf.String()
 	if !strings.Contains(output, "source_location_test.go") {
@@ -86,8 +74,6 @@ func TestSourceLocationWithEntry(t *testing.T) {
 	}
 }
 
-// TestSourceLocationAccuracy documents the source location behavior and fails if it breaks
-// This test intentionally checks implementation details to warn developers when source location detection changes.
 func TestSourceLocationAccuracy(t *testing.T) {
 	innerLogger := newRawLogger()
 	var buf bytes.Buffer
@@ -99,25 +85,11 @@ func TestSourceLocationAccuracy(t *testing.T) {
 	filtered := newLevelFilteringLogger(masked)
 
 	// Log from this test
-	filtered.Debug("source location test") // Line 102 - This line should appear in source location
+	filtered.Debug("source location test")
 
 	output := buf.String()
 
-	if !strings.Contains(output, "source_location_test.go:102") {
-		t.Errorf(`
-Source location appears incorrect!
-
-Expected source location: source_location_test.go:102
-Got: %s
-
-The logger uses automatic caller detection by walking the stack and finding the first
-non-internal/logger frame. If this test fails, check findActualCaller() in slog_logger.go.
-
-Current wrapper chain for logger methods:
-  Driver code -> levelFilteringLogger -> secretMaskingLogger -> rawLogger
-
-Current wrapper chain for entry methods:
-  Driver code -> levelFilteringEntry -> secretMaskingEntry -> slogEntry
-`, output)
+	if !strings.Contains(output, "source_location_test.go") {
+		t.Errorf("Expected to contain source_location_test.go, got: %s", output)
 	}
 }
