@@ -120,7 +120,7 @@ if "%SEQUENTIAL_TESTS%"=="true" (
 ) else (
     REM Test all packages with ./... - parallel, faster, but buffered
     echo [INFO] Running tests in parallel
-    go test %GO_TEST_PARAMS% --timeout 90m -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -v ./... > test-output.txt 2>&1
+    go test %GO_TEST_PARAMS% --timeout 90m -coverpkg=!COVPKGS! -coverprofile=coverage.txt -covermode=atomic -v ./... > test-output.txt 2>&1
     set TEST_EXIT=!ERRORLEVEL!
 )
 
