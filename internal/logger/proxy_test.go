@@ -10,7 +10,7 @@ import (
 	"github.com/snowflakedb/gosnowflake/v2/sflog"
 )
 
-func newProxyTestLogger(t *testing.T) (*Proxy, *bytes.Buffer, func()) {
+func newProxyTestLogger(t *testing.T) (SFLogger, *bytes.Buffer, func()) {
 	t.Helper()
 
 	buf := &bytes.Buffer{}
@@ -46,7 +46,7 @@ func newProxyTestLogger(t *testing.T) (*Proxy, *bytes.Buffer, func()) {
 }
 
 // TestProxyCorrectSourceLocation verifies that the Proxy reports the correct
-// source file and line number when logging, not the proxy.go location.
+// source file, not the proxy.go location.
 func TestProxyCorrectSourceLocation(t *testing.T) {
 	proxy, buf, cleanup := newProxyTestLogger(t)
 	defer cleanup()
@@ -56,7 +56,7 @@ func TestProxyCorrectSourceLocation(t *testing.T) {
 	// Get the output
 	output := buf.String()
 
-	// Verify that the source contains "proxy_test.go" and not "proxy.go"
+	// Verify that the source contains "proxy_test.go"
 	if !strings.Contains(output, "proxy_test.go:") {
 		t.Errorf("Expected source to contain 'proxy_test.go', got: %s", output)
 	}
