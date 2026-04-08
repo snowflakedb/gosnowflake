@@ -1,6 +1,8 @@
 # Changelog
 
-## Upcoming Release
+## Upcoming release
+
+## 2.0.1
 
 Bug fixes:
 
