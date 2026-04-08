@@ -419,6 +419,7 @@ func TestTimestampConversionDistantDates(t *testing.T) {
 
 	for _, prec := range precisions {
 		t.Run(prec.name, func(t *testing.T) {
+			t.Parallel()
 			pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 			defer pool.AssertSize(t, 0)
 
@@ -514,40 +515,45 @@ func TestTimestampConversionWithOriginalTimestamp(t *testing.T) {
 			t.Fatalf("failed to parse time: %v", err)
 		}
 		for _, tp := range tsTypes {
-			for scale := 0; scale <= 9; scale++ {
-				t.Run(tp+"("+strconv.Itoa(scale)+")_"+tsStr, func(t *testing.T) {
-					query := fmt.Sprintf("SELECT '%s'::%s(%v)", tsStr, tp, scale)
-					sfRows, closeRows := tc.queryRows(ctx, t, query)
-					defer closeRows()
+			t.Run(tp+"_"+tsStr, func(t *testing.T) {
+				// Batch all 10 scales into a single multi-column query to reduce round trips.
+				var cols []string
+				for scale := 0; scale <= 9; scale++ {
+					cols = append(cols, fmt.Sprintf("'%s'::%s(%v)", tsStr, tp, scale))
+				}
+				query := "SELECT " + strings.Join(cols, ", ")
+				sfRows, closeRows := tc.queryRows(ctx, t, query)
+				defer closeRows()
 
-					batches, err := GetArrowBatches(sfRows)
-					if err != nil {
-						t.Fatalf("GetArrowBatches failed: %v", err)
-					}
-					if len(batches) != 1 {
-						t.Fatalf("expected 1 batch, got %d", len(batches))
-					}
+				batches, err := GetArrowBatches(sfRows)
+				if err != nil {
+					t.Fatalf("GetArrowBatches failed: %v", err)
+				}
+				if len(batches) != 1 {
+					t.Fatalf("expected 1 batch, got %d", len(batches))
+				}
 
-					records, err := batches[0].Fetch()
-					if err != nil {
-						t.Fatalf("Fetch failed: %v", err)
-					}
-					if records == nil || len(*records) == 0 {
-						t.Fatal("expected at least one record")
-					}
+				records, err := batches[0].Fetch()
+				if err != nil {
+					t.Fatalf("Fetch failed: %v", err)
+				}
+				if records == nil || len(*records) == 0 {
+					t.Fatal("expected at least one record")
+				}
 
+				for scale := 0; scale <= 9; scale++ {
 					exp := ts.Truncate(time.Duration(math.Pow10(9 - scale)))
 					for _, r := range *records {
 						defer r.Release()
-						act := batches[0].ArrowSnowflakeTimestampToTime(r, 0, 0)
+						act := batches[0].ArrowSnowflakeTimestampToTime(r, scale, 0)
 						if act == nil {
-							t.Fatalf("unexpected nil, expected: %v", exp)
+							t.Fatalf("scale %d: unexpected nil, expected: %v", scale, exp)
 						} else if !exp.Equal(*act) {
-							t.Fatalf("unexpected result, expected: %v, got: %v", exp, *act)
+							t.Fatalf("scale %d: unexpected result, expected: %v, got: %v", scale, exp, *act)
 						}
 					}
-				})
-			}
+				}
+			})
 		}
 	}
 }
