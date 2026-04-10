@@ -398,14 +398,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 			return
 		}
 	}
-	if cfg.Account == "" && hostIncludesTopLevelDomain(cfg.Host) {
-		posDot := strings.Index(cfg.Host, ".")
-		if posDot > 0 {
-			cfg.Account = cfg.Host[:posDot]
-		}
-	}
-	posDot := strings.Index(cfg.Account, ".")
-	if posDot >= 0 {
+	if posDot := strings.Index(cfg.Account, "."); posDot >= 0 {
 		cfg.Account = cfg.Account[:posDot]
 	}
 
@@ -449,8 +442,30 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	return cfg, nil
 }
 
+// applyAccountFromHostIfMissing sets Account to the first DNS label of Host when Account is empty
+// and Host matches the Snowflake hostname heuristic (hostIncludesTopLevelDomain). FillMissingConfigParameters
+// invokes this so programmatic Config (e.g. database/sql.Connector) matches behavior that DSN users
+// already got via ParseDSN plus FillMissingConfigParameters. ParseDSN still truncates dotted account
+// values from parameters before FillMissingConfigParameters; that step does not apply to non-empty
+// Account set directly on a programmatic Config.
+func applyAccountFromHostIfMissing(cfg *Config) {
+	if strings.TrimSpace(cfg.Account) != "" {
+		return
+	}
+	if !hostIncludesTopLevelDomain(cfg.Host) {
+		return
+	}
+	posDot := strings.Index(cfg.Host, ".")
+	if posDot <= 0 {
+		return
+	}
+	cfg.Account = cfg.Host[:posDot]
+}
+
 // FillMissingConfigParameters fills in default values for missing config parameters.
 func FillMissingConfigParameters(cfg *Config) error {
+	applyAccountFromHostIfMissing(cfg)
+
 	posDash := strings.LastIndex(cfg.Account, "-")
 	if posDash > 0 {
 		if strings.Contains(strings.ToLower(cfg.Host), ".global.") {

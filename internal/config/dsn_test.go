@@ -2407,6 +2407,52 @@ func TestTokenAndTokenFilePathValidation(t *testing.T) {
 	assertNilE(t, cfg.Validate(), "Should have accepted TokenFilePath on its own")
 }
 
+func TestFillMissingConfigParametersDerivesAccountFromHost(t *testing.T) {
+	cfg := &Config{
+		User:          "u",
+		Password:      "p",
+		Host:          "myacct.us-east-1.snowflakecomputing.com",
+		Port:          443,
+		Account:       "",
+		Authenticator: AuthTypeSnowflake,
+	}
+	assertNilE(t, FillMissingConfigParameters(cfg), "FillMissingConfigParameters")
+	if cfg.Account != "myacct" {
+		t.Fatalf("Account: want myacct, got %q", cfg.Account)
+	}
+}
+
+func TestFillMissingConfigParametersDerivesAccountFromCNHost(t *testing.T) {
+	cfg := &Config{
+		User:          "u",
+		Password:      "p",
+		Host:          "myacct.cn-north-1.snowflakecomputing.cn",
+		Port:          443,
+		Account:       "",
+		Authenticator: AuthTypeSnowflake,
+	}
+	assertNilE(t, FillMissingConfigParameters(cfg), "FillMissingConfigParameters")
+	if cfg.Account != "myacct" {
+		t.Fatalf("Account: want myacct, got %q", cfg.Account)
+	}
+}
+
+func TestFillMissingConfigParametersNonSnowflakeHostRequiresAccount(t *testing.T) {
+	cfg := &Config{
+		User:          "u",
+		Password:      "p",
+		Host:          "snowflake.internal.example.com",
+		Port:          443,
+		Account:       "",
+		Authenticator: AuthTypeSnowflake,
+	}
+	err := FillMissingConfigParameters(cfg)
+	assertNotNilF(t, err, "expected error for empty Account with non-Snowflake host")
+	sfErr, ok := err.(*sferrors.SnowflakeError)
+	assertTrueF(t, ok, "expected SnowflakeError")
+	assertEqualE(t, sfErr.Number, sferrors.ErrCodeEmptyAccountCode, "error number")
+}
+
 // helper function to generate PKCS8 encoded base64 string of a private key
 func generatePKCS8StringSupress(key *rsa.PrivateKey) string {
 	// Error would only be thrown when the private key type is not supported
