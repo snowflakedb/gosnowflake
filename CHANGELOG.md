@@ -1,6 +1,9 @@
 # Changelog
 
 ## Upcoming release
+Bug fixes:
+
+- Added a check in `QueryArrowStream` which was triggered when the backend returning non-Arrow data type, resulting in 'could not read message schema: arrow/ipc: could not read message metadata: unexpected EOF' (snowflakedb/gosnowflake#1773).
 
 ## 2.0.1
 
