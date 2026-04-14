@@ -557,3 +557,39 @@ func TestQueryArrowStreamMultiStatementForJSONData(t *testing.T) {
 		assertTrueF(t, loader.TotalRows() > 0, "should return data")
 	})
 }
+
+func TestQueryArrowStreamRejectsJSONResponse(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec(forceJSON, nil)
+		_, err := sct.sc.QueryArrowStream(sct.sc.ctx, "SELECT 'hello'")
+		assertNotNilF(t, err)
+		var se *SnowflakeError
+		assertTrueF(t, errors.As(err, &se), "expected SnowflakeError")
+		assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
+		assertEqualE(t, se.Message, errors2.ErrMsgNonArrowResponseInArrowBatches)
+	})
+}
+
+func TestQueryArrowStreamRejectsStoredProcedureJSONResponse(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec(`CREATE OR REPLACE PROCEDURE test_arrow_stream_sp()
+RETURNS TABLE ()
+LANGUAGE SQL
+AS
+$$
+DECLARE res RESULTSET;
+BEGIN
+  res := (SELECT 1 AS id, 'hello' AS name);
+  RETURN TABLE(res);
+END;
+$$`, nil)
+		defer sct.mustExec("DROP PROCEDURE IF EXISTS test_arrow_stream_sp()", nil)
+
+		_, err := sct.sc.QueryArrowStream(sct.sc.ctx, "CALL test_arrow_stream_sp()")
+		assertNotNilF(t, err)
+		var se *SnowflakeError
+		assertTrueF(t, errors.As(err, &se), "expected SnowflakeError")
+		assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
+		assertEqualE(t, se.Message, errors2.ErrMsgNonArrowResponseInArrowBatches)
+	})
+}

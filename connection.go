@@ -565,6 +565,11 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 		return nil, err
 	}
 
+	if !isDesc && resultFormat(data.Data.QueryResultFormat) != arrowFormat {
+		logger.WithContext(ctx).Debugf("Got a non-Arrow (%v) query result format inside QueryArrowStream", data.Data.QueryResultFormat)
+		return nil, exceptionTelemetry(errors.ErrNonArrowResponseForArrowBatches(data.Data.QueryID), sc)
+	}
+
 	var resultIDs []string
 	if len(data.Data.ResultIDs) > 0 {
 		resultIDs = strings.Split(data.Data.ResultIDs, ",")
