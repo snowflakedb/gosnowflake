@@ -543,7 +543,7 @@ func (sc *snowflakeConn) AddTelemetryData(_ context.Context, eventDate time.Time
 // QueryArrowStream executes a query and returns an ArrowStreamLoader for
 // streaming query results. The server may respond with Arrow IPC or JSON
 // depending on the statement type (e.g. CALL, SHOW). Callers must check
-// loader.QueryResFormat() before interpreting batch streams — only
+// loader.QueryResultFormat() before interpreting batch streams — only
 // "arrow" responses should be passed to ipc.NewReader.
 func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bindings ...driver.NamedValue) (ArrowStreamLoader, error) {
 	ctx = ia.EnableArrowBatches(context.WithValue(ctx, asyncMode, false))
