@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow/ipc"
+	sferrors "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 )
 
@@ -147,15 +148,16 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 }
 
 type snowflakeArrowStreamChunkDownloader struct {
-	sc                *snowflakeConn
-	ChunkMetas        []query.ExecResponseChunk
-	Total             int64
-	Qrmk              string
-	ChunkHeader       map[string]string
-	FuncGet           func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error)
-	RowSet            rowSetType
-	resultIDs         []string
-	queryResultFormat string
+	sc                 *snowflakeConn
+	ChunkMetas         []query.ExecResponseChunk
+	Total              int64
+	Qrmk               string
+	ChunkHeader        map[string]string
+	FuncGet            func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error)
+	RowSet             rowSetType
+	resultIDs          []string
+	queryResultFormat  string
+	formatAcknowledged bool
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
@@ -176,6 +178,7 @@ func (scd *snowflakeArrowStreamChunkDownloader) JSONData() [][]*string {
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) QueryResultFormat() string {
+	scd.formatAcknowledged = true
 	return scd.queryResultFormat
 }
 
@@ -236,7 +239,16 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 		out[0].numrows = scd.Total - totalCounted
 	}
 
-	if resultFormat(scd.queryResultFormat) != arrowFormat && len(out) > 0 {
+	// Result is JSON, there's no inline rowset in the response, but there are batches (large resultset from SQL & JS stored procedure)
+	if resultFormat(scd.queryResultFormat) != arrowFormat && len(scd.RowSet.JSON) == 0 && len(out) > 0 {
+		// If the caller did not explicitly acknowledged it knows about the (JSON) result format (through calling QueryResultFormat())
+		// we can assume they'll try to parse it as Arrow, which will crash. Let's error out gracefully.
+		if !scd.formatAcknowledged {
+			return nil, &SnowflakeError{
+				Number:  ErrNonArrowResponseInArrowBatches,
+				Message: sferrors.ErrMsgNonArrowResponseInArrowBatches,
+			}
+		}
 		logger.Debugf("GetBatches: returning %d JSON batch(es)", len(out))
 	}
 	return

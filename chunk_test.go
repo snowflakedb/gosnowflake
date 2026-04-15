@@ -604,6 +604,35 @@ $$`, nil)
 	})
 }
 
+func TestQueryArrowStreamLargeJSONWithoutFormatCheck(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec(`CREATE OR REPLACE PROCEDURE test_arrow_stream_large_noack_sp()
+RETURNS TABLE ()
+LANGUAGE SQL
+AS
+$$
+DECLARE res RESULTSET;
+BEGIN
+  res := (
+    SELECT SEQ4() AS id, 'item_' || SEQ4()::VARCHAR AS name
+    FROM TABLE(GENERATOR(ROWCOUNT => 10000))
+  );
+  RETURN TABLE(res);
+END;
+$$`, nil)
+		defer sct.mustExec("DROP PROCEDURE IF EXISTS test_arrow_stream_large_noack_sp()", nil)
+
+		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, "CALL test_arrow_stream_large_noack_sp()")
+		assertNilF(t, err)
+
+		_, err = loader.GetBatches()
+		assertNotNilF(t, err)
+		var se *SnowflakeError
+		assertTrueF(t, errors.As(err, &se), "error should be a SnowflakeError")
+		assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
+	})
+}
+
 func TestQueryArrowStreamArrowResponseExposesFormat(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, "SELECT 1")
