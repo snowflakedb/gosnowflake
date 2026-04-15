@@ -10,46 +10,46 @@ import (
 	"github.com/snowflakedb/gosnowflake/v2/sflog"
 )
 
-// TestProxyCorrectSourceLocation verifies that the Proxy reports the correct
-// source file and line number when logging, not the proxy.go location.
-func TestProxyCorrectSourceLocation(t *testing.T) {
-	// Create a buffer to capture log output
-	var buf bytes.Buffer
+func newProxyTestLogger(t *testing.T) (*Proxy, *bytes.Buffer, func()) {
+	t.Helper()
 
-	// Create a raw logger with the buffer as output
+	buf := &bytes.Buffer{}
 	opts := &slog.HandlerOptions{
 		Level:     slog.LevelDebug,
 		AddSource: true,
 	}
-	handler := slog.NewTextHandler(&buf, opts)
+	handler := slog.NewTextHandler(buf, opts)
 	snowHandler := newSnowflakeHandler(handler, sflog.LevelDebug)
 	rawLog := &rawLogger{
 		inner:   slog.New(snowHandler),
 		handler: snowHandler,
 		level:   sflog.LevelDebug,
 		enabled: true,
-		output:  &buf,
+		output:  buf,
 	}
 
-	// Wrap with secret masking and level filtering
 	masked := newSecretMaskingLogger(rawLog)
 	filtered := newLevelFilteringLogger(masked)
 
-	// Set as global logger
 	loggerAccessorMu.Lock()
 	oldLogger := globalLogger
 	globalLogger = filtered
 	loggerAccessorMu.Unlock()
 
-	defer func() {
+	cleanup := func() {
 		loggerAccessorMu.Lock()
 		globalLogger = oldLogger
 		loggerAccessorMu.Unlock()
-	}()
+	}
 
-	// Create a proxy and log through it
-	proxy := NewLoggerProxy()
+	return NewLoggerProxy(), buf, cleanup
+}
 
+// TestProxyCorrectSourceLocation verifies that the Proxy reports the correct
+// source file and line number when logging, not the proxy.go location.
+func TestProxyCorrectSourceLocation(t *testing.T) {
+	proxy, buf, cleanup := newProxyTestLogger(t)
+	defer cleanup()
 	// Log a message - this is the line we expect to see in the source
 	proxy.Debug("test message from proxy") // This line number should appear in logs
 
