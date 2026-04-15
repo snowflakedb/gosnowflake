@@ -595,11 +595,10 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 		}
 	}
 
-	if resultFormat(scd.queryResultFormat) == arrowFormat {
-		return &snowflakeArrowStreamLoader{scd}, nil
+	if resultFormat(scd.queryResultFormat) != arrowFormat {
+		logger.Debugf("QueryArrowStream: server returned format %q (not Arrow)", scd.queryResultFormat)
 	}
-	logger.Debugf("QueryArrowStream: server returned %q format (not Arrow)", scd.queryResultFormat)
-	return &snowflakeJSONStreamLoader{scd}, nil
+	return scd, nil
 }
 
 // buildSnowflakeConn creates a new snowflakeConn.

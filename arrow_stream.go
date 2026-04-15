@@ -49,9 +49,9 @@ type QueryResultFormatProvider interface {
 }
 
 // ArrowStreamBatch is a type describing a potentially yet-to-be-downloaded
-// chunk of query result data. When the parent loader is an Arrow loader
-// the stream contains Arrow IPC record batches (use ipc.NewReader); when
-// it is a JSON loader the stream contains JSON-encoded rows.
+// chunk of query result data. The content format depends on the current
+// QueryResultFormat: Arrow IPC record batches (use ipc.NewReader) when
+// the format is "arrow", or JSON-encoded rows when it is "json".
 type ArrowStreamBatch struct {
 	idx     int
 	numrows int64
@@ -66,8 +66,8 @@ func (asb *ArrowStreamBatch) NumRows() int64 { return asb.numrows }
 
 // GetStream downloads the chunk (if not already cached) and returns a
 // stream of bytes. The content may be Arrow IPC or JSON-encoded rows
-// depending on the parent loader type. Close should be called on the
-// returned stream when done to ensure no leaked memory.
+// depending on the current QueryResultFormat. Close should be called
+// on the returned stream when done to ensure no leaked memory.
 func (asb *ArrowStreamBatch) GetStream(ctx context.Context) (io.ReadCloser, error) {
 	if asb.rr == nil {
 		if err := asb.downloadChunkStreamHelper(ctx); err != nil {
@@ -179,7 +179,7 @@ func (scd *snowflakeArrowStreamChunkDownloader) QueryResultFormat() string {
 	return scd.queryResultFormat
 }
 
-func (scd *snowflakeArrowStreamChunkDownloader) maybeFirstBatch(validateIPC bool) ([]byte, error) {
+func (scd *snowflakeArrowStreamChunkDownloader) maybeFirstBatch() ([]byte, error) {
 	if scd.RowSet.RowSetBase64 == "" {
 		return nil, nil
 	}
@@ -190,7 +190,7 @@ func (scd *snowflakeArrowStreamChunkDownloader) maybeFirstBatch(validateIPC bool
 		return nil, err
 	}
 
-	if validateIPC {
+	if resultFormat(scd.queryResultFormat) == arrowFormat {
 		rr, err := ipc.NewReader(bytes.NewReader(rowSetBytes))
 		if err != nil {
 			return nil, fmt.Errorf("first batch is not a valid Arrow IPC stream: %w", err)
@@ -201,13 +201,13 @@ func (scd *snowflakeArrowStreamChunkDownloader) maybeFirstBatch(validateIPC bool
 	return rowSetBytes, nil
 }
 
-func (scd *snowflakeArrowStreamChunkDownloader) getBatches(validateIPC bool) (out []ArrowStreamBatch, err error) {
+func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamBatch, err error) {
 	chunkMetaLen := len(scd.ChunkMetas)
 	loc := scd.Location()
 
 	out = make([]ArrowStreamBatch, chunkMetaLen, chunkMetaLen+1)
 	toFill := out
-	rowSetBytes, err := scd.maybeFirstBatch(validateIPC)
+	rowSetBytes, err := scd.maybeFirstBatch()
 	if err != nil {
 		return nil, err
 	}
@@ -235,31 +235,11 @@ func (scd *snowflakeArrowStreamChunkDownloader) getBatches(validateIPC bool) (ou
 	if len(rowSetBytes) > 0 {
 		out[0].numrows = scd.Total - totalCounted
 	}
-	return
-}
 
-// snowflakeArrowStreamLoader wraps the base downloader for Arrow responses.
-// GetBatches validates the inline first batch as Arrow IPC.
-type snowflakeArrowStreamLoader struct {
-	*snowflakeArrowStreamChunkDownloader
-}
-
-func (s *snowflakeArrowStreamLoader) GetBatches() ([]ArrowStreamBatch, error) {
-	return s.getBatches(true)
-}
-
-// snowflakeJSONStreamLoader wraps the base downloader for JSON responses.
-// GetBatches skips IPC validation since batches contain JSON data.
-type snowflakeJSONStreamLoader struct {
-	*snowflakeArrowStreamChunkDownloader
-}
-
-func (s *snowflakeJSONStreamLoader) GetBatches() ([]ArrowStreamBatch, error) {
-	batches, err := s.getBatches(false)
-	if err == nil && len(batches) > 0 {
-		logger.Debugf("GetBatches: returning %d JSON batch(es)", len(batches))
+	if resultFormat(scd.queryResultFormat) != arrowFormat && len(out) > 0 {
+		logger.Debugf("GetBatches: returning %d JSON batch(es)", len(out))
 	}
-	return batches, err
+	return
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) NextResultSet(ctx context.Context) error {
