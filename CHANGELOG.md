@@ -3,7 +3,7 @@
 ## Upcoming release
 Bug fixes:
 
-- Added a new field to store query result format (`queryResultFormat`) populated from the server response, to tackle an edge case in tabular SQL stored procedures which was triggered when the backend returns data with empty rowset but a (JSON) chunks, resulting in 'could not read message schema: arrow/ipc: could not read message metadata: unexpected EOF' when those chunks are read as Arrow (snowflakedb/gosnowflake#1773).
+- Added a new field to store query result format (`queryResultFormat`) populated from the server response, to tackle an edge case in tabular SQL stored procedures which was triggered when the backend returns data with empty rowset but JSON chunks, resulting in `could not read message schema: arrow/ipc: could not read message metadata: unexpected EOF` when those chunks are read as Arrow (snowflakedb/gosnowflake#1773).
 
 ## 2.0.1
 
