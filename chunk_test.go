@@ -352,10 +352,10 @@ func testWithArrowBatchesButReturningJSON(t *testing.T, async bool) {
 		defer rows.Close()
 		_, err := rows.(ia.BatchDataProvider).GetArrowBatches()
 		assertNotNilF(t, err)
-		var se *SnowflakeError
-		assertTrueE(t, errors.As(err, &se))
-		assertEqualE(t, se.Message, errors2.ErrMsgNonArrowResponseInArrowBatches)
-		assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
+		var sferrors *SnowflakeError
+		assertTrueE(t, errors.As(err, &sferrors))
+		assertEqualE(t, sferrors.Message, errors2.ErrMsgNonArrowResponseInArrowBatches)
+		assertEqualE(t, sferrors.Number, ErrNonArrowResponseInArrowBatches)
 
 		v := make([]driver.Value, 1)
 		assertNilE(t, rows.Next(v))
@@ -418,10 +418,10 @@ func TestWithArrowBatchesMultistatementWithJSONResponse(t *testing.T) {
 		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = sfRows.NextResultSet() != io.EOF {
 			_, err := driverRows.(ia.BatchDataProvider).GetArrowBatches()
 			assertNotNilF(t, err)
-			var se *SnowflakeError
-			assertTrueF(t, errors.As(err, &se))
-			assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
-			assertEqualE(t, se.Message, errors2.ErrMsgNonArrowResponseInArrowBatches)
+			var sferrors *SnowflakeError
+			assertTrueF(t, errors.As(err, &sferrors))
+			assertEqualE(t, sferrors.Number, ErrNonArrowResponseInArrowBatches)
+			assertEqualE(t, sferrors.Message, errors2.ErrMsgNonArrowResponseInArrowBatches)
 			resultSetIdx++
 		}
 		assertEqualF(t, resultSetIdx, 2)
