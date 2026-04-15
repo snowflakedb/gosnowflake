@@ -21,10 +21,15 @@ import (
 // Snowflake results via multiple Arrow Record Batch streams.
 //
 // Some queries from Snowflake do not return Arrow data regardless
-// of the settings, such as "SHOW WAREHOUSES". In these cases,
-// you'll find TotalRows() > 0 but GetBatches returns no batches
-// and no errors. In this case, the data is accessible via JSONData
-// with the actual types matching up to the metadata in RowTypes.
+// of the settings, such as "SHOW WAREHOUSES" or SQL stored procedures
+// using CALL with RETURNS TABLE(). In these cases the server returns
+// JSON even though the client requested Arrow. Use QueryResultFormat()
+// to determine the actual format of the response:
+//
+//   - "arrow": batches from GetBatches contain Arrow IPC streams
+//   - "json":  batches from GetBatches contain JSON data; inline rows
+//     (if any) are also accessible via JSONData, and column metadata
+//     is available via RowTypes.
 type ArrowStreamLoader interface {
 	GetBatches() ([]ArrowStreamBatch, error)
 	NextResultSet(ctx context.Context) error
@@ -32,6 +37,9 @@ type ArrowStreamLoader interface {
 	RowTypes() []query.ExecResponseRowType
 	Location() *time.Location
 	JSONData() [][]*string
+	// QueryResultFormat returns the result format reported by the server,
+	// typically "arrow" or "json".
+	QueryResultFormat() string
 }
 
 // ArrowStreamBatch is a type describing a potentially yet-to-be-downloaded
@@ -131,14 +139,15 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 }
 
 type snowflakeArrowStreamChunkDownloader struct {
-	sc          *snowflakeConn
-	ChunkMetas  []query.ExecResponseChunk
-	Total       int64
-	Qrmk        string
-	ChunkHeader map[string]string
-	FuncGet     func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error)
-	RowSet      rowSetType
-	resultIDs   []string
+	sc                *snowflakeConn
+	ChunkMetas        []query.ExecResponseChunk
+	Total             int64
+	Qrmk              string
+	ChunkHeader       map[string]string
+	FuncGet           func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error)
+	RowSet            rowSetType
+	resultIDs         []string
+	queryResultFormat string
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
@@ -156,6 +165,10 @@ func (scd *snowflakeArrowStreamChunkDownloader) RowTypes() []query.ExecResponseR
 
 func (scd *snowflakeArrowStreamChunkDownloader) JSONData() [][]*string {
 	return scd.RowSet.JSON
+}
+
+func (scd *snowflakeArrowStreamChunkDownloader) QueryResultFormat() string {
+	return scd.queryResultFormat
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) maybeFirstBatch() ([]byte, error) {
@@ -243,6 +256,7 @@ func (scd *snowflakeArrowStreamChunkDownloader) NextResultSet(ctx context.Contex
 	scd.Total = resp.Data.Total
 	scd.Qrmk = resp.Data.Qrmk
 	scd.ChunkHeader = resp.Data.ChunkHeaders
+	scd.queryResultFormat = resp.Data.QueryResultFormat
 	scd.RowSet = rowSetType{
 		RowType:      resp.Data.RowType,
 		JSON:         resp.Data.RowSet,

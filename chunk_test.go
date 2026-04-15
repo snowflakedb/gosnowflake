@@ -558,19 +558,7 @@ func TestQueryArrowStreamMultiStatementForJSONData(t *testing.T) {
 	})
 }
 
-func TestQueryArrowStreamRejectsJSONResponse(t *testing.T) {
-	runSnowflakeConnTest(t, func(sct *SCTest) {
-		sct.mustExec(forceJSON, nil)
-		_, err := sct.sc.QueryArrowStream(sct.sc.ctx, "SELECT 'hello'")
-		assertNotNilF(t, err)
-		var se *SnowflakeError
-		assertTrueF(t, errors.As(err, &se), "expected SnowflakeError")
-		assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
-		assertEqualE(t, se.Message, errors2.ErrMsgNonArrowResponseInArrowBatches)
-	})
-}
-
-func TestQueryArrowStreamRejectsStoredProcedureJSONResponse(t *testing.T) {
+func TestQueryArrowStreamStoredProcedureSmallJSONResponse(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		sct.mustExec(`CREATE OR REPLACE PROCEDURE test_arrow_stream_sp()
 RETURNS TABLE ()
@@ -585,11 +573,54 @@ END;
 $$`, nil)
 		defer sct.mustExec("DROP PROCEDURE IF EXISTS test_arrow_stream_sp()", nil)
 
-		_, err := sct.sc.QueryArrowStream(sct.sc.ctx, "CALL test_arrow_stream_sp()")
-		assertNotNilF(t, err)
-		var se *SnowflakeError
-		assertTrueF(t, errors.As(err, &se), "expected SnowflakeError")
-		assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
-		assertEqualE(t, se.Message, errors2.ErrMsgNonArrowResponseInArrowBatches)
+		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, "CALL test_arrow_stream_sp()")
+		assertNilF(t, err)
+		assertEqualE(t, loader.QueryResultFormat(), "json")
+		assertTrueF(t, loader.TotalRows() > 0, "should have total rows")
+		assertTrueF(t, len(loader.JSONData()) > 0, "small JSON result should have inline rowset")
+		batches, err := loader.GetBatches()
+		assertNilF(t, err)
+		assertEqualE(t, len(batches), 0)
+	})
+}
+
+func TestQueryArrowStreamStoredProcedureLargeJSONResponse(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec(`CREATE OR REPLACE PROCEDURE test_arrow_stream_large_sp()
+RETURNS TABLE ()
+LANGUAGE SQL
+AS
+$$
+DECLARE res RESULTSET;
+BEGIN
+  res := (
+    SELECT SEQ4() AS id, 'item_' || SEQ4()::VARCHAR AS name
+    FROM TABLE(GENERATOR(ROWCOUNT => 10000))
+  );
+  RETURN TABLE(res);
+END;
+$$`, nil)
+		defer sct.mustExec("DROP PROCEDURE IF EXISTS test_arrow_stream_large_sp()", nil)
+
+		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, "CALL test_arrow_stream_large_sp()")
+		assertNilF(t, err)
+		assertEqualE(t, loader.QueryResultFormat(), "json")
+		assertTrueF(t, loader.TotalRows() == 10000, "should report 10000 total rows")
+		assertEqualE(t, len(loader.JSONData()), 0)
+		batches, err := loader.GetBatches()
+		assertNilF(t, err)
+		assertTrueF(t, len(batches) > 0, "large JSON result should have chunk batches")
+	})
+}
+
+func TestQueryArrowStreamArrowResponseExposesFormat(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, "SELECT 1")
+		assertNilF(t, err)
+		assertTrueF(t, loader.TotalRows() > 0, "should have total rows")
+		assertEqualE(t, loader.QueryResultFormat(), "arrow")
+		batches, err := loader.GetBatches()
+		assertNilF(t, err)
+		assertTrueF(t, len(batches) > 0, "should have Arrow batches")
 	})
 }
