@@ -614,12 +614,15 @@ $$`, nil)
 		stream, err := batches[0].GetStream(sct.sc.ctx)
 		assertNilF(t, err)
 		defer stream.Close()
+
 		body, err := io.ReadAll(stream)
 		assertNilF(t, err)
 		assertTrueF(t, len(body) > 0, "batch stream should contain data")
 
-		var rows [][]any
-		assertNilF(t, json.Unmarshal(body, &rows))
+		wrapped := append([]byte("["), body...)
+		wrapped = append(wrapped, ']')
+		var rows [][]string
+		assertNilF(t, json.Unmarshal(wrapped, &rows))
 		assertTrueF(t, len(rows) > 0, "batch should contain JSON rows")
 		assertEqualE(t, len(rows[0]), 2)
 	})
