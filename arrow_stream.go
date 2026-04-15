@@ -53,8 +53,8 @@ type ArrowStreamLoader interface {
 // ArrowStreamBatch is a type describing a potentially yet-to-be-downloaded
 // chunk of query result data. The content format depends on the parent
 // loader's QueryResultFormat(): when "arrow" the stream contains Arrow IPC
-// record batches (use ipc.NewReader); when "json" the stream contains
-// JSON-encoded rows.
+// record batches (use ipc.NewReader); when "json" the stream contains the
+// raw chunk body (JSON) which needs streaming decode logic.
 type ArrowStreamBatch struct {
 	idx     int
 	numrows int64
