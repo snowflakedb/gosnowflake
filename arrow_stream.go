@@ -52,7 +52,7 @@ type QueryResultFormatProvider interface {
 // ArrowStreamBatch is a type describing a potentially yet-to-be-downloaded
 // chunk of query result data. The content format depends on the current
 // QueryResultFormat: Arrow IPC record batches (use ipc.NewReader) when
-// the format is "arrow", or JSON-encoded rows when it is "json".
+// the format is "arrow", or JSON (row fragments) when it is "json".
 type ArrowStreamBatch struct {
 	idx     int
 	numrows int64
@@ -66,7 +66,7 @@ type ArrowStreamBatch struct {
 func (asb *ArrowStreamBatch) NumRows() int64 { return asb.numrows }
 
 // GetStream downloads the chunk (if not already cached) and returns a
-// stream of bytes. The content may be Arrow IPC or JSON-encoded rows
+// stream of bytes. The content may be Arrow IPC or JSON (row fragments)
 // depending on the current QueryResultFormat. Close should be called
 // on the returned stream when done to ensure no leaked memory.
 func (asb *ArrowStreamBatch) GetStream(ctx context.Context) (io.ReadCloser, error) {
