@@ -605,11 +605,23 @@ $$`, nil)
 		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, "CALL test_arrow_stream_large_sp()")
 		assertNilF(t, err)
 		assertEqualE(t, loader.QueryResultFormat(), "json")
-		assertEqualE(t, loader.TotalRows(), 10000)
+		assertTrueF(t, loader.TotalRows() == 10000, "should report 10000 total rows")
 		assertEqualE(t, len(loader.JSONData()), 0)
 		batches, err := loader.GetBatches()
 		assertNilF(t, err)
 		assertTrueF(t, len(batches) > 0, "large JSON result should have chunk batches")
+
+		stream, err := batches[0].GetStream(sct.sc.ctx)
+		assertNilF(t, err)
+		defer stream.Close()
+		body, err := io.ReadAll(stream)
+		assertNilF(t, err)
+		assertTrueF(t, len(body) > 0, "batch stream should contain data")
+
+		var rows [][]any
+		assertNilF(t, json.Unmarshal(body, &rows))
+		assertTrueF(t, len(rows) > 0, "batch should contain JSON rows")
+		assertEqualE(t, len(rows[0]), 2)
 	})
 }
 
