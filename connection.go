@@ -542,9 +542,9 @@ func (sc *snowflakeConn) AddTelemetryData(_ context.Context, eventDate time.Time
 
 // QueryArrowStream executes a query and returns an ArrowStreamLoader for
 // streaming query results. The server may respond with Arrow IPC or JSON
-// depending on the statement type (e.g. CALL, SHOW). Callers must check
-// loader.QueryResultFormat() before interpreting batch streams — only
-// "arrow" responses should be passed to ipc.NewReader.
+// depending on the statement type (e.g. CALL, SHOW). The returned loader
+// also implements QueryResultFormatProvider; callers should check the
+// format before passing batch streams to ipc.NewReader.
 func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bindings ...driver.NamedValue) (ArrowStreamLoader, error) {
 	ctx = ia.EnableArrowBatches(context.WithValue(ctx, asyncMode, false))
 	ctx = setResultType(ctx, queryResultType)
@@ -594,7 +594,12 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 			return nil, err
 		}
 	}
-	return scd, nil
+
+	if resultFormat(scd.queryResultFormat) == arrowFormat {
+		return &snowflakeArrowStreamLoader{scd}, nil
+	}
+	logger.Debugf("QueryArrowStream: server returned %q format (not Arrow)", scd.queryResultFormat)
+	return &snowflakeJSONStreamLoader{scd}, nil
 }
 
 // buildSnowflakeConn creates a new snowflakeConn.

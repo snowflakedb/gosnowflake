@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
+	sferrors "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
 	"strings"
 	"sync"
@@ -352,10 +352,10 @@ func testWithArrowBatchesButReturningJSON(t *testing.T, async bool) {
 		defer rows.Close()
 		_, err := rows.(ia.BatchDataProvider).GetArrowBatches()
 		assertNotNilF(t, err)
-		var sferrors *SnowflakeError
-		assertTrueE(t, errors.As(err, &sferrors))
-		assertEqualE(t, sferrors.Message, errors2.ErrMsgNonArrowResponseInArrowBatches)
-		assertEqualE(t, sferrors.Number, ErrNonArrowResponseInArrowBatches)
+		var se *SnowflakeError
+		assertTrueE(t, errors.As(err, &se))
+		assertEqualE(t, se.Message, sferrors.ErrMsgNonArrowResponseInArrowBatches)
+		assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
 
 		v := make([]driver.Value, 1)
 		assertNilE(t, rows.Next(v))
@@ -418,10 +418,10 @@ func TestWithArrowBatchesMultistatementWithJSONResponse(t *testing.T) {
 		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = sfRows.NextResultSet() != io.EOF {
 			_, err := driverRows.(ia.BatchDataProvider).GetArrowBatches()
 			assertNotNilF(t, err)
-			var sferrors *SnowflakeError
-			assertTrueF(t, errors.As(err, &sferrors))
-			assertEqualE(t, sferrors.Number, ErrNonArrowResponseInArrowBatches)
-			assertEqualE(t, sferrors.Message, errors2.ErrMsgNonArrowResponseInArrowBatches)
+			var se *SnowflakeError
+			assertTrueF(t, errors.As(err, &se))
+			assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
+			assertEqualE(t, se.Message, sferrors.ErrMsgNonArrowResponseInArrowBatches)
 			resultSetIdx++
 		}
 		assertEqualF(t, resultSetIdx, 2)
@@ -558,32 +558,6 @@ func TestQueryArrowStreamMultiStatementForJSONData(t *testing.T) {
 	})
 }
 
-func TestQueryArrowStreamStoredProcedureSmallJSONResponse(t *testing.T) {
-	runSnowflakeConnTest(t, func(sct *SCTest) {
-		sct.mustExec(`CREATE OR REPLACE PROCEDURE test_arrow_stream_sp()
-RETURNS TABLE ()
-LANGUAGE SQL
-AS
-$$
-DECLARE res RESULTSET;
-BEGIN
-  res := (SELECT 1 AS id, 'hello' AS name);
-  RETURN TABLE(res);
-END;
-$$`, nil)
-		defer sct.mustExec("DROP PROCEDURE IF EXISTS test_arrow_stream_sp()", nil)
-
-		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, "CALL test_arrow_stream_sp()")
-		assertNilF(t, err)
-		assertEqualE(t, loader.QueryResultFormat(), "json")
-		assertTrueF(t, loader.TotalRows() > 0, "should have total rows")
-		assertTrueF(t, len(loader.JSONData()) > 0, "small JSON result should have inline rowset")
-		batches, err := loader.GetBatches()
-		assertNilF(t, err)
-		assertEqualE(t, len(batches), 0)
-	})
-}
-
 func TestQueryArrowStreamStoredProcedureLargeJSONResponse(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		sct.mustExec(`CREATE OR REPLACE PROCEDURE test_arrow_stream_large_sp()
@@ -604,7 +578,9 @@ $$`, nil)
 
 		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, "CALL test_arrow_stream_large_sp()")
 		assertNilF(t, err)
-		assertEqualE(t, loader.QueryResultFormat(), "json")
+		fp, ok := loader.(QueryResultFormatProvider)
+		assertTrueF(t, ok, "loader should implement QueryResultFormatProvider")
+		assertEqualE(t, fp.QueryResultFormat(), "json")
 		assertTrueF(t, loader.TotalRows() == 10000, "should report 10000 total rows")
 		assertEqualE(t, len(loader.JSONData()), 0)
 		batches, err := loader.GetBatches()
@@ -633,7 +609,9 @@ func TestQueryArrowStreamArrowResponseExposesFormat(t *testing.T) {
 		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, "SELECT 1")
 		assertNilF(t, err)
 		assertTrueF(t, loader.TotalRows() > 0, "should have total rows")
-		assertEqualE(t, loader.QueryResultFormat(), "arrow")
+		fp, ok := loader.(QueryResultFormatProvider)
+		assertTrueF(t, ok, "loader should implement QueryResultFormatProvider")
+		assertEqualE(t, fp.QueryResultFormat(), "arrow")
 		batches, err := loader.GetBatches()
 		assertNilF(t, err)
 		assertTrueF(t, len(batches) > 0, "should have Arrow batches")

@@ -7,7 +7,7 @@ Bug fixes:
 
 New features:
 
-- Added a new method `QueryResultFormat()` into `ArrowStreamLoader` which is populated from the server response, to tackle an edge case in tabular SQL stored procedures which was triggered when the backend returns data with empty rowset but JSON chunks, resulting in `could not read message schema: arrow/ipc: could not read message metadata: unexpected EOF` when those chunks are attempted to read as Arrow (snowflakedb/gosnowflake#1773).
+- Added `QueryResultFormatProvider` interface to expose the server-reported query result format ("arrow" or "json") from `QueryArrowStream`, enabling callers to distinguish Arrow IPC from JSON responses before interpreting batch streams (snowflakedb/gosnowflake#1773).
 
 Internal changes:
 
