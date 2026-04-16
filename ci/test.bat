@@ -60,6 +60,19 @@ echo [INFO] Role:      %SNOWFLAKE_TEST_ROLE%
 
 go install github.com/jstemmer/go-junit-report/v2@latest
 
+REM Build coverpkg list excluding cmd/ packages
+set COVPKGS=
+for /f "usebackq delims=" %%p in (`go list ./...`) do (
+    echo %%p | findstr /C:"/cmd/" >nul
+    if !ERRORLEVEL! NEQ 0 (
+        if "!COVPKGS!"=="" (
+            set COVPKGS=%%p
+        ) else (
+            set COVPKGS=!COVPKGS!,%%p
+        )
+    )
+)
+
 REM Test based on SEQUENTIAL_TESTS setting
 if "%SEQUENTIAL_TESTS%"=="true" (
     REM Test each package separately to avoid buffering - real-time output but slower
@@ -88,7 +101,7 @@ if "%SEQUENTIAL_TESTS%"=="true" (
         REM Test package and append to output (no -race on Windows ARM)
         REM Replace / with _ for coverage filename
         set COV_FILE=!PKG_PATH:/=_!_coverage.txt
-        go test %GO_TEST_PARAMS% --timeout 90m -coverprofile=!COV_FILE! -covermode=atomic -v !PKG_PATH! >> test-output.txt 2>&1
+        go test %GO_TEST_PARAMS% --timeout 90m -coverpkg=!COVPKGS! -coverprofile=!COV_FILE! -covermode=atomic -v !PKG_PATH! >> test-output.txt 2>&1
 
         REM Track failure but continue testing other packages
         if !ERRORLEVEL! NEQ 0 (
@@ -107,7 +120,7 @@ if "%SEQUENTIAL_TESTS%"=="true" (
 ) else (
     REM Test all packages with ./... - parallel, faster, but buffered
     echo [INFO] Running tests in parallel
-    go test %GO_TEST_PARAMS% --timeout 90m -coverprofile=coverage.txt -covermode=atomic -v ./... > test-output.txt 2>&1
+    go test %GO_TEST_PARAMS% --timeout 90m -coverpkg=!COVPKGS! -coverprofile=coverage.txt -covermode=atomic -v ./... > test-output.txt 2>&1
     set TEST_EXIT=!ERRORLEVEL!
 )
 
