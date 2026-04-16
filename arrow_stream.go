@@ -41,6 +41,9 @@ type ArrowStreamLoader interface {
 // QueryResultFormatProvider is an optional interface that an
 // ArrowStreamLoader may implement to expose the server-reported result
 // format. The returned value is typically "arrow" or "json".
+// Calling QueryResultFormat also signals that the caller can handle
+// non-Arrow data; without this, GetBatches can return
+// ErrNonArrowResponseInArrowBatches for large JSON results in certain cases.
 //
 //	if p, ok := loader.(gosnowflake.QueryResultFormatProvider); ok {
 //	    fmt.Println(p.QueryResultFormat())
@@ -252,20 +255,14 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 		out[0].numrows = scd.Total - totalCounted
 	}
 
-	// Result is JSON, there's no inline rowset in the response, but
-	// there are batches (large resultset from SQL & JS stored procedure)
+	// Result is JSON, there's no inline rowset in the response, but there are batches (large resultset from SQL & JS stored procedure)
 	if resultFormat(scd.queryResultFormat) != arrowFormat && len(scd.RowSet.JSON) == 0 && len(out) > 0 {
-		// If the caller did not explicitly acknowledge it knows about the (JSON)
-		// result format (through calling QueryResultFormat()), we can assume
-		// they'll try to parse it as Arrow, which will crash. Let's error out gracefully.
+		// If the caller did not explicitly acknowledged it knows about the (JSON) result format (through calling QueryResultFormat())
+		// we can assume they'll try to parse it as Arrow, which will crash. Let's error out gracefully.
 		if !scd.formatAcknowledged {
 			return nil, &SnowflakeError{
-				Number: ErrNonArrowResponseInArrowBatches,
-				Message: fmt.Sprintf(
-					"%s: QueryArrowStream received non-Arrow batches (%q) from the server. Call QueryResultFormat() to check the format and parse accordingly.",
-					sferrors.ErrMsgNonArrowResponseInArrowBatches,
-					scd.queryResultFormat,
-				),
+				Number:  ErrNonArrowResponseInArrowBatches,
+				Message: sferrors.ErrMsgNonArrowResponseInArrowBatches,
 			}
 		}
 		logger.Debugf("GetBatches: returning %d JSON batch(es)", len(out))
