@@ -224,8 +224,8 @@ Alternatively, use OpenWithConfig() function to create a database handle with th
 
 # Connection Config
 
-You can also connect to your warehouse using the connection config. The dbSql library states that when you want to take advantage of driver-specific connection features that aren’t
-available in a connection string. Each driver supports its own set of connection properties, often providing ways to customize the connection request specific to the DBMS
+You can also connect to your warehouse using the connection config. The database/sql package is appropriate when you want driver-specific connection features that aren’t
+available in a connection string. Each driver supports its own set of connection properties, often providing ways to customize the connection request specific to the DBMS.
 For example:
 
 	c := &gosnowflake.Config{
@@ -234,23 +234,27 @@ For example:
 	connector := gosnowflake.NewConnector(gosnowflake.SnowflakeDriver{}, *c)
 	db := sql.OpenDB(connector)
 
-If you are using this method, you dont need to pass a driver name to specify the driver type in which
+When Host is a full Snowflake hostname (the host string contains ".snowflakecomputing.", consistent with DSN-based URLs) and Account is left empty, the driver derives Account from the first DNS label of Host while completing configuration (for example, database/sql.Connector Connect invokes FillMissingConfigParameters). If Host does not contain that substring, you must set Account explicitly (for example private-link or custom endpoints).
+
+When Account is already non-empty, it is kept as provided. Truncating a dotted account value from DSN query parameters happens inside ParseDSN before FillMissingConfigParameters; that normalization does not apply to every programmatic Config.
+
+If you are using this method, you don't need to pass a driver name to specify the driver type in which
 you are looking to connect. Since the driver name is not needed, you can optionally bypass driver registration
-on startup. To do this, set `GOSNOWFLAKE_SKIP_REGISTRATION` in your environment. This is useful you wish to
-register multiple verions of the driver.
+on startup. To do this, set `GOSNOWFLAKE_SKIP_REGISTRATION` in your environment. This is useful if you wish to
+register multiple versions of the driver.
 
 Note: `GOSNOWFLAKE_SKIP_REGISTRATION` should not be used if sql.Open() is used as the method
 to connect to the server, as sql.Open will require registration so it can map the driver name
 to the driver type, which in this case is "snowflake" and SnowflakeDriver{}.
 
-You can load the connnection configuration with .toml file format.
+You can load the connection configuration with .toml file format.
 With two environment variables, `SNOWFLAKE_HOME` (`connections.toml` file directory) and `SNOWFLAKE_DEFAULT_CONNECTION_NAME` (DSN name),
 the driver will search the config file and load the connection. You can find how to use this connection way at ./cmd/tomlfileconnection
 or Snowflake doc: https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/connecting/specify-credentials
 
 If the connection.toml file is readable by others, a warning will be logged. To disable it you need to set the environment variable `SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE` to true.
 
-It you wish to specify a custom transporter (e.g. to provide a custom TLS config to be used with your custom truststore) pass it through the `NewConnector`. Example:
+If you wish to specify a custom transporter (e.g. to provide a custom TLS config to be used with your custom truststore) pass it through the `NewConnector`. Example:
 
 	tlsConfig := &tls.Config{
 	    // your custom fields here
@@ -262,7 +266,7 @@ It you wish to specify a custom transporter (e.g. to provide a custom TLS config
 	    },
 	}
 
-	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	connector := NewConnector(SnowflakeDriver{}, config)
 	db := sql.OpenDB(connector)
 
 As an alternative, you can use the `RegisterTLSConfig` / `DeregisterTLSConfig` functions as seen in the unit tests: https://github.com/snowflakedb/gosnowflake/blob/v1.16.0/transport_test.go#L127
@@ -293,7 +297,7 @@ When these parameters are provided in the connection string or DSN, they take pr
 | `proxyUser`     | Username for proxy authentication.                                          |         |
 | `proxyPassword` | Password for proxy authentication.                                          |         |
 | `proxyProtocol` | Protocol to use for proxy connection. Valid values: `http`, `https`.        | `http`  |
-| `NoProxy“       | Comma-separated list of hosts that should bypass the proxy.                 |         |
+| `noProxy`       | Comma-separated list of hosts that should bypass the proxy.                 |         |
 
 For more details, please refer to the example in ./cmd/proxyconnection.
 
