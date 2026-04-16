@@ -2,6 +2,10 @@
 
 ## Upcoming release
 
+Bug fixes:
+
+- Fix logger reporting incorrect source location when called without `WithContext` (snowflakedb/gosnowflake#1768).
+
 ## 2.0.1
 
 Bug fixes:
