@@ -46,6 +46,11 @@ func assertTrueE(t *testing.T, actual bool, descriptions ...string) {
 	errorOnNonEmpty(t, validateEqual(actual, true, descriptions...))
 }
 
+func assertTrueF(t *testing.T, actual bool, descriptions ...string) {
+	t.Helper()
+	fatalOnNonEmpty(t, validateEqual(actual, true, descriptions...))
+}
+
 func assertFalseE(t *testing.T, actual bool, descriptions ...string) {
 	t.Helper()
 	errorOnNonEmpty(t, validateEqual(actual, false, descriptions...))
