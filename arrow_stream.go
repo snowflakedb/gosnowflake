@@ -177,6 +177,19 @@ func (scd *snowflakeArrowStreamChunkDownloader) JSONData() [][]*string {
 	return scd.RowSet.JSON
 }
 
+// QueryResultFormat returns the server-reported result format for the
+// current result set (typically "arrow" or "json"). Calling this method
+// acknowledges that the caller is aware of the format and will handle
+// non-Arrow data appropriately. Without this acknowledgment, GetBatches
+// returns ErrNonArrowResponseInArrowBatches specifically when all of the
+// following are true: the result format is not Arrow, no inline JSON
+// rows are present (i.e. JSONData() is empty), and there are chunked
+// batches to download — which is the case for large result sets from
+// SQL/JavaScript stored procedures.
+//
+// The acknowledgment is reset on each NextResultSet call, so callers
+// handling multi-statement queries must re-check the format after
+// advancing to a new result set.
 func (scd *snowflakeArrowStreamChunkDownloader) QueryResultFormat() string {
 	scd.formatAcknowledged = true
 	return scd.queryResultFormat
@@ -282,6 +295,7 @@ func (scd *snowflakeArrowStreamChunkDownloader) NextResultSet(ctx context.Contex
 	scd.Qrmk = resp.Data.Qrmk
 	scd.ChunkHeader = resp.Data.ChunkHeaders
 	scd.queryResultFormat = resp.Data.QueryResultFormat
+	scd.formatAcknowledged = false
 	scd.RowSet = rowSetType{
 		RowType:      resp.Data.RowType,
 		JSON:         resp.Data.RowSet,
