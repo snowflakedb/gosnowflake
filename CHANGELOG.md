@@ -13,6 +13,10 @@ Internal changes:
 
 - 
 
+Bug fixes:
+
+- Fixed empty `Account` when connecting with programmatic `Config` and `database/sql.Connector` by deriving `Account` from the first DNS label of `Host` in `FillMissingConfigParameters` when `Host` matches the Snowflake hostname pattern (snowflakedb/gosnowflake#1772).
+
 ## 2.0.1
 
 Bug fixes:
