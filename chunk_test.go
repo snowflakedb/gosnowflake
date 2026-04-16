@@ -597,7 +597,7 @@ $$`, nil)
 
 		wrapped := append([]byte("["), body...)
 		wrapped = append(wrapped, ']')
-		var rows [][]string
+		var rows [][]*string
 		assertNilF(t, json.Unmarshal(wrapped, &rows))
 		assertTrueF(t, len(rows) > 0, "batch should contain JSON rows")
 		assertEqualE(t, len(rows[0]), 2)
