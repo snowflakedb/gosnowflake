@@ -32,6 +32,8 @@ type ArrowStreamLoader interface {
 	RowTypes() []query.ExecResponseRowType
 	Location() *time.Location
 	JSONData() [][]*string
+	// QueryResultFormat returns the format of the query result data ("arrow" or "json").
+	QueryResultFormat() string
 }
 
 // ArrowStreamBatch is a type describing a potentially yet-to-be-downloaded
@@ -137,8 +139,9 @@ type snowflakeArrowStreamChunkDownloader struct {
 	Qrmk        string
 	ChunkHeader map[string]string
 	FuncGet     func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error)
-	RowSet      rowSetType
-	resultIDs   []string
+	RowSet            rowSetType
+	resultIDs         []string
+	queryResultFormat string
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
@@ -156,6 +159,10 @@ func (scd *snowflakeArrowStreamChunkDownloader) RowTypes() []query.ExecResponseR
 
 func (scd *snowflakeArrowStreamChunkDownloader) JSONData() [][]*string {
 	return scd.RowSet.JSON
+}
+
+func (scd *snowflakeArrowStreamChunkDownloader) QueryResultFormat() string {
+	return scd.queryResultFormat
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) maybeFirstBatch() ([]byte, error) {
@@ -248,6 +255,7 @@ func (scd *snowflakeArrowStreamChunkDownloader) NextResultSet(ctx context.Contex
 		JSON:         resp.Data.RowSet,
 		RowSetBase64: resp.Data.RowSetBase64,
 	}
+	scd.queryResultFormat = resp.Data.QueryResultFormat
 	return nil
 }
 

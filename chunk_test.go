@@ -549,6 +549,18 @@ func TestQueryArrowStreamMultiStatement(t *testing.T) {
 	})
 }
 
+func TestQueryArrowStreamQueryResultFormat(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, "SELECT 1")
+		assertNilF(t, err)
+		assertEqualF(t, loader.QueryResultFormat(), "arrow", "expected arrow format for SELECT query")
+
+		loader, err = sct.sc.QueryArrowStream(sct.sc.ctx, "SHOW WAREHOUSES")
+		assertNilF(t, err)
+		assertEqualF(t, loader.QueryResultFormat(), "json", "expected json format for SHOW query")
+	})
+}
+
 func TestQueryArrowStreamMultiStatementForJSONData(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		ctx := WithMultiStatement(ia.EnableArrowBatches(sct.sc.ctx), 2)

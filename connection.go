@@ -581,7 +581,8 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 			JSON:         data.Data.RowSet,
 			RowSetBase64: data.Data.RowSetBase64,
 		},
-		resultIDs: resultIDs,
+		resultIDs:         resultIDs,
+		queryResultFormat: data.Data.QueryResultFormat,
 	}
 
 	if scd.hasNextResultSet() {
