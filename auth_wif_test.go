@@ -772,7 +772,7 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 				} else {
 					config.WorkloadIdentityProvider = "OIDC"
 					config.Token = func() string {
-						cmd := exec.Command("wget", "-O", "-", "--header=Metadata-Flavor: Google", "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/identity?audience=snowflakecomputing.com")
+						cmd := exec.Command("wget", "-O", "-", "--header=Metadata-Flavor: Google", "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=snowflakecomputing.com")
 						output, err := cmd.Output()
 						if err != nil {
 							t.Fatalf("error executing GCP metadata request: %v", err)
