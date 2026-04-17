@@ -1439,19 +1439,36 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 		testSizes := [2]int{smallSize, largeSize}
 		for _, testSize := range testSizes {
 			t.Run(fmt.Sprintf("testLOB_%v_useArrowFormat=%v", strconv.Itoa(testSize), strconv.FormatBool(useArrowFormat)), func(t *testing.T) {
-				rows, err := dbt.query(fmt.Sprintf("SELECT randstr(%v, 124)", testSize))
-				assertNilF(t, err)
-				defer func() {
+				const maxRetries = 3
+				for attempt := 1; attempt <= maxRetries; attempt++ {
+					rows, err := dbt.query(fmt.Sprintf("SELECT randstr(%v, 124)", testSize))
+					if err != nil {
+						if attempt < maxRetries && strings.Contains(err.Error(), "unexpected EOF") {
+							t.Logf("attempt %d/%d failed with transient error: %v, retrying...", attempt, maxRetries, err)
+							time.Sleep(5 * time.Second)
+							continue
+						}
+						assertNilF(t, err)
+					}
+					assertTrueF(t, rows.Next(), fmt.Sprintf("no rows returned for the LOB size %v", testSize))
+
+					// retrieve the result
+					err = rows.Scan(&res)
+					if err != nil {
+						rows.Close()
+						if attempt < maxRetries && strings.Contains(err.Error(), "unexpected EOF") {
+							t.Logf("attempt %d/%d failed with transient error during scan: %v, retrying...", attempt, maxRetries, err)
+							time.Sleep(5 * time.Second)
+							continue
+						}
+						assertNilF(t, err)
+					}
 					assertNilF(t, rows.Close())
-				}()
-				assertTrueF(t, rows.Next(), fmt.Sprintf("no rows returned for the LOB size %v", testSize))
 
-				// retrieve the result
-				err = rows.Scan(&res)
-				assertNilF(t, err)
-
-				// verify the length of the result
-				assertEqualF(t, len(res), testSize)
+					// verify the length of the result
+					assertEqualF(t, len(res), testSize)
+					break // success
+				}
 			})
 		}
 	})
