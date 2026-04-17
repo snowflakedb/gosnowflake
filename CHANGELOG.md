@@ -1,6 +1,17 @@
 # Changelog
 
 ## Upcoming release
+Bug fixes:
+
+-
+
+New features:
+
+- Added `QueryResultFormatProvider` interface to expose the server-reported query result format ("arrow" or "json") from `QueryArrowStream`, enabling callers to distinguish Arrow IPC from JSON responses before interpreting batch streams (snowflakedb/gosnowflake#1773).
+
+Internal changes:
+
+- 
 
 Bug fixes:
 

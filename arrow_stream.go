@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow/ipc"
+	sferrors "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 )
 
@@ -21,10 +22,13 @@ import (
 // Snowflake results via multiple Arrow Record Batch streams.
 //
 // Some queries from Snowflake do not return Arrow data regardless
-// of the settings, such as "SHOW WAREHOUSES". In these cases,
-// you'll find TotalRows() > 0 but GetBatches returns no batches
-// and no errors. In this case, the data is accessible via JSONData
-// with the actual types matching up to the metadata in RowTypes.
+// of the settings, such as "SHOW WAREHOUSES" or SQL stored procedures
+// using CALL with RETURNS TABLE(). In these cases the server returns
+// JSON even though the client requested Arrow. Small JSON results are
+// accessible via JSONData(); column metadata is available via RowTypes().
+//
+// To determine the actual response format, use a type assertion against
+// QueryResultFormatProvider.
 type ArrowStreamLoader interface {
 	GetBatches() ([]ArrowStreamBatch, error)
 	NextResultSet(ctx context.Context) error
@@ -34,9 +38,24 @@ type ArrowStreamLoader interface {
 	JSONData() [][]*string
 }
 
+// QueryResultFormatProvider is an optional interface that an
+// ArrowStreamLoader may implement to expose the server-reported result
+// format. The returned value is typically "arrow" or "json".
+// Calling QueryResultFormat also signals that the caller can handle
+// non-Arrow data; without this, GetBatches can return
+// ErrNonArrowResponseInArrowBatches for large JSON results in certain cases.
+//
+//	if p, ok := loader.(gosnowflake.QueryResultFormatProvider); ok {
+//	    fmt.Println(p.QueryResultFormat())
+//	}
+type QueryResultFormatProvider interface {
+	QueryResultFormat() string
+}
+
 // ArrowStreamBatch is a type describing a potentially yet-to-be-downloaded
-// Arrow IPC stream. Call GetStream to download and retrieve an io.Reader
-// that can be used with ipc.NewReader to get record batch results.
+// chunk of query result data. The content format depends on the current
+// QueryResultFormat: Arrow IPC record batches (use ipc.NewReader) when
+// the format is "arrow", or JSON (row fragments) when it is "json".
 type ArrowStreamBatch struct {
 	idx     int
 	numrows int64
@@ -49,9 +68,10 @@ type ArrowStreamBatch struct {
 // be in this stream of record batches.
 func (asb *ArrowStreamBatch) NumRows() int64 { return asb.numrows }
 
-// GetStream returns a stream of bytes consisting of an Arrow IPC Record
-// batch stream. Close should be called on the returned stream when done
-// to ensure no leaked memory.
+// GetStream downloads the chunk (if not already cached) and returns a
+// stream of bytes. The content may be Arrow IPC or JSON (row fragments)
+// depending on the current QueryResultFormat. Close should be called
+// on the returned stream when done to ensure no leaked memory.
 func (asb *ArrowStreamBatch) GetStream(ctx context.Context) (io.ReadCloser, error) {
 	if asb.rr == nil {
 		if err := asb.downloadChunkStreamHelper(ctx); err != nil {
@@ -131,14 +151,16 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 }
 
 type snowflakeArrowStreamChunkDownloader struct {
-	sc          *snowflakeConn
-	ChunkMetas  []query.ExecResponseChunk
-	Total       int64
-	Qrmk        string
-	ChunkHeader map[string]string
-	FuncGet     func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error)
-	RowSet      rowSetType
-	resultIDs   []string
+	sc                 *snowflakeConn
+	ChunkMetas         []query.ExecResponseChunk
+	Total              int64
+	Qrmk               string
+	ChunkHeader        map[string]string
+	FuncGet            func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error)
+	RowSet             rowSetType
+	resultIDs          []string
+	queryResultFormat  string
+	formatAcknowledged bool
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
@@ -158,6 +180,24 @@ func (scd *snowflakeArrowStreamChunkDownloader) JSONData() [][]*string {
 	return scd.RowSet.JSON
 }
 
+// QueryResultFormat returns the server-reported result format for the
+// current result set (typically "arrow" or "json"). Calling this method
+// acknowledges that the caller is aware of the format and will handle
+// non-Arrow data appropriately. Without this acknowledgment, GetBatches
+// returns ErrNonArrowResponseInArrowBatches specifically when all of the
+// following are true: the result format is not Arrow, no inline JSON
+// rows are present (i.e. JSONData() is empty), and there are chunked
+// batches to download — which is the case for large result sets from
+// SQL/JavaScript stored procedures.
+//
+// The acknowledgment is reset on each NextResultSet call, so callers
+// handling multi-statement queries must re-check the format after
+// advancing to a new result set.
+func (scd *snowflakeArrowStreamChunkDownloader) QueryResultFormat() string {
+	scd.formatAcknowledged = true
+	return scd.queryResultFormat
+}
+
 func (scd *snowflakeArrowStreamChunkDownloader) maybeFirstBatch() ([]byte, error) {
 	if scd.RowSet.RowSetBase64 == "" {
 		return nil, nil
@@ -169,12 +209,13 @@ func (scd *snowflakeArrowStreamChunkDownloader) maybeFirstBatch() ([]byte, error
 		return nil, err
 	}
 
-	rr, err := ipc.NewReader(bytes.NewReader(rowSetBytes))
-	if err != nil {
-		logger.Warnf("skipping first batch as it is not a valid IPC stream. %v", err)
-		return nil, err
+	if resultFormat(scd.queryResultFormat) == arrowFormat {
+		rr, err := ipc.NewReader(bytes.NewReader(rowSetBytes))
+		if err != nil {
+			return nil, fmt.Errorf("first batch is not a valid Arrow IPC stream: %w", err)
+		}
+		rr.Release()
 	}
-	rr.Release()
 
 	return rowSetBytes, nil
 }
@@ -213,6 +254,23 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 	if len(rowSetBytes) > 0 {
 		out[0].numrows = scd.Total - totalCounted
 	}
+
+	// Result is JSON, there's no inline rowset in the response, but there are batches (large resultset from SQL & JS stored procedure)
+	if resultFormat(scd.queryResultFormat) != arrowFormat && len(scd.RowSet.JSON) == 0 && len(out) > 0 {
+		// If the caller did not explicitly acknowledged it knows about the (JSON) result format (through calling QueryResultFormat())
+		// we can assume they'll try to parse it as Arrow, which will crash. Let's error out gracefully.
+		if !scd.formatAcknowledged {
+			return nil, &SnowflakeError{
+				Number: ErrNonArrowResponseInArrowBatches,
+				Message: fmt.Sprintf(
+					"%s: QueryArrowStream received non-Arrow batches (%q) from the server. Call QueryResultFormat() to check the format and parse accordingly.",
+					sferrors.ErrMsgNonArrowResponseInArrowBatches,
+					scd.queryResultFormat,
+				),
+			}
+		}
+		logger.Debugf("GetBatches: returning %d JSON batch(es)", len(out))
+	}
 	return
 }
 
@@ -243,6 +301,8 @@ func (scd *snowflakeArrowStreamChunkDownloader) NextResultSet(ctx context.Contex
 	scd.Total = resp.Data.Total
 	scd.Qrmk = resp.Data.Qrmk
 	scd.ChunkHeader = resp.Data.ChunkHeaders
+	scd.queryResultFormat = resp.Data.QueryResultFormat
+	scd.formatAcknowledged = false
 	scd.RowSet = rowSetType{
 		RowType:      resp.Data.RowType,
 		JSON:         resp.Data.RowSet,
