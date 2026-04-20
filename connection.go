@@ -541,7 +541,10 @@ func (sc *snowflakeConn) AddTelemetryData(_ context.Context, eventDate time.Time
 }
 
 // QueryArrowStream executes a query and returns an ArrowStreamLoader for
-// streaming raw Arrow IPC record batches from the result.
+// streaming query results. The server may respond with Arrow IPC or JSON
+// depending on the statement type (e.g. CALL, SHOW). The returned loader
+// also implements QueryResultFormatProvider; callers should check the
+// format before passing batch streams to ipc.NewReader.
 func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bindings ...driver.NamedValue) (ArrowStreamLoader, error) {
 	ctx = ia.EnableArrowBatches(context.WithValue(ctx, asyncMode, false))
 	ctx = setResultType(ctx, queryResultType)
@@ -571,12 +574,13 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 	}
 
 	scd := &snowflakeArrowStreamChunkDownloader{
-		sc:          sc,
-		ChunkMetas:  data.Data.Chunks,
-		Total:       data.Data.Total,
-		Qrmk:        data.Data.Qrmk,
-		ChunkHeader: data.Data.ChunkHeaders,
-		FuncGet:     getChunk,
+		sc:                sc,
+		ChunkMetas:        data.Data.Chunks,
+		Total:             data.Data.Total,
+		Qrmk:              data.Data.Qrmk,
+		ChunkHeader:       data.Data.ChunkHeaders,
+		FuncGet:           getChunk,
+		queryResultFormat: data.Data.QueryResultFormat,
 		RowSet: rowSetType{
 			RowType:      data.Data.RowType,
 			JSON:         data.Data.RowSet,
@@ -590,6 +594,8 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 			return nil, err
 		}
 	}
+
+	logger.WithContext(ctx).Debugf("QueryArrowStream: server returned resultset in %q format.", scd.queryResultFormat)
 	return scd, nil
 }
 
