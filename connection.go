@@ -595,9 +595,7 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 		}
 	}
 
-	if resultFormat(scd.queryResultFormat) != arrowFormat {
-		logger.Debugf("QueryArrowStream: server returned format %q (not Arrow)", scd.queryResultFormat)
-	}
+	logger.Debugf("QueryArrowStream: server returned resultset in %q format.", scd.queryResultFormat)
 	return scd, nil
 }
 
