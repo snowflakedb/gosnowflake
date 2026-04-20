@@ -88,6 +88,8 @@ const (
 	ErrMissingAccessATokenButRefreshTokenPresent = 260018
 	// ErrCodeMissingTLSConfig is an error code for the case where the TLS config is missing.
 	ErrCodeMissingTLSConfig = 260019
+	// ErrCodeEmptyToken is an error code for the case where token-based auth (e.g. PAT) is used but neither token nor tokenFilePath is provided.
+	ErrCodeEmptyToken = 260020
 
 	/* network */
 
@@ -301,6 +303,14 @@ func ErrEmptyPasswordAndToken() *SnowflakeError {
 	return &SnowflakeError{
 		Number:  ErrCodeEmptyPasswordAndToken,
 		Message: "both password and token are empty",
+	}
+}
+
+// ErrEmptyToken is returned if token-based auth (e.g. PAT) is used but neither token nor tokenFilePath is provided.
+func ErrEmptyToken() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrCodeEmptyToken,
+		Message: "token is empty: set Token or TokenFilePath",
 	}
 }
 

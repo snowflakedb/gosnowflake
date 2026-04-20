@@ -484,8 +484,8 @@ func FillMissingConfigParameters(cfg *Config) error {
 		return sferrors.ErrEmptyPassword()
 	}
 
-	if authRequiresEitherPasswordOrToken(cfg) && strings.TrimSpace(cfg.Password) == "" && strings.TrimSpace(cfg.Token) == "" {
-		return sferrors.ErrEmptyPasswordAndToken()
+	if authRequiresToken(cfg) && strings.TrimSpace(cfg.Token) == "" && strings.TrimSpace(cfg.TokenFilePath) == "" {
+		return sferrors.ErrEmptyToken()
 	}
 
 	if authRequiresClientIDAndSecret(cfg) && (strings.TrimSpace(cfg.OauthClientID) == "" || strings.TrimSpace(cfg.OauthClientSecret) == "") {
@@ -637,7 +637,7 @@ func authRequiresPassword(cfg *Config) bool {
 		cfg.Authenticator != AuthTypeWorkloadIdentityFederation
 }
 
-func authRequiresEitherPasswordOrToken(cfg *Config) bool {
+func authRequiresToken(cfg *Config) bool {
 	return cfg.Authenticator == AuthTypePat
 }
 
