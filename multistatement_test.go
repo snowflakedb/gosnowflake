@@ -109,6 +109,12 @@ func TestMultiStatementQueryResultSet(t *testing.T) {
 	})
 }
 
+// TestMultistatementQueryLargeResultSet validates multi-statement queries with
+// chunked results. The 1,000,000 row count per statement is required to trigger
+// Snowflake's chunked result delivery. A bug in HasNextResultSet/NextResultSet
+// (SNOW-1646792) only manifested with large, multi-chunk result sets. Do not
+// reduce the row count — smaller values may fit in a single chunk and miss the
+// bug class this test guards against.
 func TestMultistatementQueryLargeResultSet(t *testing.T) {
 	ctx := WithMultiStatement(context.Background(), 2)
 	runDBTest(t, func(dbt *DBTest) {
