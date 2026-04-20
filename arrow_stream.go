@@ -200,7 +200,8 @@ func (scd *snowflakeArrowStreamChunkDownloader) maybeFirstBatch() ([]byte, error
 
 	rr, err := ipc.NewReader(bytes.NewReader(rowSetBytes))
 	if err != nil {
-		return nil, fmt.Errorf("first batch is not a valid Arrow IPC stream: %w", err)
+		logger.Warnf("skipping first batch as it is not a valid IPC stream. %v", err)
+		return nil, err
 	}
 	rr.Release()
 
@@ -241,7 +242,6 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 	if len(rowSetBytes) > 0 {
 		out[0].numrows = scd.Total - totalCounted
 	}
-
 	return
 }
 
