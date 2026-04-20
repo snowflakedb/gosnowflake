@@ -169,13 +169,21 @@ func TestJSONArray(t *testing.T) {
 	testArray(t, true)
 }
 
+// TestLargeSetJSONResultWithDecoder and TestLargeSetResultWithCustomJSONDecoder
+// validate JSON result decoding with row counts large enough to trigger chunked
+// result delivery from Snowflake. The row counts (10,000 and 20,000) are
+// calibrated to exercise the chunk download pipeline while staying within CI
+// timeout limits.
 func TestLargeSetJSONResultWithDecoder(t *testing.T) {
 	testLargeSetResult(t, 10000, true)
 }
 
+// TestLargeSetResultWithCustomJSONDecoder validates chunked JSON decoding using
+// the custom decoder. Same row count constraints as TestLargeSetJSONResultWithDecoder
+// apply here — the count must be large enough to trigger chunked delivery.
 func TestLargeSetResultWithCustomJSONDecoder(t *testing.T) {
 	customJSONDecoderEnabled = true
-	// less number of rows to avoid Travis timeout
+	// less number of rows to avoid CI timeout
 	testLargeSetResult(t, 20000, true)
 }
 
