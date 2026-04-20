@@ -119,6 +119,8 @@ const (
 	ErrCodeInvalidFilePermission = sferrors.ErrCodeInvalidFilePermission
 	// ErrCodeEmptyPasswordAndToken is an error code for the case where a DSN do includes neither password nor token
 	ErrCodeEmptyPasswordAndToken = sferrors.ErrCodeEmptyPasswordAndToken
+	// ErrCodeEmptyToken is an error code for the case where token-based auth (e.g. PAT) is used but neither token nor tokenFilePath is provided.
+	ErrCodeEmptyToken = sferrors.ErrCodeEmptyToken
 	// ErrCodeEmptyOAuthParameters is an error code for the case where the client ID or client secret are not provided for OAuth flows.
 	ErrCodeEmptyOAuthParameters = sferrors.ErrCodeEmptyOAuthParameters
 	// ErrMissingAccessATokenButRefreshTokenPresent is an error code for the case when access token is not found in cache, but the refresh token is present.
