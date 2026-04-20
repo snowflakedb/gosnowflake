@@ -43,7 +43,7 @@ type ArrowStreamLoader interface {
 // GetBatches, as the batch content may be Arrow IPC or JSON depending
 // on the statement type.
 //
-//	if p, ok := loader.(gosnowflake.QueryResultFormatProvider); ok {
+//	if p, ok := loader.(QueryResultFormatProvider); ok {
 //	    fmt.Println(p.QueryResultFormat())
 //	}
 type QueryResultFormatProvider interface {
