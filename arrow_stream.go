@@ -26,8 +26,7 @@ import (
 // JSON even though the client requested Arrow. Small JSON results are
 // accessible via JSONData(); column metadata is available via RowTypes().
 //
-// To determine the actual response format, use a type assertion against
-// QueryResultFormatProvider.
+// To determine the actual response format, use QueryResultFormatProvider.
 type ArrowStreamLoader interface {
 	GetBatches() ([]ArrowStreamBatch, error)
 	NextResultSet(ctx context.Context) error
