@@ -30,12 +30,12 @@ const (
 	azureWif wifProviderType = "AZURE"
 	oidcWif  wifProviderType = "OIDC"
 
-	gcpMetadataFlavorHeaderName  = "Metadata-Flavor"
-	gcpMetadataFlavor            = "Google"
+	gcpMetadataFlavorHeaderName     = "Metadata-Flavor"
+	gcpMetadataFlavor               = "Google"
 	defaultGcpMetadataServiceBase   = "http://metadata.google.internal"
 	defaultAzureMetadataServiceBase = "http://169.254.169.254"
-	defaultGcpIamCredentialsBase = "https://iamcredentials.googleapis.com"
-	snowflakeAudience            = "snowflakecomputing.com"
+	defaultGcpIamCredentialsBase    = "https://iamcredentials.googleapis.com"
+	snowflakeAudience               = "snowflakecomputing.com"
 )
 
 type wifProviderType string
