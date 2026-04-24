@@ -30,11 +30,12 @@ const (
 	azureWif wifProviderType = "AZURE"
 	oidcWif  wifProviderType = "OIDC"
 
-	gcpMetadataFlavorHeaderName  = "Metadata-Flavor"
-	gcpMetadataFlavor            = "Google"
-	defaultMetadataServiceBase   = "http://169.254.169.254"
-	defaultGcpIamCredentialsBase = "https://iamcredentials.googleapis.com"
-	snowflakeAudience            = "snowflakecomputing.com"
+	gcpMetadataFlavorHeaderName     = "Metadata-Flavor"
+	gcpMetadataFlavor               = "Google"
+	defaultGcpMetadataServiceBase   = "http://metadata.google.internal"
+	defaultAzureMetadataServiceBase = "http://169.254.169.254"
+	defaultGcpIamCredentialsBase    = "https://iamcredentials.googleapis.com"
+	snowflakeAudience               = "snowflakecomputing.com"
 )
 
 type wifProviderType string
@@ -70,7 +71,7 @@ func createWifAttestationProvider(ctx context.Context, cfg *Config, telemetry *s
 		gcpCreator: &gcpIdentityAttestationCreator{
 			cfg:                    cfg,
 			telemetry:              telemetry,
-			metadataServiceBaseURL: defaultMetadataServiceBase,
+			metadataServiceBaseURL: defaultGcpMetadataServiceBase,
 			iamCredentialsURL:      defaultGcpIamCredentialsBase,
 		},
 		azureCreator: &azureIdentityAttestationCreator{
@@ -78,7 +79,7 @@ func createWifAttestationProvider(ctx context.Context, cfg *Config, telemetry *s
 			cfg:                              cfg,
 			telemetry:                        telemetry,
 			workloadIdentityEntraResource:    determineEntraResource(cfg),
-			azureMetadataServiceBaseURL:      defaultMetadataServiceBase,
+			azureMetadataServiceBaseURL:      defaultAzureMetadataServiceBase,
 		},
 		oidcCreator: &oidcIdentityAttestationCreator{token: func() (string, error) { return sfconfig.GetToken(cfg) }},
 	}
