@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestAsyncMode(t *testing.T) {
@@ -120,8 +121,8 @@ func TestMultipleAsyncQueries(t *testing.T) {
 	ctx := WithAsyncMode(context.Background())
 	s1 := "foo"
 	s2 := "bar"
-	ch1 := make(chan string)
-	ch2 := make(chan string)
+	ch1 := make(chan string, 1)
+	ch2 := make(chan string, 1)
 
 	db := openDB(t)
 
@@ -139,6 +140,8 @@ func TestMultipleAsyncQueries(t *testing.T) {
 
 		go retrieveRows(rows1, ch1)
 		go retrieveRows(rows2, ch2)
+		timeout := time.NewTimer(3 * time.Minute)
+		defer timeout.Stop()
 		select {
 		case res := <-ch1:
 			t.Fatalf("value %v should not have been called earlier.", res)
@@ -146,6 +149,8 @@ func TestMultipleAsyncQueries(t *testing.T) {
 			if res != s2 {
 				t.Fatalf("query failed. expected: %v, got: %v", s2, res)
 			}
+		case <-timeout.C:
+			t.Fatal("timed out waiting for async queries to complete")
 		}
 	})
 }

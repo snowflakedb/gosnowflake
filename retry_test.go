@@ -33,8 +33,9 @@ func (e *fakeHTTPError) Timeout() bool   { return e.timeout }
 func (e *fakeHTTPError) Temporary() bool { return true }
 
 type fakeResponseBody struct {
-	body []byte
-	cnt  int
+	body    []byte
+	cnt     int
+	onClose func()
 }
 
 func (b *fakeResponseBody) Read(p []byte) (n int, err error) {
@@ -48,6 +49,9 @@ func (b *fakeResponseBody) Read(p []byte) (n int, err error) {
 }
 
 func (b *fakeResponseBody) Close() error {
+	if b.onClose != nil {
+		b.onClose()
+	}
 	return nil
 }
 

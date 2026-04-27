@@ -1435,10 +1435,10 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 			dbt.mustExec(forceJSON)
 		}
 
-		var res string
 		testSizes := [2]int{smallSize, largeSize}
 		for _, testSize := range testSizes {
 			t.Run(fmt.Sprintf("testLOB_%v_useArrowFormat=%v", strconv.Itoa(testSize), strconv.FormatBool(useArrowFormat)), func(t *testing.T) {
+				var res string
 				rows, err := dbt.query(fmt.Sprintf("SELECT randstr(%v, 124)", testSize))
 				assertNilF(t, err)
 				defer func() {

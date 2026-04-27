@@ -38,6 +38,7 @@ const (
 	describeOnly           ContextKey = "DESCRIBE_ONLY"
 	internalQuery          ContextKey = "INTERNAL_QUERY"
 	cancelRetry            ContextKey = "CANCEL_RETRY"
+	truncatedResponseRetry ContextKey = "TRUNCATED_RESPONSE_RETRY"
 	logQueryText           ContextKey = "LOG_QUERY_TEXT"
 	logQueryParameters     ContextKey = "LOG_QUERY_PARAMETERS"
 )

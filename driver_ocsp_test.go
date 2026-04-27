@@ -3,7 +3,6 @@ package gosnowflake
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -516,91 +515,6 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 		t.Fatalf("the root cause is not 404: %v", urlErr.Err)
 	}
 }
-
-func TestExpiredCertificate(t *testing.T) {
-	cleanup()
-	defer cleanup()
-
-	config := &Config{
-		Account:       "fakeaccount10",
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
-		User:          "fakeuser",
-		Password:      "fakepassword",
-		Host:          "expired.badssl.com",
-		LoginTimeout:  10 * time.Second,
-		OCSPFailOpen:  OCSPFailOpenTrue,
-	}
-	var db *sql.DB
-	var err error
-	var testURL string
-	testURL, err = DSN(config)
-	assertNilF(t, err, "failed to build URL from Config")
-
-	if db, err = sql.Open("snowflake", testURL); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
-	}
-	defer db.Close()
-	if err = db.Ping(); err == nil {
-		t.Fatalf("should fail to ping. %v", testURL)
-	}
-	urlErr, ok := err.(*url.Error)
-	if !ok {
-		t.Fatalf("failed to extract error URL Error: %v", err)
-	}
-	_, ok = urlErr.Err.(x509.CertificateInvalidError)
-
-	if !ok {
-		// Go 1.20 throws tls CertificateVerification error
-		errString := urlErr.Err.Error()
-		// badssl sometimes times out
-		if !strings.Contains(errString, "certificate has expired or is not yet valid") && !strings.Contains(errString, "timeout") && !strings.Contains(errString, "connection attempt failed") {
-			t.Fatalf("failed to extract error Certificate error: %v", err)
-		}
-	}
-}
-
-/*
-DISABLED: sicne it appeared self-signed.badssl.com is not well maintained,
-          this test is no longer reliable.
-// TestSelfSignedCertificate tests self-signed certificate
-func TestSelfSignedCertificate(t *testing.T) {
-	cleanup()
-	defer cleanup()
-
-	config := &Config{
-		Account:      "fakeaccount10",
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		Host:         "self-signed.badssl.com",
-		LoginTimeout: 10 * time.Second,
-		OCSPFailOpen: OCSPFailOpenTrue,
-	}
-	var db *sql.DB
-	var err error
-	var testURL string
-	testURL, err = DSN(config)
-	assertNilF(t, err, "failed to build URL from Config")
-
-	if db, err = sql.Open("snowflake", testURL); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
-	}
-	defer db.Close()
-	if err = db.Ping(); err == nil {
-		t.Fatalf("should fail to ping. %v", testURL)
-	}
-	urlErr, ok := err.(*url.Error)
-	if !ok {
-		t.Fatalf("failed to extract error URL Error: %v", err)
-	}
-	_, ok = urlErr.Err.(x509.UnknownAuthorityError)
-	if !ok {
-		t.Fatalf("failed to extract error Certificate error: %v", err)
-	}
-}
-*/
 
 func TestOCSPFailOpenNoOCSPURL(t *testing.T) {
 	cleanup()

@@ -203,6 +203,57 @@ func TestUnitPostQueryHelperOnRenewSessionKeepsRequestIdButGeneratesNewRequestGu
 	assertNilE(t, err)
 }
 
+func TestUnitPostQueryHelperRetriesOnTruncatedResponse(t *testing.T) {
+	requestID := NewUUID()
+	retried := false
+	bodyClosed := false
+
+	sr := &snowflakeRestful{
+		FuncPost: func(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ currentTimeProvider, _ *Config) (*http.Response, error) {
+			// Return a truncated JSON body to trigger io.ErrUnexpectedEOF
+			fb := &fakeResponseBody{body: []byte(`{"data":null,"code":"0","message":"ok"`)}
+			fb.onClose = func() { bodyClosed = true }
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       fb,
+			}, nil
+		},
+		FuncPostQuery: func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, retryRequestID UUID, _ *Config) (*execResponse, error) {
+			assertTrueF(t, bodyClosed, "response body should be closed before retry")
+			retried = true
+			assertEqualF(t, requestID.String(), retryRequestID.String())
+			return &execResponse{Success: true}, nil
+		},
+		TokenAccessor: getSimpleTokenAccessor(),
+	}
+	resp, err := postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), make([]byte, 0), time.Second, requestID, nil)
+	assertNilF(t, err)
+	assertTrueF(t, retried, "should have retried via FuncPostQuery on truncated response")
+	assertTrueF(t, resp.Success, "retried response should be successful")
+}
+
+func TestUnitPostQueryHelperDoesNotRetryTruncatedResponseTwice(t *testing.T) {
+	requestID := NewUUID()
+	postCalls := 0
+
+	sr := &snowflakeRestful{
+		FuncPost: func(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ currentTimeProvider, _ *Config) (*http.Response, error) {
+			postCalls++
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       &fakeResponseBody{body: []byte(`{"data":null,"code":"0","message":"ok"`)},
+			}, nil
+		},
+		TokenAccessor: getSimpleTokenAccessor(),
+	}
+	sr.FuncPostQuery = func(ctx context.Context, sr *snowflakeRestful, params *url.Values, headers map[string]string, body []byte, timeout time.Duration, retryRequestID UUID, cfg *Config) (*execResponse, error) {
+		return postRestfulQueryHelper(ctx, sr, params, headers, body, timeout, retryRequestID, cfg)
+	}
+	_, err := postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), make([]byte, 0), time.Second, requestID, nil)
+	assertNotNilF(t, err, "should return error after exhausting truncated response retry")
+	assertEqualF(t, 2, postCalls, "should have called FuncPost exactly twice (original + one retry)")
+}
+
 func renewSessionTest(_ context.Context, _ *snowflakeRestful, _ time.Duration) error {
 	return nil
 }
