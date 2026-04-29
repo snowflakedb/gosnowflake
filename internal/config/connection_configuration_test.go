@@ -125,6 +125,40 @@ func TestTokenFilePermission(t *testing.T) {
 		}
 	})
 
+	t.Run("test skip verification bypasses writable connection file", func(t *testing.T) {
+		os.Setenv(SkipTokenFilePermissionsVerificationEnv, "true")
+		defer os.Unsetenv(SkipTokenFilePermissionsVerificationEnv)
+
+		err = os.Chmod("../../test_data/connections.toml", 0666)
+		if err != nil {
+			t.Fatalf("The error occurred because you cannot change the file permission: %v", err)
+		}
+		if _, err := LoadConnectionConfig(); err != nil {
+			t.Fatalf("LoadConnectionConfig should succeed when %v is set, got: %v", SkipTokenFilePermissionsVerificationEnv, err)
+		}
+	})
+
+	t.Run("test skip verification does not leak to workload identity token file", func(t *testing.T) {
+		os.Setenv(SkipTokenFilePermissionsVerificationEnv, "true")
+		defer os.Unsetenv(SkipTokenFilePermissionsVerificationEnv)
+
+		err = os.Chmod("../../test_data/snowflake/session/token", 0666)
+		if err != nil {
+			t.Fatalf("The error occurred because you cannot change the file permission: %v", err)
+		}
+		_, err := ReadToken("../../test_data/snowflake/session/token")
+		if err == nil {
+			t.Fatal("ReadToken must still fail on writable token file even with bypass env set")
+		}
+		driverErr, ok := err.(*sferrors.SnowflakeError)
+		if !ok {
+			t.Fatalf("This should be a Snowflake Error, got: %T", err)
+		}
+		if driverErr.Number != sferrors.ErrCodeInvalidFilePermission {
+			t.Fatalf("Expected error code %d, got %d", sferrors.ErrCodeInvalidFilePermission, driverErr.Number)
+		}
+	})
+
 	t.Run("test writable token file other than owner", func(t *testing.T) {
 		err = os.Chmod("../../test_data/snowflake/session/token", 0666)
 		if err != nil {
