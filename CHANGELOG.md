@@ -8,7 +8,7 @@ Bug fixes:
 
 Internal changes:
 
-- Introduced `SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION` environment variable to allow bypassing file permissions check for token files, which is useful for environments where strict permissions cannot be set (snowflakedb/gosnowflake#1780).
+- Introduced `SKIP_FILE_PERMISSIONS_VERIFICATION` environment variable to allow bypassing file permissions checks for `connections.toml` and the credential cache, which is useful for environments where strict permissions cannot be set (snowflakedb/gosnowflake#1780).
 
 ## 2.0.2
 

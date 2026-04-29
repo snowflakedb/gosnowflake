@@ -203,7 +203,7 @@ func (ssm *fileBasedSecureStorageManager) withCacheFile(action func(*os.File)) {
 	}(cacheDir)
 
 	if sfconfig.ShouldSkipTokenFilePermissionsVerification() {
-		logger.Debugf("Skipping credential cache permission verification because SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true")
+		logger.Debugf("Skipping credential cache permission verification because SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true")
 		action(cacheFile)
 		return
 	}
