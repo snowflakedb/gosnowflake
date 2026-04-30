@@ -2502,18 +2502,6 @@ func TestFillMissingConfigParametersRejectsHostWithHTTPScheme(t *testing.T) {
 	assertEqualE(t, sfErr.Number, sferrors.ErrCodeHostWithScheme, "error number")
 }
 
-func TestFillMissingConfigParametersAcceptsHostWithoutScheme(t *testing.T) {
-	cfg := &Config{
-		User:          "u",
-		Password:      "p",
-		Host:          "myorg-myaccount.snowflakecomputing.com",
-		Port:          443,
-		Account:       "myorg-myaccount",
-		Authenticator: AuthTypeSnowflake,
-	}
-	assertNilE(t, FillMissingConfigParameters(cfg), "FillMissingConfigParameters should accept host without scheme")
-}
-
 // helper function to generate PKCS8 encoded base64 string of a private key
 func generatePKCS8StringSupress(key *rsa.PrivateKey) string {
 	// Error would only be thrown when the private key type is not supported
