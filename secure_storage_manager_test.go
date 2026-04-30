@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
 
 func TestBuildCredCacheDirPath(t *testing.T) {
@@ -192,6 +194,45 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 		assertNilF(t, err)
 		tokens := m["tokens"].(map[string]any)
 		assertEqualE(t, tokens[cacheKey], "initialValue")
+	})
+}
+
+func TestFileBasedCacheSkipPermissionsVerification(t *testing.T) {
+	skipOnWindows(t, "file system permission is different")
+	credCacheDir, err := os.MkdirTemp("", "")
+	assertNilF(t, err)
+	defer os.RemoveAll(credCacheDir)
+	credCacheDirEnvOverride := overrideEnv(credCacheDirEnv, credCacheDir)
+	defer credCacheDirEnvOverride.rollback()
+
+	skipEnvOverride := overrideEnv(sfconfig.SkipTokenFilePermissionsVerificationEnv, "true")
+	defer skipEnvOverride.rollback()
+
+	ssm, err := newFileBasedSecureStorageManager()
+	assertNilF(t, err)
+
+	tokenSpec := newMfaTokenSpec("somehost.com", "someUser")
+
+	t.Run("round-trip with 0644 cache file", func(t *testing.T) {
+		ssm.setCredential(tokenSpec, "initialValue")
+		assertEqualE(t, ssm.getCredential(tokenSpec), "initialValue")
+		assertNilF(t, os.Chmod(ssm.credFilePath(), 0644))
+		defer func() {
+			assertNilE(t, os.Chmod(ssm.credFilePath(), 0600))
+		}()
+		ssm.setCredential(tokenSpec, "newValue")
+		assertEqualE(t, ssm.getCredential(tokenSpec), "newValue")
+	})
+
+	t.Run("round-trip with 0777 cache dir", func(t *testing.T) {
+		ssm.setCredential(tokenSpec, "initialValue")
+		assertEqualE(t, ssm.getCredential(tokenSpec), "initialValue")
+		assertNilF(t, os.Chmod(ssm.credDirPath, 0777))
+		defer func() {
+			assertNilE(t, os.Chmod(ssm.credDirPath, 0700))
+		}()
+		ssm.setCredential(tokenSpec, "newValue")
+		assertEqualE(t, ssm.getCredential(tokenSpec), "newValue")
 	})
 }
 

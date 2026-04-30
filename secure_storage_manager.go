@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
 
 type tokenType string
@@ -200,6 +202,12 @@ func (ssm *fileBasedSecureStorageManager) withCacheFile(action func(*os.File)) {
 		}
 	}(cacheDir)
 
+	if sfconfig.ShouldSkipTokenFilePermissionsVerification() {
+		logger.Debugf("Skipping credential cache permission verification because SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true")
+		action(cacheFile)
+		return
+	}
+
 	if err := ensureFileOwner(cacheFile); err != nil {
 		logger.Warnf("failed to ensure owner for temporary cache file. %v", err)
 		return
@@ -277,16 +285,18 @@ func (ssm *fileBasedSecureStorageManager) lockFile() error {
 			return fmt.Errorf("failed to stat %v and determine if lock is stale. err: %v", lockPath, err)
 		}
 
-		ownerUID, err := provideFileOwner(lockFile)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-		currentUser, err := user.Current()
-		if err != nil {
-			return err
-		}
-		if strconv.Itoa(int(ownerUID)) != currentUser.Uid {
-			return errors.New("incorrect owner of " + lockFile.Name())
+		if !sfconfig.ShouldSkipTokenFilePermissionsVerification() {
+			ownerUID, err := provideFileOwner(lockFile)
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+			currentUser, err := user.Current()
+			if err != nil {
+				return err
+			}
+			if strconv.Itoa(int(ownerUID)) != currentUser.Uid {
+				return errors.New("incorrect owner of " + lockFile.Name())
+			}
 		}
 
 		// removing stale lock
