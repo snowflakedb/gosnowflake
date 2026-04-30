@@ -6,6 +6,8 @@ New features:
 
 Bug fixes:
 
+- Improved error message when `Host` is incorrectly configured with a URL scheme (e.g. `https://myorg-myaccount.snowflakecomputing.com`), previously this produced a cryptic `260004: failed to parse a port number` error (snowflakedb/gosnowflake#1784).
+
 Internal changes:
 
 - Introduced `SKIP_FILE_PERMISSIONS_VERIFICATION` environment variable to allow bypassing file permissions checks for `connections.toml` and the credential cache, which is useful for environments where strict permissions cannot be set (snowflakedb/gosnowflake#1780).
