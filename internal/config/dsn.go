@@ -466,6 +466,13 @@ func applyAccountFromHostIfMissing(cfg *Config) {
 func FillMissingConfigParameters(cfg *Config) error {
 	applyAccountFromHostIfMissing(cfg)
 
+	if cfg.Host != "" {
+		lower := strings.ToLower(cfg.Host)
+		if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+			return sferrors.ErrHostWithScheme(cfg.Host)
+		}
+	}
+
 	posDash := strings.LastIndex(cfg.Account, "-")
 	if posDash > 0 {
 		if strings.Contains(strings.ToLower(cfg.Host), ".global.") {

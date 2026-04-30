@@ -123,6 +123,8 @@ const (
 	ErrCodeEmptyToken = sferrors.ErrCodeEmptyToken
 	// ErrCodeEmptyOAuthParameters is an error code for the case where the client ID or client secret are not provided for OAuth flows.
 	ErrCodeEmptyOAuthParameters = sferrors.ErrCodeEmptyOAuthParameters
+	// ErrCodeHostWithScheme is an error code for the case where the host includes a URL scheme (e.g. "https://")
+	ErrCodeHostWithScheme = sferrors.ErrCodeHostWithScheme
 	// ErrMissingAccessATokenButRefreshTokenPresent is an error code for the case when access token is not found in cache, but the refresh token is present.
 	ErrMissingAccessATokenButRefreshTokenPresent = sferrors.ErrMissingAccessATokenButRefreshTokenPresent
 	// ErrCodeMissingTLSConfig is an error code for the case where the TLS config is missing.

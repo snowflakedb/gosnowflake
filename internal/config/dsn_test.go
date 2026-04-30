@@ -2470,6 +2470,50 @@ func TestFillMissingConfigParametersNonSnowflakeHostRequiresAccount(t *testing.T
 	assertEqualE(t, sfErr.Number, sferrors.ErrCodeEmptyAccountCode, "error number")
 }
 
+func TestFillMissingConfigParametersRejectsHostWithHTTPSScheme(t *testing.T) {
+	cfg := &Config{
+		User:          "u",
+		Password:      "p",
+		Host:          "https://myorg-myaccount.snowflakecomputing.com",
+		Port:          443,
+		Account:       "myorg-myaccount",
+		Authenticator: AuthTypeSnowflake,
+	}
+	err := FillMissingConfigParameters(cfg)
+	assertNotNilF(t, err, "expected error for Host with https:// scheme")
+	sfErr, ok := err.(*sferrors.SnowflakeError)
+	assertTrueF(t, ok, "expected SnowflakeError")
+	assertEqualE(t, sfErr.Number, sferrors.ErrCodeHostWithScheme, "error number")
+}
+
+func TestFillMissingConfigParametersRejectsHostWithHTTPScheme(t *testing.T) {
+	cfg := &Config{
+		User:          "u",
+		Password:      "p",
+		Host:          "http://myorg-myaccount.snowflakecomputing.com",
+		Port:          443,
+		Account:       "myorg-myaccount",
+		Authenticator: AuthTypeSnowflake,
+	}
+	err := FillMissingConfigParameters(cfg)
+	assertNotNilF(t, err, "expected error for Host with http:// scheme")
+	sfErr, ok := err.(*sferrors.SnowflakeError)
+	assertTrueF(t, ok, "expected SnowflakeError")
+	assertEqualE(t, sfErr.Number, sferrors.ErrCodeHostWithScheme, "error number")
+}
+
+func TestFillMissingConfigParametersAcceptsHostWithoutScheme(t *testing.T) {
+	cfg := &Config{
+		User:          "u",
+		Password:      "p",
+		Host:          "myorg-myaccount.snowflakecomputing.com",
+		Port:          443,
+		Account:       "myorg-myaccount",
+		Authenticator: AuthTypeSnowflake,
+	}
+	assertNilE(t, FillMissingConfigParameters(cfg), "FillMissingConfigParameters should accept host without scheme")
+}
+
 // helper function to generate PKCS8 encoded base64 string of a private key
 func generatePKCS8StringSupress(key *rsa.PrivateKey) string {
 	// Error would only be thrown when the private key type is not supported

@@ -90,6 +90,8 @@ const (
 	ErrCodeMissingTLSConfig = 260019
 	// ErrCodeEmptyToken is an error code for the case where token-based auth (e.g. PAT) is used but neither token nor tokenFilePath is provided.
 	ErrCodeEmptyToken = 260020
+	// ErrCodeHostWithScheme is an error code for the case where the host includes a URL scheme (e.g. "https://")
+	ErrCodeHostWithScheme = 260021
 
 	/* network */
 
@@ -272,6 +274,7 @@ const (
 	ErrMsgInvalidExecutablePermissionToFile  = "file '%v' is executable — this poses a security risk because the file could be misused as a script or executed unintentionally. Your Permission: %v"
 	ErrMsgNonArrowResponseInArrowBatches     = "arrow batches enabled, but the response is not Arrow based"
 	ErrMsgMissingTLSConfig                   = "TLS config not found: %v"
+	ErrMsgHostWithScheme                     = "host includes a URL scheme (e.g. \"https://\"). Specify the hostname only, without a scheme prefix. Use \"myorg-myaccount.snowflakecomputing.com\" instead of \"https://myorg-myaccount.snowflakecomputing.com\". Got: %v"
 )
 
 // ErrEmptyAccount is returned if a DSN doesn't include account parameter.
@@ -319,6 +322,15 @@ func ErrEmptyOAuthParameters() *SnowflakeError {
 	return &SnowflakeError{
 		Number:  ErrCodeEmptyOAuthParameters,
 		Message: "client ID or client secret are empty",
+	}
+}
+
+// ErrHostWithScheme is returned if the host configuration value includes a URL scheme (e.g. "https://").
+func ErrHostWithScheme(host string) *SnowflakeError {
+	return &SnowflakeError{
+		Number:      ErrCodeHostWithScheme,
+		Message:     ErrMsgHostWithScheme,
+		MessageArgs: []any{host},
 	}
 }
 
