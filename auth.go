@@ -24,6 +24,7 @@ import (
 	"github.com/snowflakedb/gosnowflake/v2/internal/compilation"
 	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 	internalos "github.com/snowflakedb/gosnowflake/v2/internal/os"
+	"github.com/snowflakedb/gosnowflake/v2/internal/spcs"
 )
 
 const (
@@ -117,6 +118,7 @@ type authRequestData struct {
 	Authenticator           string                       `json:"AUTHENTICATOR,omitempty"`
 	SessionParameters       map[string]any               `json:"SESSION_PARAMETERS,omitempty"`
 	ClientEnvironment       authRequestClientEnvironment `json:"CLIENT_ENVIRONMENT"`
+	SpcsToken               string                       `json:"SPCS_TOKEN,omitempty"`
 	BrowserModeRedirectPort string                       `json:"BROWSER_MODE_REDIRECT_PORT,omitempty"`
 	ProofKey                string                       `json:"PROOF_KEY,omitempty"`
 	Token                   string                       `json:"TOKEN,omitempty"`
@@ -425,6 +427,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]any,
 		AccountName:       sc.cfg.Account,
 		SessionParameters: sessionParameters,
 		ClientEnvironment: clientEnvironment,
+		SpcsToken:         spcs.GetToken(sc.ctx),
 	}
 
 	switch sc.cfg.Authenticator {

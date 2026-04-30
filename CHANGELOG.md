@@ -9,6 +9,7 @@ Bug fixes:
 Internal changes:
 
 - Introduced `SKIP_FILE_PERMISSIONS_VERIFICATION` environment variable to allow bypassing file permissions checks for `connections.toml` and the credential cache, which is useful for environments where strict permissions cannot be set (snowflakedb/gosnowflake#1780).
+- Added support for `SPCS_TOKEN` in the login request. When the driver detects it is running inside a Snowpark Container Services workload (via the `SNOWFLAKE_RUNNING_INSIDE_SPCS` environment variable), it reads an opaque service token from `/snowflake/session/spcs_token` on every login and attaches it to the login-request payload as `SPCS_TOKEN`. Read failures are logged at warn and do not affect login (snowflakedb/gosnowflake#1783).
 
 ## 2.0.2
 
