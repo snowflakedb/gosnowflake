@@ -622,10 +622,11 @@ func TestArrowStreamBatchResetPropagatesCloseError(t *testing.T) {
 	assertNilF(t, batch.rr, "rr should be nil after Reset even on error")
 }
 
-func TestArrowStreamBatchResetAllowsRedownload(t *testing.T) {
-	// After Reset, GetStream should re-invoke the download path.
-	// We simulate this by setting rr, resetting, then confirming rr is nil
-	// so GetStream would attempt a fresh download.
+func TestArrowStreamBatchResetClearsCachedReader(t *testing.T) {
+	// Reset should close and nil-out the cached reader so that a
+	// subsequent GetStream (tested separately with a full downloader
+	// in TestArrowStreamBatchResetThenGetStreamRedownloads) would
+	// attempt a fresh download.
 	rc := &errReadCloser{Reader: bytes.NewReader([]byte("stale"))}
 	batch := ArrowStreamBatch{rr: rc}
 
@@ -680,6 +681,7 @@ func TestArrowStreamBatchResetThenGetStreamRedownloads(t *testing.T) {
 	// First download.
 	stream1, err := batch.GetStream(context.Background())
 	assertNilF(t, err)
+	defer stream1.Close()
 	data1, err := io.ReadAll(stream1)
 	assertNilF(t, err)
 	assertEqualE(t, callCount, 1)
