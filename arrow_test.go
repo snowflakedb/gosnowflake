@@ -2,9 +2,14 @@ package gosnowflake
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
+	"database/sql/driver"
+	"errors"
 	"fmt"
+	"io"
 	"math/big"
+	"net/http"
 	"reflect"
 	"strings"
 	"testing"
@@ -12,8 +17,7 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
-
-	"database/sql/driver"
+	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 )
 
 func TestArrowBatchDataProvider(t *testing.T) {
@@ -574,4 +578,314 @@ func TestArrowMemoryCleanedUp(t *testing.T) {
 		assertEqualE(t, v, 2)
 		assertFalseE(t, rows.Next())
 	})
+}
+
+// errReadCloser is a ReadCloser whose Close returns a predetermined error.
+type errReadCloser struct {
+	io.Reader
+	closeErr error
+	closed   bool
+}
+
+func (e *errReadCloser) Close() error {
+	e.closed = true
+	return e.closeErr
+}
+
+func TestArrowStreamBatchResetNilReader(t *testing.T) {
+	// Reset on a batch with no reader should be a no-op and return nil.
+	batch := ArrowStreamBatch{}
+	err := batch.Reset()
+	assertNilF(t, err, "Reset on nil reader should return nil")
+}
+
+func TestArrowStreamBatchResetClosesReader(t *testing.T) {
+	// Reset should close the underlying reader and nil it out.
+	rc := &errReadCloser{Reader: bytes.NewReader([]byte("data"))}
+	batch := ArrowStreamBatch{rr: rc}
+
+	err := batch.Reset()
+	assertNilF(t, err, "Reset should not return error on successful close")
+	assertTrueF(t, rc.closed, "underlying reader should have been closed")
+	assertNilF(t, batch.rr, "rr should be nil after Reset")
+}
+
+func TestArrowStreamBatchResetPropagatesCloseError(t *testing.T) {
+	// Reset should propagate the error from Close.
+	expected := errors.New("close failed")
+	rc := &errReadCloser{Reader: bytes.NewReader(nil), closeErr: expected}
+	batch := ArrowStreamBatch{rr: rc}
+
+	err := batch.Reset()
+	assertTrueF(t, errors.Is(err, expected), "Reset should propagate close error")
+	// rr should still be nilled out even when Close returns an error.
+	assertNilF(t, batch.rr, "rr should be nil after Reset even on error")
+}
+
+func TestArrowStreamBatchResetAllowsRedownload(t *testing.T) {
+	// After Reset, GetStream should re-invoke the download path.
+	// We simulate this by setting rr, resetting, then confirming rr is nil
+	// so GetStream would attempt a fresh download.
+	rc := &errReadCloser{Reader: bytes.NewReader([]byte("stale"))}
+	batch := ArrowStreamBatch{rr: rc}
+
+	// Confirm GetStream returns the cached reader before Reset.
+	stream, err := batch.GetStream(context.Background())
+	assertNilF(t, err)
+	assertTrueF(t, stream == rc, "GetStream should return cached reader")
+
+	// Reset clears the cache.
+	err = batch.Reset()
+	assertNilF(t, err)
+	assertNilF(t, batch.rr, "rr should be nil after Reset")
+}
+
+func TestArrowStreamBatchDoubleResetIsIdempotent(t *testing.T) {
+	// Calling Reset twice should not error the second time.
+	rc := &errReadCloser{Reader: bytes.NewReader([]byte("data"))}
+	batch := ArrowStreamBatch{rr: rc}
+
+	assertNilF(t, batch.Reset(), "first Reset should succeed")
+	assertNilF(t, batch.Reset(), "second Reset should be a no-op")
+}
+
+// newTestArrowStreamBatch creates an ArrowStreamBatch wired to a mock FuncGet
+// for unit testing without a live Snowflake connection.
+func newTestArrowStreamBatch(funcGet func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error)) ArrowStreamBatch {
+	sc := &snowflakeConn{rest: &snowflakeRestful{RequestTimeout: 0}}
+	scd := &snowflakeArrowStreamChunkDownloader{
+		sc:         sc,
+		ChunkMetas: []query.ExecResponseChunk{{URL: "http://fake/chunk0"}},
+		Qrmk:       "testQrmk",
+		FuncGet:    funcGet,
+	}
+	return ArrowStreamBatch{idx: 0, scd: scd}
+}
+
+func TestArrowStreamBatchResetThenGetStreamRedownloads(t *testing.T) {
+	// After Reset, calling GetStream should invoke FuncGet again,
+	// proving the chunk is actually re-downloaded.
+	callCount := 0
+	mockGet := func(_ context.Context, _ *snowflakeConn, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
+		callCount++
+		body := []byte(fmt.Sprintf("payload-%d", callCount))
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(body)),
+		}, nil
+	}
+
+	batch := newTestArrowStreamBatch(mockGet)
+
+	// First download.
+	stream1, err := batch.GetStream(context.Background())
+	assertNilF(t, err)
+	data1, err := io.ReadAll(stream1)
+	assertNilF(t, err)
+	assertEqualE(t, callCount, 1)
+
+	// Reset clears cached reader.
+	assertNilF(t, batch.Reset())
+
+	// Second download — FuncGet is called again.
+	stream2, err := batch.GetStream(context.Background())
+	assertNilF(t, err)
+	data2, err := io.ReadAll(stream2)
+	assertNilF(t, err)
+	assertEqualE(t, callCount, 2)
+
+	// Content should differ, proving it was re-downloaded.
+	assertFalseE(t, bytes.Equal(data1, data2), "re-downloaded data should differ from original")
+}
+
+func TestArrowStreamBatchResetAfterPartialRead(t *testing.T) {
+	// Simulates the primary use case: a mid-stream failure followed by
+	// Reset + full re-download.
+	fullPayload := []byte("complete-data-here")
+	mockGet := func(_ context.Context, _ *snowflakeConn, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(fullPayload)),
+		}, nil
+	}
+
+	batch := newTestArrowStreamBatch(mockGet)
+
+	// Read only a few bytes (simulate partial/failed read).
+	stream, err := batch.GetStream(context.Background())
+	assertNilF(t, err)
+	partial := make([]byte, 5)
+	_, err = stream.Read(partial)
+	assertNilF(t, err)
+
+	// Reset and re-download the full payload.
+	assertNilF(t, batch.Reset())
+	stream2, err := batch.GetStream(context.Background())
+	assertNilF(t, err)
+	full, err := io.ReadAll(stream2)
+	assertNilF(t, err)
+	assertEqualE(t, string(full), string(fullPayload))
+}
+
+func TestArrowStreamBatchGetStreamGzipped(t *testing.T) {
+	// Verify that gzip-compressed responses are transparently decompressed.
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	_, err := gw.Write([]byte("decompressed payload"))
+	assertNilF(t, err)
+	assertNilF(t, gw.Close())
+	gzBytes := buf.Bytes()
+
+	mockGet := func(_ context.Context, _ *snowflakeConn, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(gzBytes)),
+		}, nil
+	}
+
+	batch := newTestArrowStreamBatch(mockGet)
+	stream, err := batch.GetStream(context.Background())
+	assertNilF(t, err)
+	data, err := io.ReadAll(stream)
+	assertNilF(t, err)
+	assertEqualE(t, string(data), "decompressed payload")
+}
+
+func TestArrowStreamBatchGetStreamNon200(t *testing.T) {
+	// Non-200 responses should surface as a SnowflakeError.
+	mockGet := func(_ context.Context, _ *snowflakeConn, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusBadGateway,
+			Body:       io.NopCloser(bytes.NewReader([]byte("error"))),
+		}, nil
+	}
+
+	batch := newTestArrowStreamBatch(mockGet)
+	_, err := batch.GetStream(context.Background())
+	var sfErr *SnowflakeError
+	assertTrueF(t, errors.As(err, &sfErr), "should return SnowflakeError")
+	assertEqualE(t, sfErr.Number, ErrFailedToGetChunk)
+}
+
+func TestArrowStreamBatchGetStreamFuncGetError(t *testing.T) {
+	// Network-level errors from FuncGet should propagate directly.
+	expected := errors.New("network failure")
+	mockGet := func(_ context.Context, _ *snowflakeConn, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
+		return nil, expected
+	}
+
+	batch := newTestArrowStreamBatch(mockGet)
+	_, err := batch.GetStream(context.Background())
+	assertTrueF(t, errors.Is(err, expected), "should propagate FuncGet error")
+}
+
+func TestArrowStreamBatchResetThenGetStreamAfterError(t *testing.T) {
+	// If the first GetStream fails, Reset should allow a successful retry.
+	calls := 0
+	mockGet := func(_ context.Context, _ *snowflakeConn, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
+		calls++
+		if calls == 1 {
+			return nil, errors.New("transient error")
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader([]byte("ok"))),
+		}, nil
+	}
+
+	batch := newTestArrowStreamBatch(mockGet)
+
+	// First attempt fails.
+	_, err := batch.GetStream(context.Background())
+	assertNotNilE(t, err)
+
+	// Reset (rr is still nil since download failed, but Reset is safe).
+	assertNilF(t, batch.Reset())
+
+	// Retry succeeds.
+	stream, err := batch.GetStream(context.Background())
+	assertNilF(t, err)
+	data, err := io.ReadAll(stream)
+	assertNilF(t, err)
+	assertEqualE(t, string(data), "ok")
+}
+
+func TestStreamWrapReaderCloseClosesInnerAndWrapped(t *testing.T) {
+	// When inner Reader implements io.ReadCloser, both inner and wrapped
+	// should be closed.
+	inner := &errReadCloser{Reader: bytes.NewReader(nil)}
+	wrappedClosed := false
+	wrapped := &errReadCloser{
+		Reader: bytes.NewReader(nil),
+		closed: false,
+	}
+	w := &streamWrapReader{Reader: inner, wrapped: wrapped}
+	err := w.Close()
+	assertNilF(t, err)
+	assertTrueF(t, inner.closed, "inner ReadCloser should be closed")
+	assertTrueF(t, wrapped.closed, "wrapped body should be closed")
+	_ = wrappedClosed
+}
+
+func TestStreamWrapReaderCloseNonClosableInner(t *testing.T) {
+	// When inner Reader is not an io.ReadCloser, only wrapped is closed.
+	wrapped := &errReadCloser{Reader: bytes.NewReader(nil)}
+	w := &streamWrapReader{Reader: bytes.NewReader(nil), wrapped: wrapped}
+	err := w.Close()
+	assertNilF(t, err)
+	assertTrueF(t, wrapped.closed, "wrapped body should be closed")
+}
+
+func TestStreamWrapReaderClosePropagatesInnerError(t *testing.T) {
+	// If the inner ReadCloser's Close fails, the error should propagate.
+	expected := errors.New("inner close fail")
+	inner := &errReadCloser{Reader: bytes.NewReader(nil), closeErr: expected}
+	wrapped := &errReadCloser{Reader: bytes.NewReader(nil)}
+	w := &streamWrapReader{Reader: inner, wrapped: wrapped}
+	err := w.Close()
+	assertTrueF(t, errors.Is(err, expected), "should propagate inner close error")
+	// wrapped should NOT have been closed because inner errored first.
+	assertFalseE(t, wrapped.closed, "wrapped should not close if inner errors")
+}
+
+func TestArrowStreamBatchResetClosesStreamWrapReader(t *testing.T) {
+	// Reset should properly close a streamWrapReader, including the
+	// wrapped HTTP body.
+	wrappedClosed := false
+	body := &fakeResponseBody{
+		body:    []byte("data"),
+		onClose: func() { wrappedClosed = true },
+	}
+	batch := ArrowStreamBatch{
+		rr: &streamWrapReader{
+			Reader:  bytes.NewReader([]byte("inner")),
+			wrapped: body,
+		},
+	}
+	assertNilF(t, batch.Reset())
+	assertNilF(t, batch.rr, "rr should be nil after Reset")
+	assertTrueF(t, wrappedClosed, "wrapped HTTP body should be closed")
+}
+
+func TestArrowStreamBatchResetClosesGzipStreamWrapReader(t *testing.T) {
+	// Verify Reset properly tears down a gzip + streamWrapReader stack.
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	_, err := gw.Write([]byte("hello"))
+	assertNilF(t, err)
+	assertNilF(t, gw.Close())
+
+	wrappedClosed := false
+	body := &fakeResponseBody{
+		body:    buf.Bytes(),
+		onClose: func() { wrappedClosed = true },
+	}
+	gr, err := gzip.NewReader(bytes.NewReader(buf.Bytes()))
+	assertNilF(t, err)
+
+	batch := ArrowStreamBatch{
+		rr: &streamWrapReader{Reader: gr, wrapped: body},
+	}
+	assertNilF(t, batch.Reset())
+	assertTrueF(t, wrappedClosed, "wrapped HTTP body should be closed via gzip reader")
 }

@@ -66,10 +66,26 @@ type ArrowStreamBatch struct {
 // be in this stream of record batches.
 func (asb *ArrowStreamBatch) NumRows() int64 { return asb.numrows }
 
+// Reset closes any existing stream and clears the cached reader, allowing
+// GetStream to re-download the chunk on the next call. This enables callers
+// to retry after a mid-stream failure (e.g. TCP RST) without re-executing
+// the entire query.
+func (asb *ArrowStreamBatch) Reset() error {
+	if asb.rr != nil {
+		err := asb.rr.Close()
+		asb.rr = nil
+		return err
+	}
+	return nil
+}
+
 // GetStream downloads the chunk (if not already cached) and returns a
 // stream of bytes. The content may be Arrow IPC or JSON (row fragments)
 // depending on the current QueryResultFormat. Close should be called
 // on the returned stream when done to ensure no leaked memory.
+//
+// If a previous stream failed mid-read, call Reset() first to clear the
+// cached reader and allow re-download.
 func (asb *ArrowStreamBatch) GetStream(ctx context.Context) (io.ReadCloser, error) {
 	if asb.rr == nil {
 		if err := asb.downloadChunkStreamHelper(ctx); err != nil {
