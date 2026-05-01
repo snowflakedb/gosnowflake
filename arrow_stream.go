@@ -55,11 +55,12 @@ type QueryResultFormatProvider interface {
 // QueryResultFormat: Arrow IPC record batches (use ipc.NewReader) when
 // the format is "arrow", or JSON (row fragments) when it is "json".
 type ArrowStreamBatch struct {
-	idx     int
-	numrows int64
-	scd     *snowflakeArrowStreamChunkDownloader
-	Loc     *time.Location
-	rr      io.ReadCloser
+	idx        int
+	numrows    int64
+	scd        *snowflakeArrowStreamChunkDownloader
+	Loc        *time.Location
+	rr         io.ReadCloser
+	inlineData []byte // non-nil for inline (RowSetBase64) batches
 }
 
 // NumRows returns the total number of rows that the metadata stated should
@@ -74,7 +75,12 @@ func (asb *ArrowStreamBatch) Reset() error {
 	if asb.rr != nil {
 		err := asb.rr.Close()
 		asb.rr = nil
-		return err
+		if err != nil {
+			return err
+		}
+	}
+	if asb.inlineData != nil {
+		asb.rr = io.NopCloser(bytes.NewReader(asb.inlineData))
 	}
 	return nil
 }
@@ -236,9 +242,10 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 	if len(rowSetBytes) > 0 {
 		out = out[:chunkMetaLen+1]
 		out[0] = ArrowStreamBatch{
-			scd: scd,
-			Loc: loc,
-			rr:  io.NopCloser(bytes.NewReader(rowSetBytes)),
+			scd:        scd,
+			Loc:        loc,
+			rr:         io.NopCloser(bytes.NewReader(rowSetBytes)),
+			inlineData: rowSetBytes,
 		}
 		toFill = out[1:]
 	}

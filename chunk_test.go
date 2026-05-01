@@ -674,6 +674,7 @@ func TestQueryArrowStreamResetAndRereadBatch(t *testing.T) {
 		// First read.
 		stream1, err := batches[idx].GetStream(sct.sc.ctx)
 		assertNilF(t, err)
+		defer stream1.Close()
 		data1, err := io.ReadAll(stream1)
 		assertNilF(t, err)
 		assertTrueF(t, len(data1) > 0, "first read should return data")
