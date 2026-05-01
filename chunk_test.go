@@ -653,3 +653,44 @@ func TestQueryArrowStreamArrowResponseExposesFormat(t *testing.T) {
 		assertTrueF(t, len(batches) > 0, "should have Arrow batches")
 	})
 }
+
+func TestQueryArrowStreamResetAndRereadBatch(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		numrows := 50000
+		query := fmt.Sprintf(selectRandomGenerator, numrows)
+		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, query)
+		assertNilF(t, err)
+
+		batches, err := loader.GetBatches()
+		assertNilF(t, err)
+		assertTrueF(t, len(batches) > 0, "should have at least one batch")
+
+		// Pick a batch that requires a download (skip index 0 which may be inline).
+		idx := 0
+		if len(batches) > 1 {
+			idx = 1
+		}
+
+		// First read.
+		stream1, err := batches[idx].GetStream(sct.sc.ctx)
+		assertNilF(t, err)
+		defer stream1.Close()
+		data1, err := io.ReadAll(stream1)
+		assertNilF(t, err)
+		assertTrueF(t, len(data1) > 0, "first read should return data")
+
+		// Reset the batch.
+		assertNilF(t, batches[idx].Reset())
+
+		// Re-read the same batch.
+		stream2, err := batches[idx].GetStream(sct.sc.ctx)
+		assertNilF(t, err)
+		defer stream2.Close()
+		data2, err := io.ReadAll(stream2)
+		assertNilF(t, err)
+		assertTrueF(t, len(data2) > 0, "re-read after Reset should return data")
+
+		// Both reads should return the same content.
+		assertTrueF(t, bytes.Equal(data1, data2), "data should match after Reset + re-download")
+	})
+}
