@@ -690,6 +690,7 @@ func TestArrowStreamBatchResetThenGetStreamRedownloads(t *testing.T) {
 	// Second download — FuncGet is called again.
 	stream2, err := batch.GetStream(context.Background())
 	assertNilF(t, err)
+	defer stream2.Close()
 	data2, err := io.ReadAll(stream2)
 	assertNilF(t, err)
 	assertEqualE(t, callCount, 2)
@@ -722,6 +723,7 @@ func TestArrowStreamBatchResetAfterPartialRead(t *testing.T) {
 	assertNilF(t, batch.Reset())
 	stream2, err := batch.GetStream(context.Background())
 	assertNilF(t, err)
+	defer stream2.Close()
 	full, err := io.ReadAll(stream2)
 	assertNilF(t, err)
 	assertEqualE(t, string(full), string(fullPayload))
@@ -814,7 +816,6 @@ func TestStreamWrapReaderCloseClosesInnerAndWrapped(t *testing.T) {
 	// When inner Reader implements io.ReadCloser, both inner and wrapped
 	// should be closed.
 	inner := &errReadCloser{Reader: bytes.NewReader(nil)}
-	wrappedClosed := false
 	wrapped := &errReadCloser{
 		Reader: bytes.NewReader(nil),
 		closed: false,
@@ -824,7 +825,6 @@ func TestStreamWrapReaderCloseClosesInnerAndWrapped(t *testing.T) {
 	assertNilF(t, err)
 	assertTrueF(t, inner.closed, "inner ReadCloser should be closed")
 	assertTrueF(t, wrapped.closed, "wrapped body should be closed")
-	_ = wrappedClosed
 }
 
 func TestStreamWrapReaderCloseNonClosableInner(t *testing.T) {
