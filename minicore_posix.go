@@ -3,7 +3,7 @@
 package gosnowflake
 
 /*
-#cgo LDFLAGS: -ldl
+#cgo !openbsd LDFLAGS: -ldl
 #include <dlfcn.h>
 #include <stdlib.h>
 #include <string.h>
