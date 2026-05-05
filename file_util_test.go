@@ -39,6 +39,7 @@ func TestBaseName(t *testing.T) {
 		{"/path/to/archive.tar.gz", "archive.tar.gz"},
 		{"trailing-dot.tar.gz.", "trailing-dot.tar.gz."},
 		{"/path/to/trailing-dot.tar.gz.", "trailing-dot.tar.gz."},
+		{"/path/to/Untitled 1.", "Untitled 1."},
 	}
 
 	for _, test := range testcases {
@@ -58,6 +59,7 @@ func TestBaseNameWindows(t *testing.T) {
 		{`C:\Users\`, "Users"},
 		{`C:\`, `\`},
 		{`C:\Users\trailing-dot.txt.`, "trailing-dot.txt."},
+		{`C:\path\to\Untitled 1.`, "Untitled 1."},
 		{`C:\path\to\.`, ""},
 		{`C:\path\to\..`, ""},
 	}
