@@ -57,7 +57,9 @@ func TestBaseNameWindows(t *testing.T) {
 	testcases := []tcBaseName{
 		{`C:\Users\file.txt`, "file.txt"},
 		{`C:\Users\`, "Users"},
-		{`C:\`, `\`},
+		// filepath.Base: "If the path consists entirely of separators, Base returns a single separator"
+		// "C:\" -> "\" which is not a file name, but a root path, so should be rejected
+		{`C:\`, ""},
 		{`C:\Users\trailing-dot.txt.`, "trailing-dot.txt."},
 		{`C:\path\to\Untitled 1.`, "Untitled 1."},
 		{`C:\path\to\.`, ""},
