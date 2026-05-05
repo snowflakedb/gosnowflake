@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -30,14 +31,41 @@ func TestBaseName(t *testing.T) {
 		{"/tmp", "tmp"},
 		{"/home/desktop/.", ""},
 		{"/home/desktop/..", ""},
+		{".", ""},
+		{"..", ""},
+		{"/", ""},
+		{"/home/desktop/", "desktop"},
+		{"archive.tar.gz", "archive.tar.gz"},
+		{"/path/to/archive.tar.gz", "archive.tar.gz"},
+		{"trailing-dot.tar.gz.", "trailing-dot.tar.gz."},
+		{"/path/to/trailing-dot.tar.gz.", "trailing-dot.tar.gz."},
 	}
 
 	for _, test := range testcases {
 		t.Run(test.in, func(t *testing.T) {
-			base := baseName(test.in)
-			if test.out != base {
-				t.Errorf("Failed to get base, input %v, expected: %v, got: %v", test.in, test.out, base)
-			}
+			actual := baseName(test.in)
+			assertEqualE(t, actual, test.out, "baseName(%q)", test.in)
+		})
+	}
+}
+
+func TestBaseNameWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-specific path tests")
+	}
+	testcases := []tcBaseName{
+		{`C:\Users\file.txt`, "file.txt"},
+		{`C:\Users\`, "Users"},
+		{`C:\`, `\`},
+		{`C:\Users\trailing-dot.txt.`, "trailing-dot.txt."},
+		{`C:\path\to\.`, ""},
+		{`C:\path\to\..`, ""},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.in, func(t *testing.T) {
+			actual := baseName(test.in)
+			assertEqualE(t, actual, test.out, "baseName(%q)", test.in)
 		})
 	}
 }
