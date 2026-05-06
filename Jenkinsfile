@@ -4,7 +4,7 @@ import groovy.json.JsonOutput
 
 
 timestamps {
-  node('high-memory-node') {
+  node('high-memory-node-snowos') {
     stage('checkout') {
       scmInfo = checkout scm
       println("${scmInfo}")
@@ -12,7 +12,6 @@ timestamps {
       env.GIT_COMMIT = scmInfo.GIT_COMMIT
     }
     params = [
-      string(name: 'svn_revision', value: 'temptest-deployed'),
       string(name: 'branch', value: 'main'),
       string(name: 'client_git_commit', value: scmInfo.GIT_COMMIT),
       string(name: 'client_git_branch', value: scmInfo.GIT_BRANCH),
@@ -92,7 +91,7 @@ timestamps {
 
 
 pipeline {
-  agent { label 'high-memory-node' }
+  agent { label 'high-memory-node-snowos' }
   options { timestamps() }
   environment {
     COMMIT_SHA_LONG = sh(returnStdout: true, script: "echo \$(git rev-parse " + "HEAD)").trim()
