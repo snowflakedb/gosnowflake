@@ -72,17 +72,15 @@ func (asb *ArrowStreamBatch) NumRows() int64 { return asb.numrows }
 // to retry after a mid-stream failure (e.g. TCP RST) without re-executing
 // the entire query.
 func (asb *ArrowStreamBatch) Reset() error {
+	var closeErr error
 	if asb.rr != nil {
-		err := asb.rr.Close()
+		closeErr = asb.rr.Close()
 		asb.rr = nil
-		if err != nil {
-			return err
-		}
 	}
 	if asb.inlineData != nil {
 		asb.rr = io.NopCloser(bytes.NewReader(asb.inlineData))
 	}
-	return nil
+	return closeErr
 }
 
 // GetStream downloads the chunk (if not already cached) and returns a
