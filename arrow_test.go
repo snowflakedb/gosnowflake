@@ -641,6 +641,45 @@ func TestArrowStreamBatchResetClearsCachedReader(t *testing.T) {
 	assertNilF(t, batch.rr, "rr should be nil after Reset")
 }
 
+func TestArrowStreamBatchResetRestoresInlineReaderOnCloseError(t *testing.T) {
+	// For inline (RowSetBase64) batches, Reset must restore rr from
+	// inlineData even when the underlying Close returns an error, so
+	// that the batch remains usable for retry. Otherwise GetStream
+	// would fall through to downloadChunkStreamHelper, which has no
+	// chunk URL for inline batches.
+	expected := errors.New("close failed")
+	rc := &errReadCloser{Reader: bytes.NewReader(nil), closeErr: expected}
+	inline := []byte("inline payload")
+	batch := ArrowStreamBatch{rr: rc, inlineData: inline}
+
+	err := batch.Reset()
+	assertTrueF(t, errors.Is(err, expected), "Reset should propagate close error")
+	assertTrueF(t, rc.closed, "underlying reader should have been closed")
+	assertNotNilF(t, batch.rr, "rr should be restored from inlineData even after close error")
+
+	// Verify the restored reader yields the inline payload.
+	got, readErr := io.ReadAll(batch.rr)
+	assertNilF(t, readErr)
+	assertEqualE(t, string(got), string(inline))
+}
+
+func TestArrowStreamBatchResetRestoresInlineReader(t *testing.T) {
+	// Reset on an inline batch should leave rr pointing at a fresh
+	// reader over inlineData (successful Close path).
+	rc := &errReadCloser{Reader: bytes.NewReader([]byte("consumed"))}
+	inline := []byte("inline payload")
+	batch := ArrowStreamBatch{rr: rc, inlineData: inline}
+
+	err := batch.Reset()
+	assertNilF(t, err)
+	assertTrueF(t, rc.closed, "underlying reader should have been closed")
+	assertNotNilF(t, batch.rr, "rr should be restored from inlineData")
+
+	got, readErr := io.ReadAll(batch.rr)
+	assertNilF(t, readErr)
+	assertEqualE(t, string(got), string(inline))
+}
+
 func TestArrowStreamBatchDoubleResetIsIdempotent(t *testing.T) {
 	// Calling Reset twice should not error the second time.
 	rc := &errReadCloser{Reader: bytes.NewReader([]byte("data"))}
