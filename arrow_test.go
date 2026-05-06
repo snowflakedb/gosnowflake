@@ -659,8 +659,8 @@ func TestArrowStreamBatchResetRestoresInlineReaderOnCloseError(t *testing.T) {
 
 	// Verify the restored reader yields the inline payload.
 	got, readErr := io.ReadAll(batch.rr)
-	assertNilF(t, readErr)
-	assertEqualE(t, string(got), string(inline))
+	assertNilF(t, readErr, "reading restored inline reader should succeed")
+	assertEqualE(t, string(got), string(inline), "restored reader should yield inlineData")
 }
 
 func TestArrowStreamBatchResetRestoresInlineReader(t *testing.T) {
@@ -671,13 +671,13 @@ func TestArrowStreamBatchResetRestoresInlineReader(t *testing.T) {
 	batch := ArrowStreamBatch{rr: rc, inlineData: inline}
 
 	err := batch.Reset()
-	assertNilF(t, err)
+	assertNilF(t, err, "Reset should not return error on successful close")
 	assertTrueF(t, rc.closed, "underlying reader should have been closed")
 	assertNotNilF(t, batch.rr, "rr should be restored from inlineData")
 
 	got, readErr := io.ReadAll(batch.rr)
-	assertNilF(t, readErr)
-	assertEqualE(t, string(got), string(inline))
+	assertNilF(t, readErr, "reading restored inline reader should succeed")
+	assertEqualE(t, string(got), string(inline), "restored reader should yield inlineData")
 }
 
 func TestArrowStreamBatchDoubleResetIsIdempotent(t *testing.T) {
@@ -719,22 +719,22 @@ func TestArrowStreamBatchResetThenGetStreamRedownloads(t *testing.T) {
 
 	// First download.
 	stream1, err := batch.GetStream(context.Background())
-	assertNilF(t, err)
+	assertNilF(t, err, "first GetStream should succeed")
 	defer stream1.Close()
 	data1, err := io.ReadAll(stream1)
-	assertNilF(t, err)
-	assertEqualE(t, callCount, 1)
+	assertNilF(t, err, "reading first stream should succeed")
+	assertEqualE(t, callCount, 1, "FuncGet should have been called once")
 
 	// Reset clears cached reader.
-	assertNilF(t, batch.Reset())
+	assertNilF(t, batch.Reset(), "Reset after first read should succeed")
 
 	// Second download — FuncGet is called again.
 	stream2, err := batch.GetStream(context.Background())
-	assertNilF(t, err)
+	assertNilF(t, err, "second GetStream should succeed")
 	defer stream2.Close()
 	data2, err := io.ReadAll(stream2)
-	assertNilF(t, err)
-	assertEqualE(t, callCount, 2)
+	assertNilF(t, err, "reading second stream should succeed")
+	assertEqualE(t, callCount, 2, "FuncGet should have been called twice after Reset")
 
 	// Content should differ, proving it was re-downloaded.
 	assertFalseE(t, bytes.Equal(data1, data2), "re-downloaded data should differ from original")
@@ -755,19 +755,19 @@ func TestArrowStreamBatchResetAfterPartialRead(t *testing.T) {
 
 	// Read only a few bytes (simulate partial/failed read).
 	stream, err := batch.GetStream(context.Background())
-	assertNilF(t, err)
+	assertNilF(t, err, "initial GetStream should succeed")
 	partial := make([]byte, 5)
 	_, err = stream.Read(partial)
-	assertNilF(t, err)
+	assertNilF(t, err, "partial read should succeed")
 
 	// Reset and re-download the full payload.
-	assertNilF(t, batch.Reset())
+	assertNilF(t, batch.Reset(), "Reset after partial read should succeed")
 	stream2, err := batch.GetStream(context.Background())
-	assertNilF(t, err)
+	assertNilF(t, err, "GetStream after Reset should succeed")
 	defer stream2.Close()
 	full, err := io.ReadAll(stream2)
-	assertNilF(t, err)
-	assertEqualE(t, string(full), string(fullPayload))
+	assertNilF(t, err, "reading full payload should succeed")
+	assertEqualE(t, string(full), string(fullPayload), "re-downloaded payload should match original")
 }
 
 func TestArrowStreamBatchGetStreamGzipped(t *testing.T) {
@@ -788,10 +788,11 @@ func TestArrowStreamBatchGetStreamGzipped(t *testing.T) {
 
 	batch := newTestArrowStreamBatch(mockGet)
 	stream, err := batch.GetStream(context.Background())
-	assertNilF(t, err)
+	assertNilF(t, err, "GetStream should succeed")
+	defer stream.Close()
 	data, err := io.ReadAll(stream)
-	assertNilF(t, err)
-	assertEqualE(t, string(data), "decompressed payload")
+	assertNilF(t, err, "reading decompressed stream should succeed")
+	assertEqualE(t, string(data), "decompressed payload", "gzip-decoded payload should match")
 }
 
 func TestArrowStreamBatchGetStreamNon200(t *testing.T) {
@@ -807,7 +808,7 @@ func TestArrowStreamBatchGetStreamNon200(t *testing.T) {
 	_, err := batch.GetStream(context.Background())
 	var sfErr *SnowflakeError
 	assertTrueF(t, errors.As(err, &sfErr), "should return SnowflakeError")
-	assertEqualE(t, sfErr.Number, ErrFailedToGetChunk)
+	assertEqualF(t, sfErr.Number, ErrFailedToGetChunk, "error number should be ErrFailedToGetChunk")
 }
 
 func TestArrowStreamBatchGetStreamFuncGetError(t *testing.T) {
@@ -840,17 +841,18 @@ func TestArrowStreamBatchResetThenGetStreamAfterError(t *testing.T) {
 
 	// First attempt fails.
 	_, err := batch.GetStream(context.Background())
-	assertNotNilE(t, err)
+	assertNotNilE(t, err, "first GetStream should fail with transient error")
 
 	// Reset (rr is still nil since download failed, but Reset is safe).
-	assertNilF(t, batch.Reset())
+	assertNilF(t, batch.Reset(), "Reset after failed download should succeed")
 
 	// Retry succeeds.
 	stream, err := batch.GetStream(context.Background())
-	assertNilF(t, err)
+	assertNilF(t, err, "retry GetStream should succeed")
+	defer stream.Close()
 	data, err := io.ReadAll(stream)
-	assertNilF(t, err)
-	assertEqualE(t, string(data), "ok")
+	assertNilF(t, err, "reading retried stream should succeed")
+	assertEqualE(t, string(data), "ok", "retried payload should match")
 }
 
 func TestStreamWrapReaderCloseClosesInnerAndWrapped(t *testing.T) {
