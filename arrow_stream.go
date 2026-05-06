@@ -71,6 +71,14 @@ func (asb *ArrowStreamBatch) NumRows() int64 { return asb.numrows }
 // GetStream to re-download the chunk on the next call. This enables callers
 // to retry after a mid-stream failure (e.g. TCP RST) without re-executing
 // the entire query.
+//
+// For inline batches (those produced from RowSetBase64 in the initial
+// query response), there is no remote chunk to re-download. In that
+// case Reset rewinds the reader by re-wrapping the cached inline bytes
+// so the batch can be read again from the beginning. This is done
+// even when the underlying Close returns an error, so the batch is
+// always left in a usable state for retry; the close error is still
+// returned to the caller.
 func (asb *ArrowStreamBatch) Reset() error {
 	var closeErr error
 	if asb.rr != nil {
