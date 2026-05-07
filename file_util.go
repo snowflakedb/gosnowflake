@@ -203,10 +203,10 @@ func getReaderFromBuffer(src **bytes.Buffer) io.Reader {
 // baseName returns the pathname of the path provided
 func baseName(path string) string {
 	base := filepath.Base(path)
-	if base == "." || base == "/" {
+	if base == "." || base == ".." || base == string(filepath.Separator) {
 		return ""
 	}
-	if len(base) > 1 && (path[len(path)-1:] == "." || path[len(path)-1:] == "/") {
+	if len(path) > 0 && os.IsPathSeparator(path[len(path)-1]) {
 		return ""
 	}
 	return base
