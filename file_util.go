@@ -206,6 +206,9 @@ func baseName(path string) string {
 	if base == "." || base == ".." || base == string(filepath.Separator) {
 		return ""
 	}
+	if len(path) > 0 && os.IsPathSeparator(path[len(path)-1]) {
+		return ""
+	}
 	return base
 }
 

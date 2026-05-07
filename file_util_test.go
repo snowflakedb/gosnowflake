@@ -34,7 +34,7 @@ func TestBaseName(t *testing.T) {
 		{".", ""},
 		{"..", ""},
 		{"/", ""},
-		{"/home/desktop/", "desktop"},
+		{"/home/desktop/", ""},
 		{"archive.tar.gz", "archive.tar.gz"},
 		{"/path/to/archive.tar.gz", "archive.tar.gz"},
 		{"trailing-dot.tar.gz.", "trailing-dot.tar.gz."},
@@ -45,7 +45,7 @@ func TestBaseName(t *testing.T) {
 	for _, test := range testcases {
 		t.Run(test.in, func(t *testing.T) {
 			actual := baseName(test.in)
-			assertEqualE(t, actual, test.out, "baseName(%q)", test.in)
+			assertEqualE(t, actual, test.out, "baseName:", test.in)
 		})
 	}
 }
@@ -56,7 +56,7 @@ func TestBaseNameWindows(t *testing.T) {
 	}
 	testcases := []tcBaseName{
 		{`C:\Users\file.txt`, "file.txt"},
-		{`C:\Users\`, "Users"},
+		{`C:\Users\`, ""},
 		// filepath.Base: "If the path consists entirely of separators, Base returns a single separator"
 		// "C:\" -> "\" which is not a file name, but a root path, so should be rejected
 		{`C:\`, ""},
@@ -69,7 +69,7 @@ func TestBaseNameWindows(t *testing.T) {
 	for _, test := range testcases {
 		t.Run(test.in, func(t *testing.T) {
 			actual := baseName(test.in)
-			assertEqualE(t, actual, test.out, "baseName(%q)", test.in)
+			assertEqualE(t, actual, test.out, "baseName:", test.in)
 		})
 	}
 }
