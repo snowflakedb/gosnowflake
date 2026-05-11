@@ -617,7 +617,7 @@ func TestArrowStreamBatchResetPropagatesCloseError(t *testing.T) {
 	batch := ArrowStreamBatch{rr: rc}
 
 	err := batch.Reset()
-	assertTrueF(t, errors.Is(err, expected), "Reset should propagate close error")
+	assertErrIsF(t, err, expected, "Reset should propagate close error")
 	// rr should still be nilled out even when Close returns an error.
 	assertNilF(t, batch.rr, "rr should be nil after Reset even on error")
 }
@@ -632,12 +632,12 @@ func TestArrowStreamBatchResetClearsCachedReader(t *testing.T) {
 
 	// Confirm GetStream returns the cached reader before Reset.
 	stream, err := batch.GetStream(context.Background())
-	assertNilF(t, err)
-	assertTrueF(t, stream == rc, "GetStream should return cached reader")
+	assertNilF(t, err, "GetStream on cached reader should succeed")
+	assertEqualF(t, stream, io.ReadCloser(rc), "GetStream should return cached reader")
 
 	// Reset clears the cache.
 	err = batch.Reset()
-	assertNilF(t, err)
+	assertNilF(t, err, "Reset should succeed")
 	assertNilF(t, batch.rr, "rr should be nil after Reset")
 }
 
@@ -653,7 +653,7 @@ func TestArrowStreamBatchResetRestoresInlineReaderOnCloseError(t *testing.T) {
 	batch := ArrowStreamBatch{rr: rc, inlineData: inline}
 
 	err := batch.Reset()
-	assertTrueF(t, errors.Is(err, expected), "Reset should propagate close error")
+	assertErrIsF(t, err, expected, "Reset should propagate close error")
 	assertTrueF(t, rc.closed, "underlying reader should have been closed")
 	assertNotNilF(t, batch.rr, "rr should be restored from inlineData even after close error")
 
@@ -775,8 +775,8 @@ func TestArrowStreamBatchGetStreamGzipped(t *testing.T) {
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
 	_, err := gw.Write([]byte("decompressed payload"))
-	assertNilF(t, err)
-	assertNilF(t, gw.Close())
+	assertNilF(t, err, "gzip Write should succeed")
+	assertNilF(t, gw.Close(), "gzip Close should succeed")
 	gzBytes := buf.Bytes()
 
 	mockGet := func(_ context.Context, _ *snowflakeConn, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
@@ -807,7 +807,7 @@ func TestArrowStreamBatchGetStreamNon200(t *testing.T) {
 	batch := newTestArrowStreamBatch(mockGet)
 	_, err := batch.GetStream(context.Background())
 	var sfErr *SnowflakeError
-	assertTrueF(t, errors.As(err, &sfErr), "should return SnowflakeError")
+	assertErrorsAsF(t, err, &sfErr, "should return SnowflakeError")
 	assertEqualF(t, sfErr.Number, ErrFailedToGetChunk, "error number should be ErrFailedToGetChunk")
 }
 
@@ -820,7 +820,7 @@ func TestArrowStreamBatchGetStreamFuncGetError(t *testing.T) {
 
 	batch := newTestArrowStreamBatch(mockGet)
 	_, err := batch.GetStream(context.Background())
-	assertTrueF(t, errors.Is(err, expected), "should propagate FuncGet error")
+	assertErrIsF(t, err, expected, "should propagate FuncGet error")
 }
 
 func TestArrowStreamBatchResetThenGetStreamAfterError(t *testing.T) {
@@ -865,7 +865,7 @@ func TestStreamWrapReaderCloseClosesInnerAndWrapped(t *testing.T) {
 	}
 	w := &streamWrapReader{Reader: inner, wrapped: wrapped}
 	err := w.Close()
-	assertNilF(t, err)
+	assertNilF(t, err, "Close should succeed when neither close errors")
 	assertTrueF(t, inner.closed, "inner ReadCloser should be closed")
 	assertTrueF(t, wrapped.closed, "wrapped body should be closed")
 }
@@ -875,7 +875,7 @@ func TestStreamWrapReaderCloseNonClosableInner(t *testing.T) {
 	wrapped := &errReadCloser{Reader: bytes.NewReader(nil)}
 	w := &streamWrapReader{Reader: bytes.NewReader(nil), wrapped: wrapped}
 	err := w.Close()
-	assertNilF(t, err)
+	assertNilF(t, err, "Close should succeed when only wrapped is closable")
 	assertTrueF(t, wrapped.closed, "wrapped body should be closed")
 }
 
@@ -886,7 +886,7 @@ func TestStreamWrapReaderClosePropagatesInnerError(t *testing.T) {
 	wrapped := &errReadCloser{Reader: bytes.NewReader(nil)}
 	w := &streamWrapReader{Reader: inner, wrapped: wrapped}
 	err := w.Close()
-	assertTrueF(t, errors.Is(err, expected), "should propagate inner close error")
+	assertErrIsF(t, err, expected, "should propagate inner close error")
 	// wrapped should NOT have been closed because inner errored first.
 	assertFalseE(t, wrapped.closed, "wrapped should not close if inner errors")
 }
@@ -905,7 +905,7 @@ func TestArrowStreamBatchResetClosesStreamWrapReader(t *testing.T) {
 			wrapped: body,
 		},
 	}
-	assertNilF(t, batch.Reset())
+	assertNilF(t, batch.Reset(), "Reset should succeed")
 	assertNilF(t, batch.rr, "rr should be nil after Reset")
 	assertTrueF(t, wrappedClosed, "wrapped HTTP body should be closed")
 }
@@ -915,8 +915,8 @@ func TestArrowStreamBatchResetClosesGzipStreamWrapReader(t *testing.T) {
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
 	_, err := gw.Write([]byte("hello"))
-	assertNilF(t, err)
-	assertNilF(t, gw.Close())
+	assertNilF(t, err, "gzip Write should succeed")
+	assertNilF(t, gw.Close(), "gzip Close should succeed")
 
 	wrappedClosed := false
 	body := &fakeResponseBody{
@@ -924,11 +924,11 @@ func TestArrowStreamBatchResetClosesGzipStreamWrapReader(t *testing.T) {
 		onClose: func() { wrappedClosed = true },
 	}
 	gr, err := gzip.NewReader(bytes.NewReader(buf.Bytes()))
-	assertNilF(t, err)
+	assertNilF(t, err, "gzip.NewReader should succeed")
 
 	batch := ArrowStreamBatch{
 		rr: &streamWrapReader{Reader: gr, wrapped: body},
 	}
-	assertNilF(t, batch.Reset())
+	assertNilF(t, batch.Reset(), "Reset should succeed")
 	assertTrueF(t, wrappedClosed, "wrapped HTTP body should be closed via gzip reader")
 }
