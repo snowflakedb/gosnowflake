@@ -708,7 +708,7 @@ func TestArrowStreamBatchResetThenGetStreamRedownloads(t *testing.T) {
 	callCount := 0
 	mockGet := func(_ context.Context, _ *snowflakeConn, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
 		callCount++
-		body := []byte(fmt.Sprintf("payload-%d", callCount))
+		body := fmt.Appendf(nil, "payload-%d", callCount)
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       io.NopCloser(bytes.NewReader(body)),
