@@ -1008,7 +1008,7 @@ func (ov *ocspValidator) writeOCSPCacheFile() {
 			logger.Debugf("other process locks the cache file. %v. ignored.\n", cacheLockFileName)
 			return
 		}
-		if err = os.Remove(cacheLockFileName); err != nil {
+		if err = os.RemoveAll(cacheLockFileName); err != nil {
 			logger.Debugf("failed to delete lock file. file: %v, err: %v. ignored.\n", cacheLockFileName, err)
 			return
 		}
