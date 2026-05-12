@@ -6,12 +6,14 @@ New features:
 
 Bug fixes:
 
+- Fixed `baseName` silently dropping files whose name ends with a dot (e.g. `myfile.txt.`), which caused PUT uploads to discard such files without error (snowflakedb/gosnowflake#1788).
 - Improved error message when `Host` is incorrectly configured with a URL scheme (e.g. `https://myorg-myaccount.snowflakecomputing.com`), previously this produced a cryptic `260004: failed to parse a port number` error (snowflakedb/gosnowflake#1784).
 
 Internal changes:
 
 - Introduced `SKIP_FILE_PERMISSIONS_VERIFICATION` environment variable to allow bypassing file permissions checks for `connections.toml` and the credential cache, which is useful for environments where strict permissions cannot be set (snowflakedb/gosnowflake#1780).
 - Added support for `SPCS_TOKEN` in the login request. When the driver detects it is running inside a Snowpark Container Services workload (via the `SNOWFLAKE_RUNNING_INSIDE_SPCS` environment variable), it reads an opaque service token from `/snowflake/session/spcs_token` on every login and attaches it to the login-request payload as `SPCS_TOKEN`. Read failures are logged at warn and do not affect login (snowflakedb/gosnowflake#1783).
+- Minicore binaries for Windows and Mac are now signed - content is the same. (snowflakedb/gosnowflake#1790).
 
 ## 2.0.2
 
