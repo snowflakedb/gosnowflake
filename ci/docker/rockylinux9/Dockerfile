@@ -40,7 +40,7 @@ ARG GO_VERSION
 RUN GOARCH=${TARGETARCH} && \
     GO_VERSION_SHORT=$(echo ${GO_VERSION} | cut -d. -f1,2) && \
     echo "Installing Go ${GO_VERSION} for ${GOARCH}..." && \
-    wget -q https://golang.org/dl/go${GO_VERSION}.linux-${GOARCH}.tar.gz -O /tmp/go.tar.gz && \
+    wget -q https://artifactory.ci1.us-west-2.aws-dev.app.snowflake.com/artifactory/development-go-virtual/golang.org/dl/go${GO_VERSION}.linux-${GOARCH}.tar.gz -O /tmp/go.tar.gz && \
     mkdir -p /usr/local/go${GO_VERSION_SHORT} && \
     tar -C /usr/local/go${GO_VERSION_SHORT} --strip-components=1 -xzf /tmp/go.tar.gz && \
     rm /tmp/go.tar.gz && \

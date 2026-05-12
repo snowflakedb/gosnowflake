@@ -4,7 +4,7 @@ setlocal EnableDelayedExpansion
 
 start /b python ci\scripts\hang_webserver.py 12345
 
-curl -O https://repo1.maven.org/maven2/org/wiremock/wiremock-standalone/3.11.0/wiremock-standalone-3.11.0.jar
+curl -O https://artifactory.ci1.us-west-2.aws-dev.app.snowflake.com/artifactory/api/maven/maven-remote/org/wiremock/wiremock-standalone/3.11.0/wiremock-standalone-3.11.0.jar
 START /B java -jar wiremock-standalone-3.11.0.jar --port %WIREMOCK_PORT% -https-port %WIREMOCK_HTTPS_PORT% --https-keystore ci/scripts/wiremock.p12 --keystore-type PKCS12 --keystore-password password
 
 if "%CLOUD_PROVIDER%"=="AWS" (
