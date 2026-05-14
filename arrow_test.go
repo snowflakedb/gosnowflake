@@ -702,6 +702,15 @@ func newTestArrowStreamBatch(funcGet func(context.Context, *snowflakeConn, strin
 	return ArrowStreamBatch{idx: 0, scd: scd}
 }
 
+// static200OK adapts a fixed response body into a FuncGet that always returns
+// HTTP 200. Use it when a test only cares about the bytes the chunk downloader
+// reads, not request semantics.
+func static200OK(body io.ReadCloser) func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error) {
+	return func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: body}, nil
+	}
+}
+
 func TestArrowStreamBatchResetThenGetStreamRedownloads(t *testing.T) {
 	// After Reset, calling GetStream should invoke FuncGet again,
 	// proving the chunk is actually re-downloaded.

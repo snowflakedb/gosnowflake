@@ -71,27 +71,6 @@ func (c *closeCountingReadCloser) Close() error {
 	return nil
 }
 
-func newTestArrowStreamBatch(body io.ReadCloser) ArrowStreamBatch {
-	return ArrowStreamBatch{
-		idx: 0,
-		scd: &snowflakeArrowStreamChunkDownloader{
-			sc: &snowflakeConn{
-				rest: &snowflakeRestful{RequestTimeout: time.Second},
-			},
-			ChunkMetas: []query.ExecResponseChunk{{
-				URL:      "https://example.com/chunk",
-				RowCount: 1,
-			}},
-			FuncGet: func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error) {
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       body,
-				}, nil
-			},
-		},
-	}
-}
-
 func gzipBody(payload []byte) io.ReadCloser {
 	return io.NopCloser(bytes.NewReader(gzipBytes(payload)))
 }
@@ -109,7 +88,7 @@ func TestArrowStreamBatchGetStreamCancellationUnblocksStalledRead(t *testing.T) 
 	defer cancel()
 
 	body := newBlockingReadCloser([]byte("ok"), io.EOF)
-	batch := newTestArrowStreamBatch(body)
+	batch := newTestArrowStreamBatch(static200OK(body))
 
 	stream, err := batch.GetStream(ctx)
 	assertNilF(t, err, "GetStream should succeed")
@@ -157,7 +136,7 @@ func TestArrowStreamBatchGetStreamCancellationNormalizesCloseErrors(t *testing.T
 
 	terminalErr := errors.New("read from closed body")
 	body := newBlockingReadCloser([]byte("ok"), terminalErr)
-	batch := newTestArrowStreamBatch(body)
+	batch := newTestArrowStreamBatch(static200OK(body))
 
 	stream, err := batch.GetStream(ctx)
 	assertNilF(t, err, "GetStream should succeed")
@@ -199,7 +178,7 @@ func TestArrowStreamBatchGetStreamCancellationNormalizesGzipBlockedRead(t *testi
 	terminalErr := errors.New("read from closed body")
 	body := newBlockingReadCloser(gzipBytes([]byte("ok")), terminalErr)
 	body.firstChunkSize = len(body.payload) / 2
-	batch := newTestArrowStreamBatch(body)
+	batch := newTestArrowStreamBatch(static200OK(body))
 
 	stream, err := batch.GetStream(ctx)
 	assertNilF(t, err, "GetStream should succeed")
@@ -336,7 +315,7 @@ func TestArrowStreamBatchGetStreamPreservesCompletedEOF(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			batch := newTestArrowStreamBatch(tc.body)
+			batch := newTestArrowStreamBatch(static200OK(tc.body))
 			stream, err := batch.GetStream(context.Background())
 			assertNilF(t, err, "GetStream should succeed")
 			defer func() {
