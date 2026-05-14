@@ -630,10 +630,14 @@ func TestArrowStreamBatchResetClearsCachedReader(t *testing.T) {
 	rc := &errReadCloser{Reader: bytes.NewReader([]byte("stale"))}
 	batch := ArrowStreamBatch{rr: rc}
 
-	// Confirm GetStream returns the cached reader before Reset.
+	// Confirm GetStream serves the cached reader's bytes before Reset.
+	// The returned stream is wrapped (e.g. cancelableStream), so we
+	// verify behavior rather than pointer identity.
 	stream, err := batch.GetStream(context.Background())
 	assertNilF(t, err, "GetStream on cached reader should succeed")
-	assertEqualF(t, stream, io.ReadCloser(rc), "GetStream should return cached reader")
+	got, err := io.ReadAll(stream)
+	assertNilF(t, err, "reading cached stream should succeed")
+	assertEqualF(t, string(got), "stale", "GetStream should return cached reader's bytes")
 
 	// Reset clears the cache.
 	err = batch.Reset()
