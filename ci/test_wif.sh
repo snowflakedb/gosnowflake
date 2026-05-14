@@ -36,9 +36,9 @@ run_tests_and_set_result() {
             cd /home/user
             echo 'Running tests on branch: \$BRANCH, provider: \$SNOWFLAKE_TEST_WIF_PROVIDER'
             if [[ \"\$BRANCH\" =~ ^PR-[0-9]+\$ ]]; then
-              wget -O - https://artifactory.ci1.us-west-2.aws-dev.app.snowflake.com/artifactory/development-github-virtual/snowflakedb/gosnowflake/archive/refs/pull/\$(echo \$BRANCH | cut -d- -f2)/head.tar.gz | tar -xz
+              wget -O - https://github.com/snowflakedb/gosnowflake/archive/refs/pull/\$(echo \$BRANCH | cut -d- -f2)/head.tar.gz | tar -xz
             else
-              wget -O - https://artifactory.ci1.us-west-2.aws-dev.app.snowflake.com/artifactory/development-github-virtual/snowflakedb/gosnowflake/archive/refs/heads/$BRANCH.tar.gz | tar -xz
+              wget -O - https://github.com/snowflakedb/gosnowflake/archive/refs/heads/$BRANCH.tar.gz | tar -xz
             fi
             mv gosnowflake-* gosnowflake
             cd gosnowflake
