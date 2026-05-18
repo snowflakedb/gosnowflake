@@ -36,6 +36,7 @@ func LoadConnectionConfig() (*Config, error) {
 	cfg := &Config{
 		Params:        make(map[string]*string),
 		Authenticator: AuthTypeSnowflake, // Default to snowflake
+		inputShape:    &ConnectionIdentifierShape{},
 	}
 	dsn := getConnectionDSN(os.Getenv(snowflakeConnectionName))
 	snowflakeConfigDir, err := GetTomlFilePath(os.Getenv(snowflakeHome))
@@ -105,8 +106,14 @@ func HandleSingleParam(cfg *Config, key string, value any) error {
 		cfg.Password, err = parseString(value)
 	case "host":
 		cfg.Host, err = parseString(value)
+		if err == nil && cfg.Host != "" && cfg.inputShape != nil {
+			cfg.inputShape.HostProvided = true
+		}
 	case "account":
 		cfg.Account, err = parseString(value)
+		if err == nil {
+			recordAccountShape(cfg.inputShape, cfg.Account)
+		}
 	case "warehouse":
 		cfg.Warehouse, err = parseString(value)
 	case "database":
@@ -117,6 +124,9 @@ func HandleSingleParam(cfg *Config, key string, value any) error {
 		cfg.Role, err = parseString(value)
 	case "region":
 		cfg.Region, err = parseString(value)
+		if err == nil && cfg.Region != "" && cfg.inputShape != nil {
+			cfg.inputShape.RegionProvided = true
+		}
 	case "protocol":
 		cfg.Protocol, err = parseString(value)
 	case "passcode":
