@@ -30,9 +30,44 @@ const (
 )
 
 const (
-	telemetrySource      = "golang_driver"
-	sqlException         = "client_sql_exception"
-	connectionParameters = "client_connection_parameters"
+	telemetrySource           = "golang_driver"
+	sqlException              = "client_sql_exception"
+	connectionParameters      = "client_connection_parameters"
+	connectionIdentifierShape = "client_connection_identifier_shape"
+	disableConnectionShapeEnv = "SF_TELEMETRY_DISABLE_CONNECTION_SHAPE"
+)
+
+// Wire-format keys for the client_connection_identifier_shape telemetry
+// event. Values are stringified booleans ("true" / "false") to match the
+// existing client_connection_parameters telemetry style. All fields describe
+// what the user supplied at the moment of input — they reflect intent, not
+// the final post-normalization state of Config.
+//
+//   - account_provided:     the user explicitly set Account (via DSN authority,
+//     "?account=", TOML, or programmatic Config).
+//   - account_with_region:  the raw account string the user typed contained a
+//     dot (e.g. "myacct.us-east-1"), signaling the deprecated
+//     "account.region" embedded form. Set only on the raw input.
+//   - account_org_provided: the raw account string carried a dash in its
+//     account portion (e.g. "myorg-myacct"), signaling the org-prefixed form.
+//     Region-portion dashes (e.g. the "-east-" in "myacct.us-east-1") are
+//     intentionally not counted; see recordAccountShape.
+//   - region_provided:      the user explicitly set Region as a distinct field
+//     (via "?region=", TOML, or programmatic Config). Note: a region embedded
+//     inside a dotted account string is NOT region_provided; that's
+//     account_with_region.
+//   - host_provided:        the user explicitly set Host. True when the DSN
+//     authority is a full hostname (Snowflake TLD) or carries an explicit
+//     port, when TOML sets host=, or when a programmatic Config sets Host.
+//
+// TODO(SNOW-3548350): remove these keys with the telemetry emission
+// (target: 2026-11-30).
+const (
+	accountProvidedKey    = "account_provided"
+	accountWithRegionKey  = "account_with_region"
+	accountOrgProvidedKey = "account_org_provided"
+	regionProvidedKey     = "region_provided"
+	hostProvidedKey       = "host_provided"
 )
 
 type telemetryData struct {

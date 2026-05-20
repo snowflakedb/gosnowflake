@@ -119,6 +119,66 @@ type Config struct {
 	ProxyPassword string // Proxy password
 	ProxyProtocol string // Proxy protocol (http or https)
 	NoProxy       string // No proxy for this host list
+
+	// inputShape records which connection-identifier fields the user supplied
+	// (vs. which were inferred by the driver) and whether the account string the
+	// user supplied carried region/org information. It is populated by ParseDSN,
+	// LoadConnectionConfig, and by FillMissingConfigParameters for programmatic
+	// configs (which captures shape before any field is normalized), then
+	// consumed by post-login telemetry. May be nil if shape capture has not
+	// run yet; downstream code must nil-check via InputShapeOf.
+	//
+	// Unexported so it does not appear on the gosnowflake.Config type-alias's
+	// public surface; cross-package access goes through InputShapeOf and
+	// SetInputShape.
+	//
+	// TODO(SNOW-3548350): remove this field, its accessors, and the telemetry
+	// emission that uses it after the connection-identifier-shape data
+	// collection wraps up (target: 2026-11-30).
+	inputShape *ConnectionIdentifierShape
+}
+
+// ConnectionIdentifierShape captures the *shape* of the connection identifier
+// the user supplied: which of {account, region, host} they actually set, and
+// whether the raw account string they typed contained the substrings that
+// signal an "account.region" form (dot) or an "org-account" form (dash).
+//
+// Fields reflect user intent at the moment of input, not the final
+// post-normalization state of Config. For example, if a user supplies only
+// "myorg-myacct" as the account, the driver will later synthesize a Host —
+// AccountProvided will be true and HostProvided will remain false.
+type ConnectionIdentifierShape struct {
+	AccountProvided    bool
+	AccountWithRegion  bool // raw account string contains '.'
+	AccountOrgProvided bool // raw account string contains '-'
+	RegionProvided     bool
+	HostProvided       bool
+}
+
+// InputShapeOf returns the connection-identifier shape captured during DSN
+// parsing, TOML loading, or programmatic Config setup. Returns nil when shape
+// capture has not run; callers must nil-check.
+//
+// This is the only external read path for Config's unexported shape field;
+// the gosnowflake driver package uses it at post-login telemetry-emit time.
+func InputShapeOf(c *Config) *ConnectionIdentifierShape {
+	if c == nil {
+		return nil
+	}
+	return c.inputShape
+}
+
+// SetInputShape overwrites the connection-identifier shape on Config. It is
+// the external write path for the unexported shape field and exists so that
+// tests in the gosnowflake driver package can build Configs with a known
+// shape without going through DSN parsing. Production code paths populate
+// the shape via ParseDSN, LoadConnectionConfig, or
+// FillMissingConfigParameters and should not call this.
+func SetInputShape(c *Config, s *ConnectionIdentifierShape) {
+	if c == nil {
+		return
+	}
+	c.inputShape = s
 }
 
 var errTokenConfigConflict = errors.New("token and tokenFilePath cannot be specified at the same time")

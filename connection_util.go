@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
 
 func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
@@ -93,6 +96,51 @@ func (sc *snowflakeConn) connectionTelemetry(cfg *Config) {
 	if err := sc.telemetry.sendBatch(); err != nil {
 		logger.WithContext(sc.ctx).Warnf("cannot send telemetry batch: %v", err)
 	}
+}
+
+// connectionIdentifierShapeTelemetry queues a single in-band telemetry record
+// describing the shape of the connection-identifier input the user supplied.
+// It does not send a batch on its own; the caller is expected to flush
+// telemetry shortly after (see OpenWithConfig). When shape capture has not
+// run, or the env-var kill switch is set, this is a no-op.
+//
+// TODO(SNOW-3548350): remove this method and its call site after the
+// connection-identifier-shape data collection wraps up (target: 2026-11-30).
+func (sc *snowflakeConn) connectionIdentifierShapeTelemetry(cfg *Config) {
+	if connectionShapeTelemetryDisabledByEnv() {
+		logger.WithContext(sc.ctx).Debug("connection-identifier-shape telemetry disabled via " + disableConnectionShapeEnv)
+		return
+	}
+	shape := sfconfig.InputShapeOf(cfg)
+	if shape == nil {
+		logger.WithContext(sc.ctx).Debug("connection-identifier-shape telemetry skipped: shape not captured")
+		return
+	}
+	data := &telemetryData{
+		Message: map[string]string{
+			typeKey:               connectionIdentifierShape,
+			sourceKey:             telemetrySource,
+			driverTypeKey:         "Go",
+			driverVersionKey:      SnowflakeGoDriverVersion,
+			golangVersionKey:      runtime.Version(),
+			accountProvidedKey:    strconv.FormatBool(shape.AccountProvided),
+			accountWithRegionKey:  strconv.FormatBool(shape.AccountWithRegion),
+			accountOrgProvidedKey: strconv.FormatBool(shape.AccountOrgProvided),
+			regionProvidedKey:     strconv.FormatBool(shape.RegionProvided),
+			hostProvidedKey:       strconv.FormatBool(shape.HostProvided),
+		},
+		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
+	}
+	if err := sc.telemetry.addLog(data); err != nil {
+		logger.WithContext(sc.ctx).Warnf("cannot add connection-identifier-shape telemetry log: %v", err)
+	}
+}
+
+func connectionShapeTelemetryDisabledByEnv() bool {
+	// CHANGELOG documents the value as exactly "true". Match minicore's
+	// SF_DISABLE_MINICORE convention by accepting case-insensitive "true"
+	// only — no truthy aliases.
+	return strings.EqualFold(os.Getenv(disableConnectionShapeEnv), "true")
 }
 
 // processFileTransfer creates a snowflakeFileTransferAgent object to process
