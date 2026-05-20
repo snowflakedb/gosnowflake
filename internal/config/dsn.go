@@ -569,14 +569,12 @@ func FillMissingConfigParameters(cfg *Config) error {
 	if !cfg.disableOCSPChecksSet {
 		if val, _ := GetFromEnv(envVarDisableOCSPChecks, false); val != "" {
 			if v, err := strconv.ParseBool(val); err == nil && v {
-				// OCSPFailOpenFalse is the only value indicating FAIL_CLOSED; it is set
-				// identically from DSN (ocspFailOpen=false), TOML (ocspfailopen=false),
-				// or programmatic Config{OCSPFailOpen: OCSPFailOpenFalse}.
+				// OCSPFailOpenFalse indicates OCSP FAIL_CLOSED mode and when set, should take precedence over anything else
 				if cfg.OCSPFailOpen == OCSPFailOpenFalse {
 					logger.Info("SF_OCSP_DISABLE_CHECKS environment variable is set, but OCSP fail-closed mode is active; the environment variable will be ignored")
 				} else {
 					cfg.DisableOCSPChecks = true
-					logger.Info("DisableOCSPChecks set from SF_OCSP_DISABLE_CHECKS environment variable")
+					logger.Info("Disabling OCSP checks from SF_OCSP_DISABLE_CHECKS environment variable")
 				}
 			}
 		}

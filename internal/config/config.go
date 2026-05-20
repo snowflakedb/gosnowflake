@@ -66,7 +66,7 @@ type Config struct {
 
 	Application       string           // application name.
 	DisableOCSPChecks    bool             // driver doesn't check certificate revocation status
-	disableOCSPChecksSet bool             // true if user explicitly set DisableOCSPChecks, no matter the value; it should be considered over the more generic envvar
+	disableOCSPChecksSet bool             // true if user explicitly set DisableOCSPChecks, no matter the value; it should be considered over the more generic envvar. InsecureMode is deprecated thus ignored here.
 	OCSPFailOpen      OCSPFailOpenMode // OCSP Fail Open
 
 	Token                  string        // Token to use for OAuth other forms of token based auth
