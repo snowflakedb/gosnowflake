@@ -43,6 +43,9 @@ const (
 
 const clientType = "Go"
 
+// envVarDisableOCSPChecks is the environment variable name for disabling OCSP certificate revocation checks.
+const envVarDisableOCSPChecks = "SF_OCSP_DISABLE_CHECKS"
+
 // GetFromEnv retrieves the value of an environment variable.
 // If failOnMissing is true and the variable is not set, an error is returned.
 func GetFromEnv(name string, failOnMissing bool) (string, error) {
@@ -617,6 +620,23 @@ func FillMissingConfigParameters(cfg *Config) error {
 		cfg.OCSPFailOpen = OCSPFailOpenTrue
 	}
 
+	// InsecureMode (deprecated) is intentionally not tracked: if only InsecureMode
+	// was set in DSN/config, disableOCSPChecksSet remains false and the env var
+	// can still take effect.
+	if !cfg.disableOCSPChecksSet {
+		if val, _ := GetFromEnv(envVarDisableOCSPChecks, false); val != "" {
+			if v, err := strconv.ParseBool(val); err == nil && v {
+				// OCSPFailOpenFalse indicates OCSP FAIL_CLOSED mode and when set, should take precedence over anything else
+				if cfg.OCSPFailOpen == OCSPFailOpenFalse {
+					logger.Info("SF_OCSP_DISABLE_CHECKS environment variable is set, but OCSP fail-closed mode is active; the environment variable will be ignored")
+				} else {
+					cfg.DisableOCSPChecks = true
+					logger.Info("Disabling OCSP checks from SF_OCSP_DISABLE_CHECKS environment variable")
+				}
+			}
+		}
+	}
+
 	if cfg.ValidateDefaultParameters == BoolNotSet {
 		cfg.ValidateDefaultParameters = BoolTrue
 	}
@@ -932,6 +952,7 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.DisableOCSPChecks = vv
+			cfg.disableOCSPChecksSet = true
 		case "ocspFailOpen":
 			var vv bool
 			vv, err = strconv.ParseBool(value)
