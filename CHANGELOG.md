@@ -9,6 +9,7 @@ New features:
   - is explicitly refused when OCSP fail-closed mode is active
 
 - Added `ArrowStreamBatch.Reset()` method that closes any existing stream and clears the cached reader, allowing callers to retry `GetStream` after a mid-stream failure (e.g. TCP RST) without re-executing the entire query. Inline (RowSetBase64) batches are restored from cached bytes on reset.
+- Added one in-band telemetry record per successful login describing which connection-identifier fields the user supplied (`account_provided`, `account_with_region`, `account_org_provided`, `region_provided`, `host_provided`). No hostname or account value is included. This is gated by the existing server-side `CLIENT_TELEMETRY_ENABLED` parameter and can additionally be disabled locally by setting `SF_TELEMETRY_DISABLE_CONNECTION_SHAPE=true`. The telemetry collection is time-boxed and will be removed in a future release.
 
 Bug fixes:
 

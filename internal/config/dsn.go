@@ -307,12 +307,63 @@ func DSN(cfg *Config) (dsn string, err error) {
 	return
 }
 
+// recordAccountShape marks AccountProvided on shape and records whether the
+// raw account string carries a dot (region embedded) or a dash in its
+// account portion (org-prefixed). shape may be nil. rawAccount is the
+// user-supplied string before any normalization (truncation at the first
+// dot, dash stripping for .global, etc.).
+//
+// The org-account dash heuristic intentionally looks only at the substring
+// before the first dot, because a dash in the region portion (e.g.
+// "myacct.us-east-1") is not an org separator and would otherwise be
+// misclassified.
+func recordAccountShape(shape *ConnectionIdentifierShape, rawAccount string) {
+	if shape == nil || rawAccount == "" {
+		return
+	}
+	shape.AccountProvided = true
+	accountPortion := rawAccount
+	if i := strings.Index(rawAccount, "."); i > 0 {
+		shape.AccountWithRegion = true
+		accountPortion = rawAccount[:i]
+	}
+	if strings.Contains(accountPortion, "-") {
+		shape.AccountOrgProvided = true
+	}
+}
+
+// inferInputShapeIfMissing populates cfg.inputShape from the current Config
+// fields when shape capture has not already run (i.e. cfg was constructed
+// programmatically rather than via ParseDSN or LoadConnectionConfig). It is
+// a no-op when the shape is already non-nil.
+//
+// FillMissingConfigParameters runs this as its first step, before any field
+// mutation, so callers do not need to invoke it explicitly. The function
+// stays unexported because shape capture is an internal telemetry concern.
+func inferInputShapeIfMissing(cfg *Config) {
+	if cfg == nil || cfg.inputShape != nil {
+		return
+	}
+	shape := &ConnectionIdentifierShape{}
+	if cfg.Account != "" {
+		recordAccountShape(shape, cfg.Account)
+	}
+	if cfg.Region != "" {
+		shape.RegionProvided = true
+	}
+	if cfg.Host != "" {
+		shape.HostProvided = true
+	}
+	cfg.inputShape = shape
+}
+
 // ParseDSN parses the DSN string to a Config.
 func ParseDSN(dsn string) (cfg *Config, err error) {
 	// New config with some default values
 	cfg = &Config{
 		Params:        make(map[string]*string),
 		Authenticator: AuthTypeSnowflake, // Default to snowflake
+		inputShape:    &ConnectionIdentifierShape{},
 	}
 
 	// user[:password]@account/database/schema[?param1=value1&paramN=valueN]
@@ -467,6 +518,12 @@ func applyAccountFromHostIfMissing(cfg *Config) {
 
 // FillMissingConfigParameters fills in default values for missing config parameters.
 func FillMissingConfigParameters(cfg *Config) error {
+	// Capture user-supplied provenance before any field below normalizes the
+	// Config. Idempotent: ParseDSN and LoadConnectionConfig have already set
+	// cfg.inputShape, so this only matters for programmatic Configs handed
+	// to FillMissingConfigParameters directly (e.g. via database/sql
+	// Connector or driver.OpenWithConfig).
+	inferInputShapeIfMissing(cfg)
 	applyAccountFromHostIfMissing(cfg)
 
 	if cfg.Host != "" {
@@ -677,6 +734,10 @@ func transformAccountToHost(cfg *Config) (err error) {
 	if cfg.Port == 0 && cfg.Host != "" && !hostIncludesTopLevelDomain(cfg.Host) {
 		// account name is specified instead of host:port
 		cfg.Account = cfg.Host
+		// Capture the user-supplied account shape before normalization
+		// truncates/rewrites it. A dot signals "account.region" form; a dash
+		// signals "org-account" form.
+		recordAccountShape(cfg.inputShape, cfg.Account)
 		region, posDot := extractRegionFromAccount(cfg.Account)
 		if strings.ToLower(region) == "us-west-2" {
 			region = ""
@@ -714,6 +775,20 @@ func parseAccountHostPort(cfg *Config, posAt, posSlash int, dsn string) (err err
 		}
 	}
 	cfg.Host = dsn[posAt+1 : k]
+	// The DSN carries a real host (not an account-form authority that
+	// transformAccountToHost will rewrite) when cfg.Host is non-empty AND
+	// either of:
+	//   1) the authority contains the Snowflake TLD, e.g. "myacct.snowflakecomputing.com", or
+	//   2) the authority carries an explicit port, e.g. "localhost:443" — the
+	//      transformAccountToHost guard only fires when Port == 0, so any
+	//      explicit port means we never rewrite Host out from under the user.
+	// The Host-non-empty check guards against degenerate forms like
+	// "u:p@:8080/db" where the port is set but the host slice is empty.
+	// Capture HostProvided in both real cases so non-Snowflake-TLD targets
+	// (localhost, IP, private DNS) aren't silently misclassified as host-not-provided.
+	if cfg.inputShape != nil && cfg.Host != "" && (hostIncludesTopLevelDomain(cfg.Host) || cfg.Port != 0) {
+		cfg.inputShape.HostProvided = true
+	}
 	return transformAccountToHost(cfg)
 }
 
@@ -761,6 +836,7 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		// Disable INFILE whitelist / enable all files
 		case "account":
 			cfg.Account = value
+			recordAccountShape(cfg.inputShape, value)
 		case "warehouse":
 			cfg.Warehouse = value
 		case "database":
@@ -771,6 +847,9 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.Role = value
 		case "region":
 			cfg.Region = value
+			if cfg.inputShape != nil {
+				cfg.inputShape.RegionProvided = true
+			}
 		case "protocol":
 			cfg.Protocol = value
 		case "singleAuthenticationPrompt":
