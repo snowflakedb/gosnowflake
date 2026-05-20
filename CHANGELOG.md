@@ -4,7 +4,7 @@
 
 New features:
 
-- Added `SF_OCSP_DISABLE_CHECKS` environment variable to govern OCSP checks, same as `Config.DisableOCSPChecks` - by default, even before this change, OCSP checks are enabled (snowflakedb/gosnowflake#XXXX).
+- Added `SF_OCSP_DISABLE_CHECKS` environment variable to govern OCSP checks, same as `Config.DisableOCSPChecks` - by default, even before this change, OCSP checks are enabled (snowflakedb/gosnowflake#1798).
   - the env var is ignored when the DSN or connection configuration sets `disableOCSPChecks` to any value
   - is explicitly refused when OCSP fail-closed mode is active 
 
