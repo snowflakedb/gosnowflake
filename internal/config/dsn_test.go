@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	cr "crypto/rand"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/aws/smithy-go/rand"
 	sferrors "github.com/snowflakedb/gosnowflake/v2/internal/errors"
+	sflogger "github.com/snowflakedb/gosnowflake/v2/internal/logger"
 )
 
 type tcParseDSN struct {
@@ -2516,4 +2518,44 @@ func generatePKCS1String(key *rsa.PrivateKey) string {
 	tmpBytes := x509.MarshalPKCS1PrivateKey(key)
 	privKeyPKCS1 := base64.URLEncoding.EncodeToString(tmpBytes)
 	return privKeyPKCS1
+}
+
+// TestSFOCSPDisableChecksEnvVar verifies that the SF_OCSP_DISABLE_CHECKS environment
+// variable sets Config.DisableOCSPChecks when the field was not explicitly set in the
+// DSN or connection configuration.
+func TestSFOCSPDisableChecksEnvVar(t *testing.T) {
+	t.Run("env var applies when DisableOCSPChecks is unset in DSN", func(t *testing.T) {
+		t.Setenv(envVarDisableOCSPChecks, "true")
+
+		cfg, err := ParseDSN("u:p@/db?account=ac")
+		assertNilF(t, err, "ParseDSN should not fail")
+		assertEqualF(t, cfg.DisableOCSPChecks, true, "DisableOCSPChecks should be set from env var")
+	})
+
+	t.Run("env var is ignored when DisableOCSPChecks is explicitly set to false in DSN", func(t *testing.T) {
+		t.Setenv(envVarDisableOCSPChecks, "true")
+
+		cfg, err := ParseDSN("u:p@/db?account=ac&disableOCSPChecks=false")
+		assertNilF(t, err, "ParseDSN should not fail")
+		assertEqualF(t, cfg.DisableOCSPChecks, false, "DisableOCSPChecks should remain false; explicit DSN value takes precedence over env var")
+	})
+
+	t.Run("env var is refused when OCSP fail-closed mode is active", func(t *testing.T) {
+		t.Setenv(envVarDisableOCSPChecks, "true")
+
+		originalGlobalLogger := sflogger.GetLogger()
+		newLogger := sflogger.CreateDefaultLogger()
+		assertNilF(t, sflogger.SetLogger(newLogger), "SetLogger should not fail")
+		buf := &bytes.Buffer{}
+		sflogger.GetLogger().SetOutput(buf)
+		defer func() {
+			assertNilF(t, sflogger.SetLogger(originalGlobalLogger), "restoring logger should not fail")
+		}()
+
+		cfg, err := ParseDSN("u:p@/db?account=ac&ocspFailOpen=false")
+		assertNilF(t, err, "ParseDSN should not fail")
+		assertEqualF(t, cfg.DisableOCSPChecks, false, "DisableOCSPChecks should remain false when fail-closed mode is active")
+		assertTrueE(t, strings.Contains(buf.String(), "SF_OCSP_DISABLE_CHECKS"), "log should mention SF_OCSP_DISABLE_CHECKS")
+		assertTrueE(t, strings.Contains(buf.String(), "fail-closed"), "log should mention fail-closed mode")
+	})
 }
