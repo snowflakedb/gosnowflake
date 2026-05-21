@@ -330,12 +330,6 @@ func getMiniCore() miniCore {
 	return miniCoreInstance
 }
 
-func init() {
-	// Start async minicore loading but don't block initialization.
-	// This allows the application to start quickly while minicore loads in the background.
-	getMiniCore()
-}
-
 func minicoreDebugf(format string, args ...any) {
 	minicoreLoadLogs.mu.Lock()
 	defer minicoreLoadLogs.mu.Unlock()
