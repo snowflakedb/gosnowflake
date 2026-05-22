@@ -43,6 +43,9 @@ const (
 
 const clientType = "Go"
 
+// envVarDisableOCSPChecks is the environment variable name for disabling OCSP certificate revocation checks.
+const envVarDisableOCSPChecks = "SF_DISABLE_OCSP_CHECKS"
+
 // GetFromEnv retrieves the value of an environment variable.
 // If failOnMissing is true and the variable is not set, an error is returned.
 func GetFromEnv(name string, failOnMissing bool) (string, error) {
@@ -615,6 +618,17 @@ func FillMissingConfigParameters(cfg *Config) error {
 
 	if cfg.OCSPFailOpen == OCSPFailOpenNotSet {
 		cfg.OCSPFailOpen = OCSPFailOpenTrue
+	}
+
+	if val, _ := GetFromEnv(envVarDisableOCSPChecks, false); val != "" {
+		if v, err := strconv.ParseBool(val); err == nil && v {
+			if cfg.OCSPFailOpen == OCSPFailOpenFalse {
+				logger.Infof("%s environment variable is set, but OCSP fail-closed mode is active; the environment variable will be ignored", envVarDisableOCSPChecks)
+			} else {
+				cfg.DisableOCSPChecks = true
+				logger.Infof("Disabling OCSP checks from %s environment variable", envVarDisableOCSPChecks)
+			}
+		}
 	}
 
 	if cfg.ValidateDefaultParameters == BoolNotSet {
