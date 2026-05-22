@@ -2520,7 +2520,7 @@ func generatePKCS1String(key *rsa.PrivateKey) string {
 	return privKeyPKCS1
 }
 
-// TestSFOCSPDisableChecksEnvVar verifies that the SF_OCSP_DISABLE_CHECKS environment
+// TestSFOCSPDisableChecksEnvVar verifies that the SF_DISABLE_OCSP_CHECKS environment
 // variable sets Config.DisableOCSPChecks.
 func TestSFOCSPDisableChecksEnvVar(t *testing.T) {
 	t.Run("env var applies", func(t *testing.T) {
@@ -2554,7 +2554,7 @@ func TestSFOCSPDisableChecksEnvVar(t *testing.T) {
 		cfg, err := ParseDSN("u:p@/db?account=ac&ocspFailOpen=false")
 		assertNilF(t, err, "ParseDSN should not fail")
 		assertEqualF(t, cfg.DisableOCSPChecks, false, "DisableOCSPChecks should remain false when fail-closed mode is active")
-		assertTrueE(t, strings.Contains(buf.String(), "SF_OCSP_DISABLE_CHECKS"), "log should mention SF_OCSP_DISABLE_CHECKS")
+		assertTrueE(t, strings.Contains(buf.String(), "SF_DISABLE_OCSP_CHECKS"), "log should mention SF_DISABLE_OCSP_CHECKS")
 		assertTrueE(t, strings.Contains(buf.String(), "fail-closed"), "log should mention fail-closed mode")
 	})
 }

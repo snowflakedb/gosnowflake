@@ -4,7 +4,7 @@
 
 New features:
 
-- Added `SF_OCSP_DISABLE_CHECKS` environment variable to govern OCSP checks, same as `Config.DisableOCSPChecks` - by default, even before this change, OCSP checks are enabled (snowflakedb/gosnowflake#1798).
+- Added `SF_DISABLE_OCSP_CHECKS` environment variable as an additional option to override OCSP checks' default behaviour besides the existing `DisableOCSPChecks` config. (snowflakedb/gosnowflake#1798).
   - Note: the env var is explicitly refused when OCSP fail-closed mode is active.
 
 - Added `ArrowStreamBatch.Reset()` method that closes any existing stream and clears the cached reader, allowing callers to retry `GetStream` after a mid-stream failure (e.g. TCP RST) without re-executing the entire query. Inline (RowSetBase64) batches are restored from cached bytes on reset.

@@ -46,9 +46,6 @@ discover_custom_tags() {
   )
 }
 
-# Reset tracked files so we only detect go fix changes.
-git checkout -- .
-
 ensure_clean_worktree
 
 CUSTOM_TAGS=()
