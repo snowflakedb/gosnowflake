@@ -160,7 +160,6 @@ func HandleSingleParam(cfg *Config, key string, value any) error {
 		err = DetermineAuthenticatorType(cfg, v)
 	case "disableocspchecks":
 		cfg.DisableOCSPChecks, err = ParseBool(value)
-		cfg.disableOCSPChecksSet = true
 	case "ocspfailopen":
 		var vv Bool
 		vv, err = parseConfigBool(value)

@@ -2521,10 +2521,9 @@ func generatePKCS1String(key *rsa.PrivateKey) string {
 }
 
 // TestSFOCSPDisableChecksEnvVar verifies that the SF_OCSP_DISABLE_CHECKS environment
-// variable sets Config.DisableOCSPChecks when the field was not explicitly set in the
-// DSN or connection configuration.
+// variable sets Config.DisableOCSPChecks.
 func TestSFOCSPDisableChecksEnvVar(t *testing.T) {
-	t.Run("env var applies when DisableOCSPChecks is unset in DSN", func(t *testing.T) {
+	t.Run("env var applies", func(t *testing.T) {
 		t.Setenv(envVarDisableOCSPChecks, "true")
 
 		cfg, err := ParseDSN("u:p@/db?account=ac")
@@ -2532,12 +2531,12 @@ func TestSFOCSPDisableChecksEnvVar(t *testing.T) {
 		assertEqualF(t, cfg.DisableOCSPChecks, true, "DisableOCSPChecks should be set from env var")
 	})
 
-	t.Run("env var is ignored when DisableOCSPChecks is explicitly set to false in DSN", func(t *testing.T) {
+	t.Run("env var overrides DSN disableOCSPChecks=false", func(t *testing.T) {
 		t.Setenv(envVarDisableOCSPChecks, "true")
 
 		cfg, err := ParseDSN("u:p@/db?account=ac&disableOCSPChecks=false")
 		assertNilF(t, err, "ParseDSN should not fail")
-		assertEqualF(t, cfg.DisableOCSPChecks, false, "DisableOCSPChecks should remain false; explicit DSN value takes precedence over env var")
+		assertEqualF(t, cfg.DisableOCSPChecks, true, "env var should override DSN disableOCSPChecks=false")
 	})
 
 	t.Run("env var is refused when OCSP fail-closed mode is active", func(t *testing.T) {

@@ -65,8 +65,7 @@ type Config struct {
 	MaxRetryCount       int           // Specifies how many times non-periodic HTTP request can be retried
 
 	Application       string           // application name.
-	DisableOCSPChecks    bool             // driver doesn't check certificate revocation status
-	disableOCSPChecksSet bool             // true if user explicitly set DisableOCSPChecks, no matter the value; it should be considered over the more generic envvar. InsecureMode is deprecated thus ignored here.
+	DisableOCSPChecks bool             // driver doesn't check certificate revocation status
 	OCSPFailOpen      OCSPFailOpenMode // OCSP Fail Open
 
 	Token                  string        // Token to use for OAuth other forms of token based auth
