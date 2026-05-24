@@ -1252,3 +1252,92 @@ func createTempLargeFile(t *testing.T, sizeBytes int64) string {
 	assertNilF(t, tmpFile.Close(), "closing temp large file")
 	return tmpFile.Name()
 }
+
+// TestPutGetEncryptionMaterialRaceCondition is a regression test for
+// SNOW-3560483: the driver should recover from a concurrent-PUT race that
+// causes mismatched encryption material. It uses 10 iterations to keep
+// test speed reasonable; the original manual validation was done with 100
+// iterations (3/11 hits unfixed vs 0/100 fixed).
+func TestPutGetEncryptionMaterialRaceCondition(t *testing.T) {
+	if runningOnGithubAction() {
+		t.Skip("requires a live Snowflake account with sufficient privileges")
+	}
+
+	stageName := fmt.Sprintf("ENC_MAT_RACE_%s", randomString(8))
+	srcFileName := "race_test_file.txt"
+	srcContent := "encryption material race condition test content"
+
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec(fmt.Sprintf("CREATE OR REPLACE TEMPORARY STAGE %s", stageName))
+		defer dbt.mustExec(fmt.Sprintf("DROP STAGE IF EXISTS %s", stageName))
+
+		tmpDir := t.TempDir()
+		srcFile := filepath.Join(tmpDir, srcFileName)
+		assertNilF(t, os.WriteFile(srcFile, []byte(srcContent), 0644), "writing source file")
+
+		putSQL := fmt.Sprintf(
+			"PUT 'file://%s' @%s OVERWRITE=TRUE AUTO_COMPRESS=FALSE",
+			strings.ReplaceAll(srcFile, "\\", "\\\\"), stageName)
+		dbt.mustExec(putSQL)
+
+		downloadDir := filepath.Join(tmpDir, "download")
+		assertNilF(t, os.MkdirAll(downloadDir, 0755), "creating download dir")
+
+		getSQL := fmt.Sprintf(
+			"GET @%s/%s 'file://%s'",
+			stageName, srcFileName,
+			strings.ReplaceAll(downloadDir, "\\", "\\\\"))
+
+		// Sanity check: verify a simple GET works before the race test
+		dbt.mustExec(getSQL)
+		downloaded := filepath.Join(downloadDir, srcFileName)
+		content, err := os.ReadFile(downloaded)
+		assertNilF(t, err, "reading downloaded file in sanity check")
+		assertEqualF(t, string(content), srcContent, "sanity check content mismatch")
+		assertNilF(t, os.Remove(downloaded), "cleaning up sanity check download")
+
+		// Race test: concurrent PUT and GET on the same file. The PUT
+		// re-encrypts the file (new queryId/KEK) even though content is
+		// unchanged, which is enough to trigger the race.
+		srcHash := sha256.Sum256([]byte(srcContent))
+		const iterations = 10
+		paddingErrors := 0
+		successfulDownloads := 0
+
+		for range iterations {
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				dbt.mustExec(putSQL)
+			}()
+
+			_ = os.Remove(filepath.Join(downloadDir, srcFileName))
+			_, err := dbt.conn.ExecContext(context.Background(), getSQL)
+			<-done
+
+			if err != nil {
+				if strings.Contains(err.Error(), "264012") &&
+					strings.Contains(err.Error(), "invalid padding") {
+					paddingErrors++
+				}
+			} else {
+				successfulDownloads++
+				dlContent, readErr := os.ReadFile(filepath.Join(downloadDir, srcFileName))
+				assertNilF(t, readErr, "reading downloaded file")
+				dlHash := sha256.Sum256(dlContent)
+				assertEqualF(t, dlHash, srcHash, "downloaded file hash should match uploaded file hash")
+			}
+			_ = os.Remove(filepath.Join(downloadDir, srcFileName))
+		}
+
+		t.Logf("Race test results: %d iterations, %d successful downloads, %d padding errors",
+			iterations, successfulDownloads, paddingErrors)
+
+		// After the fix, all downloads should succeed — the driver should
+		// detect the queryId mismatch and automatically retry with fresh
+		// encryption material. Zero padding errors is the expected outcome.
+		assertEqualF(t, paddingErrors, 0,
+			fmt.Sprintf("expected zero padding errors after fix, got %d out of %d iterations",
+				paddingErrors, iterations))
+	})
+}

@@ -331,3 +331,42 @@ func TestEncryptDecryptFileGCM(t *testing.T) {
 
 	assertEqualE(t, string(fileContent), "abc")
 }
+
+func TestQueryIDFromMatdesc(t *testing.T) {
+	tests := []struct {
+		name     string
+		matdesc  string
+		expected string
+	}{
+		{
+			name:     "valid matdesc with realistic structure",
+			matdesc:  `{"smkId":"12345","queryId":"test-query-id","keySize":"128"}`,
+			expected: "test-query-id",
+		},
+		{
+			name:     "empty queryId",
+			matdesc:  `{"smkId":"12345","queryId":"","keySize":"256"}`,
+			expected: "",
+		},
+		{
+			name:     "missing queryId field",
+			matdesc:  `{"smkId":"12345","keySize":"256"}`,
+			expected: "",
+		},
+		{
+			name:     "empty string returns empty",
+			matdesc:  "",
+			expected: "",
+		},
+		{
+			name:     "invalid json returns empty",
+			matdesc:  "not json",
+			expected: "",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assertEqualF(t, queryIDFromMatdesc(tc.matdesc), tc.expected, "queryIDFromMatdesc result mismatch")
+		})
+	}
+}

@@ -103,6 +103,48 @@ func TestProcessEncryptedFileToDestination_Success(t *testing.T) {
 	verifyNoTmpFilesLeftBehind(t, fullDstFileName)
 }
 
+func TestEncryptionMaterialMismatchDetection(t *testing.T) {
+	tests := []struct {
+		name           string
+		gsQueryID      string
+		matdesc        string
+		expectMismatch bool
+	}{
+		{
+			name:           "matching queryIds",
+			gsQueryID:      "01c4768e-3205-f5b1-0001-75f2110f672e",
+			matdesc:        `{"smkId":"12345","queryId":"01c4768e-3205-f5b1-0001-75f2110f672e","keySize":"256"}`,
+			expectMismatch: false,
+		},
+		{
+			name:           "mismatching queryIds triggers renewal",
+			gsQueryID:      "01c4768e-3205-f5b1-0001-75f2110f672e",
+			matdesc:        `{"smkId":"12345","queryId":"01c47a6b-0816-2e9b-0000-a019c3ee6b7e","keySize":"256"}`,
+			expectMismatch: true,
+		},
+		{
+			name:           "empty matdesc does not trigger mismatch",
+			gsQueryID:      "01c4768e-3205-f5b1-0001-75f2110f672e",
+			matdesc:        "",
+			expectMismatch: false,
+		},
+		{
+			name:           "empty GS queryId does not trigger mismatch",
+			gsQueryID:      "",
+			matdesc:        `{"smkId":"12345","queryId":"01c47a6b-0816-2e9b-0000-a019c3ee6b7e","keySize":"256"}`,
+			expectMismatch: false,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			storageQueryID := queryIDFromMatdesc(tc.matdesc)
+			gsQueryID := tc.gsQueryID
+			mismatch := storageQueryID != "" && gsQueryID != "" && storageQueryID != gsQueryID
+			assertEqualF(t, mismatch, tc.expectMismatch, "mismatch detection result")
+		})
+	}
+}
+
 func verifyNoTmpFilesLeftBehind(t *testing.T, fullDstFileName string) {
 	destDir := filepath.Dir(fullDstFileName)
 	files, err := os.ReadDir(destDir)

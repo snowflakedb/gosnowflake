@@ -477,6 +477,15 @@ func matdescToUnicode(matdesc materialDescriptor) (string, error) {
 	return string(s), nil
 }
 
+func queryIDFromMatdesc(matdescStr string) string {
+	var md materialDescriptor
+	if err := json.Unmarshal([]byte(matdescStr), &md); err != nil {
+		logger.Debugf("failed to parse matdesc: %v", err)
+		return ""
+	}
+	return md.QueryID
+}
+
 func getSecureRandom(byteLength int) []byte {
 	token := make([]byte, byteLength)
 	_, err := rand.Read(token)

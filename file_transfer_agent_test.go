@@ -1409,3 +1409,48 @@ func TestEncryptFile(t *testing.T) {
 		})
 	}
 }
+
+func TestInjectRetryComment(t *testing.T) {
+	tests := []struct {
+		name     string
+		command  string
+		attempt  int
+		expected string
+	}{
+		{
+			name:     "first retry",
+			command:  "GET @stage/file file:///tmp",
+			attempt:  1,
+			expected: "GET @stage/file file:///tmp /* gosnowflake.renewEncryptionMaterial: 1 */",
+		},
+		{
+			name:     "third retry",
+			command:  "GET @stage/file file:///tmp",
+			attempt:  3,
+			expected: "GET @stage/file file:///tmp /* gosnowflake.renewEncryptionMaterial: 3 */",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assertEqualF(t, injectRetryComment(tc.command, tc.attempt), tc.expected)
+		})
+	}
+
+	t.Run("sequential retries on same command", func(t *testing.T) {
+		originalCmd := "GET @my_stage/data.csv file:///tmp/downloads"
+		assertEqualF(t,
+			injectRetryComment(originalCmd, 1),
+			"GET @my_stage/data.csv file:///tmp/downloads /* gosnowflake.renewEncryptionMaterial: 1 */")
+		assertEqualF(t,
+			injectRetryComment(originalCmd, 2),
+			"GET @my_stage/data.csv file:///tmp/downloads /* gosnowflake.renewEncryptionMaterial: 2 */")
+		assertEqualF(t,
+			injectRetryComment(originalCmd, 3),
+			"GET @my_stage/data.csv file:///tmp/downloads /* gosnowflake.renewEncryptionMaterial: 3 */")
+	})
+}
+
+func TestRenewEncryptionMaterialResultStatus(t *testing.T) {
+	assertEqualF(t, renewEncryptionMaterial.String(), "RENEW_ENCRYPTION_MATERIAL")
+	assertTrueF(t, renewEncryptionMaterial.isSet(), "renewEncryptionMaterial should be a valid set status")
+}

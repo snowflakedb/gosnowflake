@@ -208,6 +208,18 @@ func (rsu *remoteStorageUtil) downloadOneFile(ctx context.Context, meta *fileMet
 		meta.srcFileSize = header.contentLength
 	}
 
+	if meta.encryptionMaterial != nil && header != nil && header.encryptionMetadata != nil {
+		storageQueryID := queryIDFromMatdesc(header.encryptionMetadata.matdesc)
+		gsQueryID := meta.encryptionMaterial.QueryID
+		if storageQueryID != "" && gsQueryID != "" && storageQueryID != gsQueryID {
+			logger.Debugf("Encryption material mismatch for %s: storage queryId=%s, GS queryId=%s. "+
+				"A concurrent PUT likely updated the file. Requesting fresh encryption material.",
+				meta.srcFileName, storageQueryID, gsQueryID)
+			meta.resStatus = renewEncryptionMaterial
+			return nil
+		}
+	}
+
 	maxConcurrency := meta.parallel
 	partSize := meta.options.MultiPartThreshold
 	var lastErr error
