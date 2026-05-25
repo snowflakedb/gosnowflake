@@ -27,6 +27,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  # Go version used by all single-version jobs (lint, *-no-home, fipsOnly,
+  # *-minicore-disabled, ecc). Multi-version compatibility matrices below
+  # intentionally pin literal versions and cannot reference env (GitHub
+  # Actions does not expose the env context to strategy.matrix).
+  GO_VERSION: '1.26'
+
 jobs:
     lint:
         runs-on: ubuntu-latest
@@ -36,7 +43,7 @@ jobs:
           - name: Setup go
             uses: actions/setup-go@v5
             with:
-              go-version: '1.26'
+              go-version: ${{ env.GO_VERSION }}
           - name: golangci-lint
             uses: golangci/golangci-lint-action@v7
             with:
@@ -98,7 +105,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.26'
+            go-version: ${{ env.GO_VERSION }}
         - name: Test
           shell: bash
           env:
@@ -161,7 +168,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.26'
+            go-version: ${{ env.GO_VERSION }}
         - name: Test
           shell: bash
           env:
@@ -229,7 +236,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.26'
+            go-version: ${{ env.GO_VERSION }}
         - name: Test
           shell: bash
           env:
@@ -264,7 +271,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.26'
+            go-version: ${{ env.GO_VERSION }}
         - name: Test
           shell: bash
           env:
@@ -288,7 +295,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.26'
+            go-version: ${{ env.GO_VERSION }}
         - name: Test
           shell: bash
           env:
@@ -311,7 +318,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.26'
+            go-version: ${{ env.GO_VERSION }}
         - uses: actions/setup-python@v5
           with:
             python-version: '3.x'
@@ -340,7 +347,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.26'
+            go-version: ${{ env.GO_VERSION }}
         - name: Test
           shell: bash
           env:
