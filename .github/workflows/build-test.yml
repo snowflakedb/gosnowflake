@@ -371,7 +371,7 @@ jobs:
               - cloud: 'AZURE'
                 go: '1.25.0'
               - cloud: 'GCP'
-                go: '1.26'
+                go: '1.26.3'
         name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.go }} on Rocky Linux 9
         steps:
             - uses: actions/checkout@v4
