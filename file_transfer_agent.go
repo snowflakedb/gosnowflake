@@ -667,12 +667,16 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfigWithUtil(s3Util s
 			Message:  errors2.ErrMsgFailedToConvertToS3Client,
 		}, sfa.sc)
 	}
+	logger.WithContext(sfa.sc.ctx).Debugf("Getting accelerate endpoint for bucket %v.", s3Loc.bucketName)
 	ret, err := withCloudStorageTimeout(sfa.ctx, sfa.sc.cfg, func(ctx context.Context) (*s3.GetBucketAccelerateConfigurationOutput, error) {
 		return client.GetBucketAccelerateConfiguration(ctx, &s3.GetBucketAccelerateConfigurationInput{
 			Bucket: &s3Loc.bucketName,
 		})
 	})
 	sfa.useAccelerateEndpoint = ret != nil && ret.Status == "Enabled"
+	if sfa.useAccelerateEndpoint {
+		logger.WithContext(sfa.sc.ctx).Debugf("Transfer acceleration enabled for bucket %v.", s3Loc.bucketName)
+	}
 	if err != nil {
 		logger.WithContext(sfa.sc.ctx).Warnf("An error occurred when getting accelerate config: %v", err)
 	}
