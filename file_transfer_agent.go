@@ -650,6 +650,10 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfigWithUtil(s3Util s
 	if err != nil {
 		return err
 	}
+	if strings.HasPrefix(strings.ToLower(s3Loc.bucketName), "sfc-") {
+		logger.WithContext(sfa.sc.ctx).Debugf("Not attempting to get bucket transfer accelerate endpoint for internal stage.")
+		return nil
+	}
 	s3Cli, err := s3Util.createClientWithConfig(sfa.stageInfo, false, sfa.sc.cfg, sfa.sc.telemetry)
 	if err != nil {
 		return err

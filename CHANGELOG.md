@@ -5,6 +5,7 @@
 New features:
 
 Bug fixes:
+- Do not attempt to get S3 bucket accelerate config for Snowflake-internal stages since s3:GetAccelerateConfiguration not granted anyways (snowflakedb/gosnowflake#XXXX).
 
 Internal changes:
 
