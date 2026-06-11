@@ -180,6 +180,34 @@ func TestGetBucketAccelerateConfigurationInvalidClient(t *testing.T) {
 	})
 }
 
+func TestGetBucketAccelerateConfigurationSkippedForInternalStage(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sfa := &snowflakeFileTransferAgent{
+			ctx:         context.Background(),
+			sc:          sct.sc,
+			commandType: uploadCommand,
+			srcFiles:    make([]string, 0),
+			data: &execResponseData{
+				SrcLocations: make([]string, 0),
+			},
+			stageInfo: &execResponseStageInfo{
+				Location: "sfc-test-bucket-customer-stage.s3.amazonaws.com",
+			},
+		}
+		err := sfa.transferAccelerateConfigWithUtil(&s3ClientCreatorMock{
+			extract: func(s string) (*s3Location, error) {
+				return &s3Location{bucketName: "sfc-test-bucket-customer-stage.s3.amazonaws.com", s3Path: ""}, nil
+			},
+			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config, _ *snowflakeTelemetry) (cloudClient, error) {
+				t.Fatal("S3 client must not be created for internal stage bucket")
+				return nil, nil
+			},
+		})
+		assertNilF(t, err)
+		assertFalseF(t, sfa.useAccelerateEndpoint, "useAccelerateEndpoint should be false for internal stage bucket")
+	})
+}
+
 func TestUnitDownloadWithInvalidLocalPath(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "data")
 	if err != nil {
