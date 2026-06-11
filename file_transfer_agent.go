@@ -650,6 +650,8 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfigWithUtil(s3Util s
 	if err != nil {
 		return err
 	}
+	// role used in Snowflake stage (bucket sfc-*) operations doesn't have s3:GetAccelerateConfiguration
+	// thus get-bucket-accelerate-configuration API calls will surely fail with HTTP 403
 	if strings.HasPrefix(strings.ToLower(s3Loc.bucketName), "sfc-") {
 		logger.WithContext(sfa.sc.ctx).Debugf("Not attempting to get bucket transfer accelerate endpoint for internal stage.")
 		return nil
