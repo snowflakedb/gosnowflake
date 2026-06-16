@@ -52,6 +52,10 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
+	// Catch-all minicore kickoff for connection paths that bypass
+	// NewConnector (e.g. SnowflakeDriver.Open(dsn) or a direct OpenWithConfig
+	// caller). Idempotent via sync.Once (SNOW-3561155 / #1800).
+	_ = getMiniCore()
 	// Shape capture for the post-login client_connection_identifier_shape
 	// telemetry happens inside FillMissingConfigParameters; callers that
 	// reach OpenWithConfig via ParseDSN / LoadConnectionConfig /

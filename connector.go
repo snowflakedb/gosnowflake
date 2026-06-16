@@ -21,6 +21,12 @@ type Connector struct {
 
 // NewConnector creates a new connector with the given SnowflakeDriver and Config.
 func NewConnector(driver InternalSnowflakeDriver, config Config) driver.Connector {
+	// Begin loading minicore asynchronously as soon as the application
+	// references the driver. database/sql.Open() invokes OpenConnector ->
+	// NewConnector synchronously, so this gives the version a head start to be
+	// warm by first login, without loading at package-import time when
+	// gosnowflake is merely a transitive dependency (SNOW-3561155 / #1800).
+	_ = getMiniCore()
 	return Connector{driver, config}
 }
 
