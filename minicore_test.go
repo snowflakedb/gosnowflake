@@ -144,6 +144,11 @@ func TestIsDynamicallyLinked(t *testing.T) {
 
 func TestMiniCoreLoadedE2E(t *testing.T) {
 	logger.SetLogLevel("debug")
+	// init() no longer pre-warms minicore; loading now starts when the driver
+	// is first referenced (NewConnector below). Wait for it to finish so the
+	// login request deterministically carries CORE_VERSION and no
+	// CORE_LOAD_ERROR, as required by the wiremock mapping.
+	awaitMinicoreLoaded(t)
 	mappingFile := "minicore/auth/successful_flow.json"
 	if runtime.GOOS == "linux" {
 		mappingFile = "minicore/auth/successful_flow_linux.json"
@@ -153,4 +158,21 @@ func TestMiniCoreLoadedE2E(t *testing.T) {
 	connector := NewConnector(SnowflakeDriver{}, *cfg)
 	db := sql.OpenDB(connector)
 	runSmokeQuery(t, db)
+}
+
+// awaitMinicoreLoaded triggers asynchronous minicore loading (if not already
+// started) and blocks until the version is available or the deadline elapses.
+func awaitMinicoreLoaded(t *testing.T) {
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if mc := getMiniCore(); mc != nil {
+			if _, err := mc.FullVersion(); err == nil {
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("minicore did not finish loading within 5s")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
