@@ -39,6 +39,7 @@ const (
 	streamingMultiPartThreshold int64   = 8 * 1024 * 1024
 	isWindows                           = runtime.GOOS == "windows"
 	mb                          float64 = 1024.0 * 1024.0
+	maxEncMatRetries                    = 3
 )
 
 const (
@@ -69,16 +70,17 @@ const (
 	notFoundFile
 	needRetry
 	needRetryWithLowerConcurrency
+	renewEncryptionMaterial
 )
 
 func (rs resultStatus) String() string {
 	return [...]string{"ERROR", "UPLOADED", "DOWNLOADED", "SKIPPED",
 		"RENEW_TOKEN", "RENEW_PRESIGNED_URL", "NOT_FOUND_FILE", "NEED_RETRY",
-		"NEED_RETRY_WITH_LOWER_CONCURRENCY"}[rs]
+		"NEED_RETRY_WITH_LOWER_CONCURRENCY", "RENEW_ENCRYPTION_MATERIAL"}[rs]
 }
 
 func (rs resultStatus) isSet() bool {
-	return uploaded <= rs && rs <= needRetryWithLowerConcurrency
+	return uploaded <= rs && rs <= renewEncryptionMaterial
 }
 
 // SnowflakeFileTransferOptions enables users to specify options regarding
@@ -125,6 +127,12 @@ type snowflakeFileTransferAgent struct {
 	presignedURLs               []string
 	options                     *SnowflakeFileTransferOptions
 	streamBuffer                *bytes.Buffer
+	encMatRetries               int
+}
+
+// Comment is appended so it appears in Snowflake query history (leading comments are stripped).
+func injectRetryComment(command string, attempt int) string {
+	return fmt.Sprintf("%s /* gosnowflake.renewEncryptionMaterial: %d */", command, attempt)
 }
 
 func (sfa *snowflakeFileTransferAgent) execute() error {
@@ -988,7 +996,7 @@ func (sfa *snowflakeFileTransferAgent) downloadFilesParallel(fileMetas []*fileMe
 			retryMeta := make([]*fileMetadata, 0)
 			for i, result := range results {
 				result.errorDetails = errors[i]
-				if result.resStatus == renewToken || result.resStatus == renewPresignedURL {
+				if result.resStatus == renewToken || result.resStatus == renewPresignedURL || result.resStatus == renewEncryptionMaterial {
 					retryMeta = append(retryMeta, result)
 				} else {
 					sfa.results = append(sfa.results, result)
@@ -1000,9 +1008,13 @@ func (sfa *snowflakeFileTransferAgent) downloadFilesParallel(fileMetas []*fileMe
 			logger.WithContext(sfa.sc.ctx).Infof("%v retries found", len(retryMeta))
 
 			needRenewToken := false
+			needRenewEncryptionMaterial := false
 			for _, result := range retryMeta {
 				if result.resStatus == renewToken {
 					needRenewToken = true
+				}
+				if result.resStatus == renewEncryptionMaterial {
+					needRenewEncryptionMaterial = true
 				}
 				logger.WithContext(sfa.sc.ctx).Infof(
 					"retying download file %v with status %v",
@@ -1030,6 +1042,59 @@ func (sfa *snowflakeFileTransferAgent) downloadFilesParallel(fileMetas []*fileMe
 						return err
 					}
 					break
+				}
+			}
+
+			// Renew once per batch: even if multiple parallel downloads detected a
+			// mismatch, we re-execute the GS GET a single time and distribute the
+			// fresh encryption material to all files that need retry.
+			if needRenewEncryptionMaterial {
+				sfa.encMatRetries++
+				if sfa.encMatRetries > maxEncMatRetries {
+					return &SnowflakeError{
+						Number:  ErrFailedToDownloadFromStage,
+						Message: fmt.Sprintf("encryption material mismatch persisted after %d retries", maxEncMatRetries),
+					}
+				}
+				logger.WithContext(sfa.sc.ctx).Debugf(
+					"renewing encryption material (attempt %d/%d) due to it being overwritten while getting the file (possibly a concurrent PUT)",
+					sfa.encMatRetries, maxEncMatRetries)
+				cmd := injectRetryComment(sfa.command, sfa.encMatRetries)
+				data, err := sfa.sc.exec(sfa.ctx, cmd, false, false, false, []driver.NamedValue{})
+				if err != nil {
+					return err
+				}
+				// Mirrors initEncryptionMaterial() but reads from the fresh response
+				// (data.Data) rather than the original response (sfa.data).
+				sfa.encryptionMaterial = make([]*snowflakeFileEncryption, 0)
+				for _, encmat := range data.Data.EncryptionMaterial.EncryptionMaterials {
+					if encmat.QueryID != "" {
+						sfa.encryptionMaterial = append(sfa.encryptionMaterial, &encmat)
+					}
+				}
+				if len(data.Data.SrcLocations) == len(sfa.encryptionMaterial) {
+					for i, srcFile := range data.Data.SrcLocations {
+						sfa.srcFileToEncryptionMaterial[srcFile] = sfa.encryptionMaterial[i]
+					}
+				}
+				storageClient := sfa.getStorageClient(sfa.stageLocationType)
+				client, err := storageClient.createClient(&data.Data.StageInfo, sfa.useAccelerateEndpoint, sfa.sc.cfg, nil)
+				if err != nil {
+					return err
+				}
+				for _, result := range retryMeta {
+					if val, ok := sfa.srcFileToEncryptionMaterial[result.srcFileName]; ok {
+						result.encryptionMaterial = val
+					}
+					result.client = client
+				}
+				if endOfIdx < fileMetaLen {
+					for i := idx + int(sfa.parallel); i < fileMetaLen; i++ {
+						if val, ok := sfa.srcFileToEncryptionMaterial[fileMetas[i].srcFileName]; ok {
+							fileMetas[i].encryptionMaterial = val
+						}
+						fileMetas[i].client = client
+					}
 				}
 			}
 			targetMeta = retryMeta
