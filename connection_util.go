@@ -212,6 +212,15 @@ func isFileGetStream(ctx context.Context) bool {
 	return v != nil
 }
 
+// getFileGetStreamExactFile returns the file name set by WithFileGetStreamForExactFile and
+// whether it was set. The boolean distinguishes "no target" (plain WithFileGetStream, where
+// ok is false) from "an explicit empty target" (a caller misuse, where ok is true and the
+// value is "").
+func getFileGetStreamExactFile(ctx context.Context) (string, bool) {
+	v, ok := ctx.Value(fileGetStreamExactFile).(string)
+	return v, ok
+}
+
 func getFileTransferOptions(ctx context.Context) *SnowflakeFileTransferOptions {
 	v := ctx.Value(fileTransferOptions)
 	if v == nil {

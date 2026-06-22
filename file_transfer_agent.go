@@ -257,6 +257,15 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 			}, sfa.sc)
 		}
 
+		// Narrow a get-stream GET to the single exact file requested. Must run after the
+		// encryption-material map above is built over the full result set (it is keyed
+		// by source file name), so the selected file keeps its correct material.
+		if isFileGetStream(sfa.ctx) {
+			if err = sfa.selectGetStreamExactFile(); err != nil {
+				return err
+			}
+		}
+
 		sfa.localLocation, err = expandUser(sfa.data.LocalLocation)
 		if err != nil {
 			return err
@@ -293,6 +302,89 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 			MessageArgs: []any{sfa.stageLocationType},
 		}, sfa.sc)
 	}
+	return nil
+}
+
+// selectGetStreamExactFile narrows sfa.srcFiles to the one file named via
+// WithFileGetStreamForExactFile. A GET prefix-matches on the server, so requesting "foo" can
+// return "foo", "foobar", a nested "foo/foo", ...; a get-stream has a single io.Writer, so we
+// pick one file here - before any download goroutine touches the shared stream buffer.
+//
+// Matching is case-sensitive and by leaf (the identity dir-mode download also uses):
+//
+//   - matches when the path equals name or ends with "/"+name (so "foo" or "dir/foo");
+//   - on multiple leaf matches the shallowest path wins (the exact "foo", not a deeper "foo/foo");
+//   - equally-shallow matches ("a/foo", "b/foo") are ambiguous -> ErrGetStreamMultipleFiles;
+//   - no match -> ErrFileNotExists.
+//
+// Depth is compared across candidates, not absolute, so no physical/logical boundary is needed:
+// every result in one GET shares the same prefix depth (versions/<entity>/<versionId>/<logical>,
+// versionId one segment), so fewer segments == shallower logical path.
+//
+// Known limitation: a lone deeper namesake is accepted - request "foo" with only "foo/foo" in
+// the result (no top-level "foo") returns "foo/foo", since one path gives no boundary and the
+// tiebreak needs >=2 candidates. A wrong-file outcome; full correctness needs an exact
+// server-side GET. See TestSelectGetStreamExactFileLoneDeeperNamesake.
+//
+// No-op for plain WithFileGetStream (no name set); an explicit empty name is rejected.
+func (sfa *snowflakeFileTransferAgent) selectGetStreamExactFile() error {
+	requestedExactFile, ok := getFileGetStreamExactFile(sfa.ctx)
+	if !ok {
+		return nil // plain WithFileGetStream: no exact file, behavior unchanged
+	}
+	if requestedExactFile == "" {
+		// Opted into exact-file streaming but named no file: fail loud rather than
+		// silently falling back to the racy multi-file path (an empty name can never
+		// denote a streamable file).
+		return exceptionTelemetry(&SnowflakeError{
+			Number:   ErrFileNotExists,
+			SQLState: sfa.data.SQLState,
+			QueryID:  sfa.data.QueryID,
+			Message:  errors2.ErrMsgGetStreamExactFileEmpty,
+		}, sfa.sc)
+	}
+
+	matched := make([]string, 0, 1)
+	for _, srcFile := range sfa.srcFiles {
+		if srcFile == requestedExactFile || strings.HasSuffix(srcFile, "/"+requestedExactFile) {
+			matched = append(matched, srcFile)
+		}
+	}
+	if len(matched) == 0 {
+		return exceptionTelemetry(&SnowflakeError{
+			Number:      ErrFileNotExists,
+			SQLState:    sfa.data.SQLState,
+			QueryID:     sfa.data.QueryID,
+			Message:     errors2.ErrMsgFileNotExists,
+			MessageArgs: []any{requestedExactFile},
+		}, sfa.sc)
+	}
+
+	// Prefer the shallowest match (fewest path segments): the file named exactly the
+	// request rather than a deeper namesake. Take it when unique; only equally-shallow
+	// namesakes remain ambiguous.
+	minDepth := strings.Count(matched[0], "/")
+	for _, m := range matched[1:] {
+		if d := strings.Count(m, "/"); d < minDepth {
+			minDepth = d
+		}
+	}
+	shallowest := make([]string, 0, 1)
+	for _, m := range matched {
+		if strings.Count(m, "/") == minDepth {
+			shallowest = append(shallowest, m)
+		}
+	}
+	if len(shallowest) > 1 {
+		return exceptionTelemetry(&SnowflakeError{
+			Number:      ErrGetStreamMultipleFiles,
+			SQLState:    sfa.data.SQLState,
+			QueryID:     sfa.data.QueryID,
+			Message:     errors2.ErrMsgGetStreamMultipleFiles,
+			MessageArgs: []any{requestedExactFile, len(shallowest)},
+		}, sfa.sc)
+	}
+	sfa.srcFiles = shallowest
 	return nil
 }
 
