@@ -29,6 +29,7 @@ const (
 	fetchResultByID        ContextKey = "SF_FETCH_RESULT_BY_ID"
 	filePutStream          ContextKey = "STREAMING_PUT_FILE"
 	fileGetStream          ContextKey = "STREAMING_GET_FILE"
+	fileGetStreamExactFile ContextKey = "STREAMING_GET_EXACT_FILE"
 	fileTransferOptions    ContextKey = "FILE_TRANSFER_OPTIONS"
 	enableDecfloat         ContextKey = "ENABLE_DECFLOAT"
 	arrowAlloc             ContextKey = "ARROW_ALLOC"
@@ -80,6 +81,27 @@ func WithFilePutStream(ctx context.Context, reader io.Reader) context.Context {
 // WithFileGetStream returns a context that contains the address of the file stream to be GET
 func WithFileGetStream(ctx context.Context, writer io.Writer) context.Context {
 	return context.WithValue(ctx, fileGetStream, writer)
+}
+
+// WithFileGetStreamForExactFile is like WithFileGetStream but names the single file to stream.
+//
+// A GET resolves its stage path by server-side prefix matching, so a request for "foo" can
+// come back as several files (e.g. "foo", "foobar", a nested "foo/foo"). A get-stream has
+// exactly one io.Writer and cannot represent more than one file. This variant selects the file
+// matching fileName - by leaf, or by a trailing path such as "dir/foo" - before any download
+// begins, so callers avoid the corrupt/wrong-file output that plain WithFileGetStream produces
+// when several matched files share one buffer. When several matches share the leaf the
+// shallowest path wins; it returns ErrFileNotExists if nothing matches and
+// ErrGetStreamMultipleFiles if several equally-specific files match.
+//
+// Known limitation: matching is by leaf, so if the GET resolves to ONLY a deeper namesake -
+// you request "foo" but the result contains just "foo/foo" and no top-level "foo" - that file
+// is returned. From a single physical path the driver cannot tell its logical name is "foo/foo"
+// rather than "foo". To be fully exact, ensure the GET resolves to the precise object on the
+// server side; the driver selection is a backstop for the multi-file race, not a substitute for
+// an exact GET.
+func WithFileGetStreamForExactFile(ctx context.Context, writer io.Writer, fileName string) context.Context {
+	return context.WithValue(WithFileGetStream(ctx, writer), fileGetStreamExactFile, fileName)
 }
 
 // WithFileTransferOptions returns a context that contains the address of file transfer options

@@ -195,6 +195,9 @@ const (
 	ErrNotImplemented = sferrors.ErrNotImplemented
 	// ErrInvalidPadding is an error code denoting the invalid padding of decryption key
 	ErrInvalidPadding = sferrors.ErrInvalidPadding
+	// ErrGetStreamMultipleFiles is an error code denoting a streaming GET that resolved to
+	// more than one file when exactly one was requested.
+	ErrGetStreamMultipleFiles = sferrors.ErrGetStreamMultipleFiles
 
 	/* binding */
 

@@ -3,6 +3,7 @@
 ## Upcoming release
 
 New features:
+- Added `WithFileGetStreamForExactFile(ctx, writer, fileName)`, an opt-in variant of `WithFileGetStream` for streaming a single named file when a `GET` prefix-matches more than one (e.g. `foo` alongside `foobar` or a nested `foo/foo`). In that case plain `WithFileGetStream` streams every matched file into one shared buffer and can return corrupt or wrong-file bytes; the new variant selects the requested file before any download goroutine is spawned - matching by leaf and preferring the shallowest path when a name also appears deeper - and returns `ErrFileNotExists` (no match) or the new `ErrGetStreamMultipleFiles` (multiple equally-specific matches) instead of streaming the wrong file. Plain `WithFileGetStream` behavior is unchanged (snowflakedb/gosnowflake#1808).
 
 Bug fixes:
 - Do not attempt to get S3 bucket accelerate config for Snowflake-internal stages (matched by bucket name `sfc-*`) since s3:GetAccelerateConfiguration not granted anyways (snowflakedb/gosnowflake#1805).
