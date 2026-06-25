@@ -3,9 +3,9 @@
 ## Upcoming release
 
 New features:
-- Added `WithFileGetStreamForExactFile(ctx, writer, fileName)`, an opt-in variant of `WithFileGetStream` for streaming a single named file when a `GET` prefix-matches more than one (e.g. `foo` alongside `foobar` or a nested `foo/foo`). In that case plain `WithFileGetStream` streams every matched file into one shared buffer and can return corrupt or wrong-file bytes; the new variant selects the requested file before any download goroutine is spawned - matching by leaf and preferring the shallowest path when a name also appears deeper - and returns `ErrFileNotExists` (no match) or the new `ErrGetStreamMultipleFiles` (multiple equally-specific matches) instead of streaming the wrong file. Plain `WithFileGetStream` behavior is unchanged (snowflakedb/gosnowflake#1808).
 
 Bug fixes:
+- Fixed `WithFileGetStream` returning corrupt or wrong-file bytes when a streaming `GET` prefix-matched more than one file (e.g. `foo` alongside `foobar`, or a nested `foo/foo`). Every matched file's download goroutine wrote one shared buffer, producing a nondeterministic mix. A get-stream now streams a single file: when the GET names a specific file it returns that one even if the path prefix-matched others, and a multi-file get-stream that can't be resolved to one file returns the new `ErrGetStreamMultipleFiles` instead of corrupt bytes. The single-file case (including whole-stage and folder GETs that resolve to one file) is unchanged (snowflakedb/gosnowflake#1809).
 - Do not attempt to get S3 bucket accelerate config for Snowflake-internal stages (matched by bucket name `sfc-*`) since s3:GetAccelerateConfiguration not granted anyways (snowflakedb/gosnowflake#1805).
 - Fixed gosnowflake writing a `gosnowflake-cgo` directory under the system temp dir at package import time even when the driver was never used (e.g. when imported only as a transitive dependency). Minicore now loads lazily when the driver is first referenced (`NewConnector`/`OpenWithConfig`) instead of in `init()` (snowflakedb/gosnowflake#1807).
 

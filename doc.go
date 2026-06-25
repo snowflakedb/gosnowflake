@@ -1466,21 +1466,11 @@ To download a file into an in-memory stream (rather than a file) use code simila
 	// use gzip.NewReader(&streamBuf) for to read compressed stream.
 
 A GET resolves its stage path by prefix matching, so it can match more than one file (for
-example "foo" alongside "foobar"). Because a get-stream has a single io.Writer, plain
-WithFileGetStream streams every matched file into one shared buffer in that case and can return
-corrupt or wrong-file bytes. To stream exactly one named file, use WithFileGetStreamForExactFile,
-which selects the requested file before downloading and returns an error instead of streaming the
-wrong bytes:
-
-	var streamBuf bytes.Buffer
-	ctx := WithFileGetStreamForExactFile(context.Background(), &streamBuf, "data1.txt.gz")
-
-	sql := "get @~/data1.txt.gz file:///tmp/testData"
-	if _, err := db.ExecContext(ctx, sql); err != nil {
-		// ErrFileNotExists if data1.txt.gz is not in the result,
-		// ErrGetStreamMultipleFiles if the name is ambiguous.
-	}
-	// streamBuf now holds exactly data1.txt.gz.
+example "foo" alongside "foobar"). Because a get-stream has a single io.Writer, it streams a
+single file: when the GET names a specific file it streams that one even if the path
+prefix-matched others, and a whole-stage or folder GET streams its sole result. When the GET
+matches several files and none can be singled out, it returns ErrGetStreamMultipleFiles instead
+of corrupt or wrong-file bytes — narrow the GET so it resolves to a single file.
 
 Note: GET statements are not supported for multi-statement queries.
 
