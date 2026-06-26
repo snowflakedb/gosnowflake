@@ -1465,6 +1465,13 @@ To download a file into an in-memory stream (rather than a file) use code simila
 	// streamBuf is now filled with the stream. Use bytes.NewReader(streamBuf.Bytes()) to read uncompressed stream or
 	// use gzip.NewReader(&streamBuf) for to read compressed stream.
 
+A GET resolves its stage path by prefix matching, so it can match more than one file (for
+example "foo" alongside "foobar"). Because a get-stream has a single io.Writer, it streams a
+single file: when the GET names a specific file it streams that one even if the path
+prefix-matched others, and a whole-stage or folder GET streams its sole result. When the GET
+matches several files and none can be singled out, it returns ErrGetStreamMultipleFiles instead
+of corrupt or wrong-file bytes — narrow the GET so it resolves to a single file.
+
 Note: GET statements are not supported for multi-statement queries.
 
 Specifying temporary directory for encryption and compression:

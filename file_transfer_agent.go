@@ -257,6 +257,17 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 			}, sfa.sc)
 		}
 
+		// For a get-stream, resolve the GET to the single requested file (or error if it
+		// is missing/ambiguous) instead of streaming a corrupt mix when the path
+		// prefix-matches several files. Must run after the encryption-material map above is
+		// built over the full result set (it is keyed by source file name), so the selected
+		// file keeps its correct material.
+		if isFileGetStream(sfa.ctx) {
+			if err = sfa.selectGetStreamFile(); err != nil {
+				return err
+			}
+		}
+
 		sfa.localLocation, err = expandUser(sfa.data.LocalLocation)
 		if err != nil {
 			return err
@@ -291,6 +302,84 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 			QueryID:     sfa.data.QueryID,
 			Message:     errors2.ErrMsgInvalidStageFs,
 			MessageArgs: []any{sfa.stageLocationType},
+		}, sfa.sc)
+	}
+	return nil
+}
+
+// getStageSourceFromCommand returns the stage-source argument of a GET command (the first
+// argument after GET), with surrounding single quotes and a leading '@' removed. It returns
+// "" if the source cannot be determined. The caller typically takes baseName of the result to
+// learn which file the GET requested.
+func (sfa *snowflakeFileTransferAgent) getStageSourceFromCommand(command string) string {
+	loc := regexp.MustCompile(getRegexp).FindStringIndex(command)
+	if loc == nil {
+		return ""
+	}
+	rest := strings.TrimSpace(command[loc[1]:])
+	if rest == "" {
+		return ""
+	}
+	var src string
+	if rest[0] == '\'' { // quoted: '@stage/dir/foo.txt' or 'snow://.../foo'
+		if end := strings.IndexByte(rest[1:], '\''); end >= 0 {
+			src = rest[1 : 1+end]
+		}
+	} else { // unquoted: up to the next whitespace/terminator
+		fields := strings.FieldsFunc(rest, func(r rune) bool {
+			return r == ' ' || r == '\t' || r == '\n' || r == ';'
+		})
+		if len(fields) > 0 {
+			src = fields[0]
+		}
+	}
+	return strings.TrimPrefix(src, "@")
+}
+
+// selectGetStreamFile narrows sfa.srcFiles to the single file a get-stream should return. A GET
+// prefix-matches on the server, so requesting "foo" can come back as "foo", "foobar", a nested
+// "foo/foo", ...; a get-stream has a single io.Writer and cannot represent more than one file, so
+// we resolve it here - before any download goroutine touches the shared stream buffer.
+//
+// If the GET names a specific file (the leaf of its stage source) and exactly one result matches
+// that leaf (case-sensitive; a result matches when its path equals the leaf or ends with
+// "/"+leaf), that file is streamed even when the path prefix-matched others. Otherwise - the GET
+// targets a stage/folder (no file in the path), or the requested file is not uniquely present -
+// it falls back to the count: exactly one result streams (unambiguous), more than one returns
+// ErrGetStreamMultipleFiles. This makes plain WithFileGetStream safe for every caller: a
+// multi-file get-stream errors instead of returning corrupt or wrong-file bytes, while the common
+// single-file case (including whole-stage and folder GETs that resolve to one file) streams
+// unchanged.
+//
+// Note: a single result is streamed without leaf-validation, because a folder GET that resolves
+// to one file and a file GET whose exact name is absent (only a prefix-sibling remains) are
+// indistinguishable from the command and physical paths alone. Likewise a lone deeper namesake -
+// the only result for "foo" being "foo/foo" - is streamed (its leaf is "foo"). Full exactness
+// requires the GET to resolve to the precise object server-side.
+func (sfa *snowflakeFileTransferAgent) selectGetStreamFile() error {
+	// If the GET names a specific file and exactly one result is that file, stream just it.
+	if requested := baseName(sfa.getStageSourceFromCommand(sfa.command)); requested != "" {
+		matched := make([]string, 0, 1)
+		for _, srcFile := range sfa.srcFiles {
+			if srcFile == requested || strings.HasSuffix(srcFile, "/"+requested) {
+				matched = append(matched, srcFile)
+			}
+		}
+		if len(matched) == 1 {
+			sfa.srcFiles = matched
+			return nil
+		}
+	}
+
+	// No single requested file identified: one result is unambiguous and streams; more than one
+	// cannot be represented by a single writer.
+	if len(sfa.srcFiles) > 1 {
+		return exceptionTelemetry(&SnowflakeError{
+			Number:      ErrGetStreamMultipleFiles,
+			SQLState:    sfa.data.SQLState,
+			QueryID:     sfa.data.QueryID,
+			Message:     errors2.ErrMsgGetStreamMultipleFiles,
+			MessageArgs: []any{len(sfa.srcFiles)},
 		}, sfa.sc)
 	}
 	return nil

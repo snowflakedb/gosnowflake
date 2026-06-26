@@ -5,6 +5,7 @@
 New features:
 
 Bug fixes:
+- Fixed `WithFileGetStream` returning corrupt or wrong-file bytes when a streaming `GET` prefix-matched more than one file (e.g. `foo` alongside `foobar`, or a nested `foo/foo`). Every matched file's download goroutine wrote one shared buffer, producing a nondeterministic mix. A get-stream now streams a single file: when the GET names a specific file it returns that one even if the path prefix-matched others, and a multi-file get-stream that can't be resolved to one file returns the new `ErrGetStreamMultipleFiles` instead of corrupt bytes. The single-file case (including whole-stage and folder GETs that resolve to one file) is unchanged (snowflakedb/gosnowflake#1809).
 - Do not attempt to get S3 bucket accelerate config for Snowflake-internal stages (matched by bucket name `sfc-*`) since s3:GetAccelerateConfiguration not granted anyways (snowflakedb/gosnowflake#1805).
 - Fixed gosnowflake writing a `gosnowflake-cgo` directory under the system temp dir at package import time even when the driver was never used (e.g. when imported only as a transitive dependency). Minicore now loads lazily when the driver is first referenced (`NewConnector`/`OpenWithConfig`) instead of in `init()` (snowflakedb/gosnowflake#1807).
 
