@@ -202,7 +202,11 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 			return err
 		}
 	} else {
-		if err = sfa.download(largeFileMetas); err != nil {
+		// Local-stage downloads place their file metadata in smallFileMetas (see the
+		// stageLocationType == local branch above); cloud downloads use largeFileMetas.
+		// Passing only largeFileMetas drops every file for a LOCAL_FS stage, so download()
+		// reports "downloading 0 files" and result() returns ErrNotImplemented (264011).
+		if err = sfa.download(append(largeFileMetas, smallFileMetas...)); err != nil {
 			return err
 		}
 	}
