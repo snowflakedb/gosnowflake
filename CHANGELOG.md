@@ -7,6 +7,7 @@ New features:
 Bug fixes:
 - Do not attempt to get S3 bucket accelerate config for Snowflake-internal stages (matched by bucket name `sfc-*`) since s3:GetAccelerateConfiguration not granted anyways (snowflakedb/gosnowflake#1805).
 - Fixed gosnowflake writing a `gosnowflake-cgo` directory under the system temp dir at package import time even when the driver was never used (e.g. when imported only as a transitive dependency). Minicore now loads lazily when the driver is first referenced (`NewConnector`/`OpenWithConfig`) instead of in `init()` (snowflakedb/gosnowflake#1807).
+- Fixed `GET` from a LOCAL_FS stage downloading 0 files and returning `264011: not implemented`. Local-stage files are placed in `smallFileMetas`, but the download dispatch passed only `largeFileMetas`; both slices are now passed to `download()`. Cloud downloads were unaffected (SNOW-2294562, snowflakedb/gosnowflake#1810).
 
 Internal changes:
 
