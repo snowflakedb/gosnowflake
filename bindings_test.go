@@ -38,8 +38,6 @@ const (
 	insertSQLBulkArrayDateTimeTimestamp      = "insert into test_bulk_array_DateTimeTimestamp values(?, ?, ?, ?, ?)"
 	selectAllSQLBulkArrayDateTimeTimestamp   = "select * from test_bulk_array_DateTimeTimestamp ORDER BY 1"
 
-	enableFeatureMaxLOBSize      = "ALTER SESSION SET FEATURE_INCREASED_MAX_LOB_SIZE_IN_MEMORY='ENABLED'"
-	unsetFeatureMaxLOBSize       = "ALTER SESSION UNSET FEATURE_INCREASED_MAX_LOB_SIZE_IN_MEMORY"
 	enableLargeVarcharAndBinary  = "ALTER SESSION SET ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT=TRUE"
 	disableLargeVarcharAndBinary = "ALTER SESSION SET ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT=FALSE"
 	unsetLargeVarcharAndBinary   = "ALTER SESSION UNSET ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT"
@@ -1460,7 +1458,6 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 func TestMaxLobSize(t *testing.T) {
 	skipMaxLobSizeTestOnGithubActions(t)
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec(enableFeatureMaxLOBSize)
 		defer dbt.mustExec(unsetLargeVarcharAndBinary)
 		t.Run("Max Lob Size disabled", func(t *testing.T) {
 			dbt.mustExec(disableLargeVarcharAndBinary)
@@ -1529,7 +1526,6 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 		var c2 string
 		var c3 int
 
-		dbt.mustExec(enableFeatureMaxLOBSize)
 		if useArrowFormat {
 			dbt.mustExec(forceARROW)
 		} else {
@@ -1593,7 +1589,6 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 			})
 			dbt.mustExec("DROP TABLE IF EXISTS lob_test_table")
 		}
-		dbt.mustExec(unsetFeatureMaxLOBSize)
 	})
 }
 
