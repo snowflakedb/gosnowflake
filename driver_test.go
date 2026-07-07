@@ -309,6 +309,7 @@ func (dbt *DBTest) prepare(query string) (*sql.Stmt, error) {
 }
 
 func (dbt *DBTest) fail(method, query string, err error) {
+	dbt.Helper()
 	if !debugMode && len(query) > 1000 {
 		query = "[query too large to print]"
 	}
@@ -316,22 +317,26 @@ func (dbt *DBTest) fail(method, query string, err error) {
 }
 
 func (dbt *DBTest) mustExec(query string, args ...any) (res sql.Result) {
+	dbt.Helper()
 	return dbt.mustExecContext(context.Background(), query, args...)
 }
 
 func (dbt *DBTest) mustExecT(t *testing.T, query string, args ...any) (res sql.Result) {
+	dbt.Helper()
 	return dbt.mustExecContextT(context.Background(), t, query, args...)
 }
 
 func (dbt *DBTest) mustExecContext(ctx context.Context, query string, args ...any) (res sql.Result) {
 	res, err := dbt.conn.ExecContext(ctx, query, args...)
 	if err != nil {
+		dbt.Helper()
 		dbt.fail("exec context", query, err)
 	}
 	return res
 }
 
 func (dbt *DBTest) mustExecContextT(ctx context.Context, t *testing.T, query string, args ...any) (res sql.Result) {
+	dbt.Helper()
 	res, err := dbt.conn.ExecContext(ctx, query, args...)
 	if err != nil {
 		t.Fatalf("exec context: query=%v, err=%v", query, err)
