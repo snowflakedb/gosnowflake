@@ -2,14 +2,20 @@
 package config
 
 import (
+	"context"
 	"crypto/rsa"
 	"errors"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"time"
 )
+
+// DialFunc establishes a network connection. It matches the signature of
+// net.Dialer.DialContext.
+type DialFunc = func(ctx context.Context, network, addr string) (net.Conn, error)
 
 // Config is a set of configuration parameters
 type Config struct {
@@ -83,6 +89,17 @@ type Config struct {
 	PrivateKey *rsa.PrivateKey // Private key used to sign JWT
 
 	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
+
+	// WrapDialContext, if not nil, wraps the dial function of the transports the
+	// driver creates. It is called with the dial function of the transport being
+	// created, already configured with its dial timeout and its keep-alive, and
+	// returns the dial function the transport dials with.
+	//
+	// It allows, for example, to instrument the connections the driver
+	// establishes, keeping the certificate revocation checks, the proxy handling
+	// and the TLS configuration the driver sets up, which setting Transporter
+	// would replace. It is ignored when Transporter is set.
+	WrapDialContext func(dial DialFunc) DialFunc
 
 	TLSConfigName string // Name of the TLS config to use
 

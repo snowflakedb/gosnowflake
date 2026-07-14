@@ -114,6 +114,11 @@ func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig
 		Timeout:   transportConfig.DialTimeout,
 		KeepAlive: transportConfig.KeepAlive,
 	}
+	dialContext := dialer.DialContext
+	if tf.config != nil && tf.config.WrapDialContext != nil {
+		logger.Debug("Create a new Base Transport with the dial function wrapped by WrapDialContext")
+		dialContext = tf.config.WrapDialContext(dialContext)
+	}
 
 	defaultTransport := http.DefaultTransport.(*http.Transport)
 	return &http.Transport{
@@ -122,7 +127,7 @@ func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig
 		MaxIdleConnsPerHost: cmp.Or(transportConfig.MaxIdleConns, defaultTransport.MaxIdleConns),
 		IdleConnTimeout:     cmp.Or(transportConfig.IdleConnTimeout, defaultTransport.IdleConnTimeout),
 		Proxy:               tf.createProxy(transportConfig),
-		DialContext:         dialer.DialContext,
+		DialContext:         dialContext,
 	}, nil
 }
 
