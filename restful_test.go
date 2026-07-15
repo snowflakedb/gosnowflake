@@ -660,7 +660,7 @@ func TestPostRestfulQueryContextErrors(t *testing.T) {
 		}
 	}
 	runPostRestfulQuery := func(sr *snowflakeRestful) (data *execResponse, err error) {
-		return postRestfulQuery(context.Background(), sr, &url.Values{}, nil, nil, 0, NewUUID(), nil)
+		return postRestfulQuery(context.Background(), sr, &url.Values{}, nil, nil, 0, NewUUID(), &Config{})
 	}
 
 	t.Run("postRestfulQuery error does not trigger cancel", func(t *testing.T) {
@@ -697,6 +697,60 @@ func TestPostRestfulQueryContextErrors(t *testing.T) {
 		assertErrIsE(t, err, context.Canceled)
 		assertErrIsE(t, err, fatalCancelErr)
 		assertEqualE(t, "failed to cancel query. cancelErr: fatal failure, queryErr: context canceled", err.Error())
+	})
+
+	t.Run("positive CleanupTimeout detaches abort and returns unwrapped error", func(t *testing.T) {
+		type cleanupCtxKey struct{}
+		type abortCapture struct {
+			err         error
+			keptValue   any
+			hasDeadline bool
+			reqID       UUID
+		}
+		captured := make(chan abortCapture, 1)
+
+		callerReqID := NewUUID()
+		sr := newRestfulWithError(context.Canceled)
+		sr.FuncCancelQuery = func(ctx context.Context, _ *snowflakeRestful, _ UUID, _ time.Duration) error {
+			// Snapshot the detached context while it is still live (before the
+			// goroutine's deferred cancel fires) so assertions don't race.
+			_, hasDeadline := ctx.Deadline()
+			captured <- abortCapture{
+				err:         ctx.Err(),
+				keptValue:   ctx.Value(cleanupCtxKey{}),
+				hasDeadline: hasDeadline,
+				reqID:       getOrGenerateRequestIDFromContext(ctx),
+			}
+			return fmt.Errorf("cancel error that must not surface to the caller")
+		}
+
+		// Caller ctx carries a value and a request ID, and is already canceled -
+		// mirroring the state postRestfulQuery sees on the cancel path.
+		callerCtx := WithRequestID(context.WithValue(context.Background(), cleanupCtxKey{}, "keep-me"), callerReqID)
+		callerCtx, cancelCaller := context.WithCancel(callerCtx)
+		cancelCaller()
+
+		_, err := postRestfulQuery(callerCtx, sr, &url.Values{}, nil, nil, 0, NewUUID(), &Config{CleanupTimeout: 5 * time.Second})
+
+		// Caller-visible error is the original one, not wrapped with the cancel error.
+		assertErrIsE(t, err, context.Canceled)
+		assertEqualE(t, context.Canceled.Error(), err.Error())
+
+		select {
+		case c := <-captured:
+			// Detached: not canceled even though the caller ctx was canceled.
+			assertNilE(t, c.err)
+			// WithoutCancel retained the caller ctx values.
+			assertEqualE(t, c.keptValue, "keep-me")
+			// Bounded by CleanupTimeout.
+			assertTrueE(t, c.hasDeadline)
+			// Request ID reset: the abort must not reuse the aborted query's ID,
+			// and must be a freshly generated UUID rather than the all-zeros sentinel.
+			assertNotEqualE(t, c.reqID, callerReqID)
+			assertNotEqualE(t, c.reqID, nilUUID)
+		case <-time.After(2 * time.Second):
+			t.Fatal("expected async abort to be sent")
+		}
 	})
 }
 

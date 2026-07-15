@@ -3,6 +3,7 @@
 ## Upcoming release
 
 New features:
+- Added `CleanupTimeout` config option (DSN field `cleanupTimeout`, in seconds) that bounds post-cancellation cleanup (snowflakedb/gosnowflake#1816).
 
 Bug fixes:
 - Do not attempt to get S3 bucket accelerate config for Snowflake-internal stages (matched by bucket name `sfc-*`) since s3:GetAccelerateConfiguration not granted anyways (snowflakedb/gosnowflake#1805).

@@ -181,6 +181,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.CloudStorageTimeout != defaultCloudStorageTimeout {
 		params.Add("cloudStorageTimeout", strconv.FormatInt(int64(cfg.CloudStorageTimeout/time.Second), 10))
 	}
+	if cfg.CleanupTimeout != 0 {
+		params.Add("cleanupTimeout", strconv.FormatInt(int64(cfg.CleanupTimeout/time.Second), 10))
+	}
 	if cfg.MaxRetryCount != defaultMaxRetryCount {
 		params.Add("maxRetryCount", strconv.Itoa(cfg.MaxRetryCount))
 	}
@@ -917,6 +920,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			}
 		case "cloudStorageTimeout":
 			cfg.CloudStorageTimeout, err = parseTimeout(value)
+			if err != nil {
+				return err
+			}
+		case "cleanupTimeout":
+			cfg.CleanupTimeout, err = parseTimeout(value)
 			if err != nil {
 				return err
 			}
