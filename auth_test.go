@@ -819,11 +819,11 @@ func TestUnitAuthenticateWithExternalBrowserParallel(t *testing.T) {
 		cfg.Authenticator = AuthTypeExternalBrowser
 		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
-		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User))
+		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User, cfg.Role))
 		db := sql.OpenDB(connector)
 		defer db.Close()
 		runSmokeQuery(t, db)
-		assertEqualE(t, credentialsStorage.getCredential(newIDTokenSpec(cfg.Host, cfg.User)), "test-id-token")
+		assertEqualE(t, credentialsStorage.getCredential(newIDTokenSpec(cfg.Host, cfg.User, cfg.Role)), "test-id-token")
 	})
 
 	t.Run("ID token cached", func(t *testing.T) {
@@ -834,7 +834,7 @@ func TestUnitAuthenticateWithExternalBrowserParallel(t *testing.T) {
 		cfg.Authenticator = AuthTypeExternalBrowser
 		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
-		credentialsStorage.setCredential(newIDTokenSpec(cfg.Host, cfg.User), "test-id-token")
+		credentialsStorage.setCredential(newIDTokenSpec(cfg.Host, cfg.User, cfg.Role), "test-id-token")
 		db := sql.OpenDB(connector)
 		defer db.Close()
 		runSmokeQuery(t, db)
@@ -853,7 +853,7 @@ func TestUnitAuthenticateWithExternalBrowserParallel(t *testing.T) {
 		cfg.Authenticator = AuthTypeExternalBrowser
 		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
-		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User))
+		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User, cfg.Role))
 		db := sql.OpenDB(connector)
 		defer db.Close()
 		conn1, err := db.Conn(context.Background())
@@ -879,7 +879,7 @@ func TestUnitAuthenticateWithExternalBrowserParallel(t *testing.T) {
 		cfg.Authenticator = AuthTypeExternalBrowser
 		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
-		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User))
+		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User, cfg.Role))
 		db := sql.OpenDB(connector)
 		defer db.Close()
 		errs := initPoolWithSizeAndReturnErrors(db, 20)
@@ -899,7 +899,7 @@ func TestUnitAuthenticateWithExternalBrowserParallel(t *testing.T) {
 		cfg.Authenticator = AuthTypeExternalBrowser
 		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
-		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User))
+		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User, cfg.Role))
 		db := sql.OpenDB(connector)
 		defer db.Close()
 		errs := initPoolWithSizeAndReturnErrors(db, 20)
@@ -1247,8 +1247,8 @@ func TestWithOauthAuthorizationCodeFlowManual(t *testing.T) {
 			assertNilF(t, err)
 			cfg.Authenticator = AuthTypeOAuthAuthorizationCode
 			tokenRequestURL := cmp.Or(cfg.OauthTokenRequestURL, fmt.Sprintf("https://%v.snowflakecomputing.com:443/oauth/token-request", cfg.Account))
-			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(tokenRequestURL, cfg.User))
-			credentialsStorage.deleteCredential(newOAuthRefreshTokenSpec(tokenRequestURL, cfg.User))
+			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(tokenRequestURL, cfg.Host, cfg.User, cfg.Role))
+			credentialsStorage.deleteCredential(newOAuthRefreshTokenSpec(tokenRequestURL, cfg.Host, cfg.User, cfg.Role))
 			connector := NewConnector(&SnowflakeDriver{}, *cfg)
 			db := sql.OpenDB(connector)
 			defer db.Close()
@@ -1260,7 +1260,7 @@ func TestWithOauthAuthorizationCodeFlowManual(t *testing.T) {
 			assertNilF(t, err)
 			defer conn2.Close()
 			runSmokeQueryWithConn(t, conn2)
-			credentialsStorage.setCredential(newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.User), "expired-token")
+			credentialsStorage.setCredential(newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role), "expired-token")
 			conn3, err := db.Conn(context.Background())
 			assertNilF(t, err)
 			defer conn3.Close()

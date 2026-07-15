@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
@@ -43,45 +44,62 @@ var defaultLinuxCacheDirConf = []cacheDirConf{
 	{envVar: "HOME", pathSegments: []string{".cache", "snowflake"}},
 }
 
+// cacheKeyInput contains the five fields that define a unique token cache entry.
+// All fields are raw (un-normalized) values; normalization happens inside buildCacheKey.
+type cacheKeyInput struct {
+	tokenType tokenType // canonical wire string value (e.g. "MFA_TOKEN")
+	idp       string    // raw IdP/token-endpoint URL
+	snowflake string    // raw Snowflake server URL
+	username  string    // raw username
+	role      string    // raw role; empty for MFA
+}
+
 type secureTokenSpec struct {
-	host, user string
-	tokenType  tokenType
+	input cacheKeyInput
 }
 
 func (t *secureTokenSpec) buildKey() (string, error) {
-	return buildCredentialsKey(t.host, t.user, t.tokenType)
+	return buildCacheKey(t.input)
 }
 
-func newMfaTokenSpec(host, user string) *secureTokenSpec {
-	return &secureTokenSpec{
-		host,
-		user,
-		mfaToken,
-	}
+func newMfaTokenSpec(snowflakeURL, username string) *secureTokenSpec {
+	return &secureTokenSpec{cacheKeyInput{
+		tokenType: mfaToken,
+		idp:       snowflakeURL,
+		snowflake: snowflakeURL,
+		username:  username,
+		role:      "",
+	}}
 }
 
-func newIDTokenSpec(host, user string) *secureTokenSpec {
-	return &secureTokenSpec{
-		host,
-		user,
-		idToken,
-	}
+func newIDTokenSpec(snowflakeURL, username, role string) *secureTokenSpec {
+	return &secureTokenSpec{cacheKeyInput{
+		tokenType: idToken,
+		idp:       snowflakeURL,
+		snowflake: snowflakeURL,
+		username:  username,
+		role:      role,
+	}}
 }
 
-func newOAuthAccessTokenSpec(host, user string) *secureTokenSpec {
-	return &secureTokenSpec{
-		host,
-		user,
-		oauthAccessToken,
-	}
+func newOAuthAccessTokenSpec(idpURL, snowflakeURL, username, role string) *secureTokenSpec {
+	return &secureTokenSpec{cacheKeyInput{
+		tokenType: oauthAccessToken,
+		idp:       idpURL,
+		snowflake: snowflakeURL,
+		username:  username,
+		role:      role,
+	}}
 }
 
-func newOAuthRefreshTokenSpec(host, user string) *secureTokenSpec {
-	return &secureTokenSpec{
-		host,
-		user,
-		oauthRefreshToken,
-	}
+func newOAuthRefreshTokenSpec(idpURL, snowflakeURL, username, role string) *secureTokenSpec {
+	return &secureTokenSpec{cacheKeyInput{
+		tokenType: oauthRefreshToken,
+		idp:       idpURL,
+		snowflake: snowflakeURL,
+		username:  username,
+		role:      role,
+	}}
 }
 
 type secureStorageManager interface {
@@ -252,7 +270,7 @@ func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec *secureTokenSp
 		if err != nil {
 			logger.Warnf("Set credential failed. Unable to write cache. %v", err)
 		} else {
-			logger.Debugf("Set credential succeeded. Authentication type: %v, User: %v,  file location: %v", tokenSpec.tokenType, tokenSpec.user, ssm.credFilePath())
+			logger.Debugf("Set credential succeeded. Authentication type: %v, User: %v,  file location: %v", tokenSpec.input.tokenType, tokenSpec.input.username, ssm.credFilePath())
 		}
 	})
 }
@@ -443,7 +461,7 @@ func (ssm *fileBasedSecureStorageManager) deleteCredential(tokenSpec *secureToke
 		if err != nil {
 			logger.Warnf("Set credential failed. Unable to write cache. %v", err)
 		} else {
-			logger.Debugf("Deleted credential succeeded. Authentication type: %v, User: %v,  file location: %v", tokenSpec.tokenType, tokenSpec.user, ssm.credFilePath())
+			logger.Debugf("Deleted credential succeeded. Authentication type: %v, User: %v,  file location: %v", tokenSpec.input.tokenType, tokenSpec.input.username, ssm.credFilePath())
 		}
 	})
 }
@@ -464,17 +482,70 @@ func (ssm *fileBasedSecureStorageManager) writeTemporaryCacheFile(cache map[stri
 	return nil
 }
 
-func buildCredentialsKey(host, user string, credType tokenType) (string, error) {
-	if host == "" {
-		return "", errors.New("host is not provided to store in token cache, skipping")
+// buildCacheKey produces a versioned, SHA-256-hashed cache key from the
+// canonical JSON serialization of the five key fields. The result is
+// identical across all Snowflake drivers, enabling cross-driver token reuse.
+func buildCacheKey(input cacheKeyInput) (string, error) {
+	if input.snowflake == "" {
+		return "", errors.New("snowflake URL is required for token cache key")
 	}
-	if user == "" {
-		return "", errors.New("user is not provided to store in token cache, skipping")
+	if input.username == "" {
+		return "", errors.New("username is required for token cache key")
 	}
-	plainCredKey := host + ":" + user + ":" + string(credType)
-	checksum := sha256.New()
-	checksum.Write([]byte(plainCredKey))
-	return hex.EncodeToString(checksum.Sum(nil)), nil
+
+	keyData := map[string]string{
+		"idp":        normalizeURL(input.idp),
+		"role":       normalizeIdentifier(input.role),
+		"snowflake":  normalizeURL(input.snowflake),
+		"token_type": string(input.tokenType),
+		"username":   normalizeIdentifier(input.username),
+	}
+
+	// json.Marshal on a map[string]string emits compact JSON with keys in
+	// lexicographic order — exactly the canonical format required.
+	jsonBytes, err := json.Marshal(keyData)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize cache key: %w", err)
+	}
+
+	sum := sha256.Sum256(jsonBytes)
+	hexHash := hex.EncodeToString(sum[:])
+	return "SnowflakeTokenCache.v2." + hexHash, nil
+}
+
+// normalizeURL strips the scheme and userinfo, drops query/fragment,
+// trims a root-only trailing slash, and uppercases the remainder.
+func normalizeURL(rawURL string) string {
+	s := rawURL
+	if idx := strings.Index(s, "://"); idx >= 0 {
+		s = s[idx+3:]
+	}
+	if idx := strings.Index(s, "@"); idx >= 0 {
+		s = s[idx+1:]
+	}
+	s = strings.SplitN(s, "?", 2)[0]
+	s = strings.SplitN(s, "#", 2)[0]
+	s = strings.TrimRight(s, "/")
+	return strings.ToUpper(s)
+}
+
+// normalizeIdentifier uppercases characters outside double-quoted segments
+// and preserves the contents of "..." segments verbatim.
+func normalizeIdentifier(id string) string {
+	var b strings.Builder
+	inQuotes := false
+	for _, ch := range id {
+		switch {
+		case ch == '"':
+			inQuotes = !inQuotes
+			b.WriteRune(ch)
+		case inQuotes:
+			b.WriteRune(ch)
+		default:
+			b.WriteRune(unicode.ToUpper(ch))
+		}
+	}
+	return b.String()
 }
 
 type noopSecureStorageManager struct {

@@ -389,7 +389,7 @@ func (oauthClient *oauthClient) refreshToken() error {
 		logger.Debug("credentials storage is disabled, cannot use refresh tokens")
 		return nil
 	}
-	refreshTokenSpec := newOAuthRefreshTokenSpec(oauthClient.cfg.OauthTokenRequestURL, oauthClient.cfg.User)
+	refreshTokenSpec := newOAuthRefreshTokenSpec(oauthClient.cfg.OauthTokenRequestURL, oauthClient.cfg.Host, oauthClient.cfg.User, oauthClient.cfg.Role)
 	refreshToken := credentialsStorage.getCredential(refreshTokenSpec)
 	if refreshToken == "" {
 		logger.Debug("no refresh token in cache, full flow must be run")
@@ -440,11 +440,11 @@ type tokenExchangeResponseBody struct {
 }
 
 func (oauthClient *oauthClient) accessTokenSpec() *secureTokenSpec {
-	return newOAuthAccessTokenSpec(oauthClient.tokenURL(), oauthClient.cfg.User)
+	return newOAuthAccessTokenSpec(oauthClient.tokenURL(), oauthClient.cfg.Host, oauthClient.cfg.User, oauthClient.cfg.Role)
 }
 
 func (oauthClient *oauthClient) refreshTokenSpec() *secureTokenSpec {
-	return newOAuthRefreshTokenSpec(oauthClient.tokenURL(), oauthClient.cfg.User)
+	return newOAuthRefreshTokenSpec(oauthClient.tokenURL(), oauthClient.cfg.Host, oauthClient.cfg.User, oauthClient.cfg.Role)
 }
 
 func (oauthClient *oauthClient) logIfHTTPInUse(u string) {
