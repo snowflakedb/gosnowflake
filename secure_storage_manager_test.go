@@ -312,9 +312,9 @@ func TestStoreTemporaryCredential(t *testing.T) {
 }
 
 func TestBuildCacheKeyGoldenHash(t *testing.T) {
-	// Golden vector uses already-normalized values (per spec §3).
-	// normalizeIdentifier preserves content inside double-quotes verbatim,
-	// so passing normalized values is idempotent.
+	// Golden vector uses already-normalized values; normalizeIdentifier
+	// preserves content inside double-quotes verbatim, so passing normalized
+	// values is idempotent.
 	key, err := buildCacheKey(cacheKeyInput{
 		tokenType: "DPOP_BUNDLED_ACCESS_TOKEN",
 		idp:       "LOGIN.MICROSOFTONLINE.COM:443/TENANT-ID/OAUTH2/V2.0",

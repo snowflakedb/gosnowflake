@@ -483,8 +483,7 @@ func (ssm *fileBasedSecureStorageManager) writeTemporaryCacheFile(cache map[stri
 }
 
 // buildCacheKey produces a versioned, SHA-256-hashed cache key from the
-// canonical JSON serialization of the five key fields. The result is
-// identical across all Snowflake drivers, enabling cross-driver token reuse.
+// normalized values of the five key fields.
 func buildCacheKey(input cacheKeyInput) (string, error) {
 	if input.snowflake == "" {
 		return "", errors.New("snowflake URL is required for token cache key")
@@ -502,7 +501,7 @@ func buildCacheKey(input cacheKeyInput) (string, error) {
 	}
 
 	// json.Marshal on a map[string]string emits compact JSON with keys in
-	// lexicographic order — exactly the canonical format required.
+	// lexicographic order, ensuring a stable serialization.
 	jsonBytes, err := json.Marshal(keyData)
 	if err != nil {
 		return "", fmt.Errorf("failed to serialize cache key: %w", err)
