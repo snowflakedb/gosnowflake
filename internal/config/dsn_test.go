@@ -2122,6 +2122,15 @@ func TestDSN(t *testing.T) {
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&singleAuthenticationPrompt=false&validateDefaultParameters=true",
 		},
+		{
+			cfg: &Config{
+				User:           "u",
+				Password:       "p",
+				Account:        "a.b.c",
+				CleanupTimeout: 5 * time.Second,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?cleanupTimeout=5&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
 	}
 	for _, test := range testcases {
 		t.Run(maskSecrets(test.dsn), func(t *testing.T) {

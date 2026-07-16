@@ -98,6 +98,21 @@ The following connection parameters are supported:
     0 (zero) specifies that the driver should wait indefinitely. The default is 0 seconds.
     The query request gives up after the timeout length if the HTTP response is success.
 
+  - cleanupTimeout: Specifies the timeout, in seconds, that bounds post-cancellation
+    cleanup — the best-effort query abort sent after a QueryContext/PingContext/ExecContext
+    is canceled or times out, and the session logout sent by Close. 0 (zero, the default)
+    preserves the pre-existing behavior: cleanup runs synchronously on the caller's
+    goroutine using a background context and is unbounded, so a canceled query can block
+    the caller minutes-to-hours past its own deadline. When positive, the query abort is
+    detached onto its own goroutine bounded by this timeout so the caller regains control
+    at its own deadline, and Close bounds the logout to this timeout (Close stays
+    synchronous to honor the io.Closer contract). Because the abort then runs concurrently
+    with any reuse of the same connection, keep this value small (5 seconds is a reasonable
+    starting point) to bound the overlap window.
+
+    Note: this field was added to bypass a Behavior Change Release (BCR) and may be subject
+    to change in the next breaking change release.
+
   - authenticator: Specifies the authenticator to use for authenticating user credentials.
     See "Authenticator Values" section below for supported values.
 

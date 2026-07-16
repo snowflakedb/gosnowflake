@@ -62,6 +62,7 @@ type Config struct {
 	ExternalBrowserTimeout time.Duration // Timeout for external browser login
 	// Deprecated: timeouts may be reorganized in a future release.
 	CloudStorageTimeout time.Duration // Timeout for a single call to a cloud storage provider
+	CleanupTimeout      time.Duration // Bounds post-cancellation cleanup (query abort and session logout); 0 keeps the legacy unbounded behavior
 	MaxRetryCount       int           // Specifies how many times non-periodic HTTP request can be retried
 
 	Application       string           // application name.
