@@ -6,7 +6,7 @@ New features:
 - Added `CleanupTimeout` config option (DSN field `cleanupTimeout`, in seconds) that bounds post-cancellation cleanup (snowflakedb/gosnowflake#1816).
 
 Bug fixes:
-- Fixed nil pointer dereference panic in OCSP cache loading when a corrupt or malformed cache key is encountered, either from the remote OCSP cache server or the on-disk cache file. Corrupt entries are now skipped and the driver falls back to the live OCSP Responder for the affected certificate (snowflakedb/gosnowflake#XXXX).
+- Fixed nil pointer dereference panic in OCSP cache loading when a corrupt or malformed cache key is encountered, either from the remote OCSP cache server or the on-disk cache file. Corrupt entries are now skipped and the driver falls back to the live OCSP Responder for the affected certificate (snowflakedb/gosnowflake#1819).
 - Do not attempt to get S3 bucket accelerate config for Snowflake-internal stages (matched by bucket name `sfc-*`) since s3:GetAccelerateConfiguration not granted anyways (snowflakedb/gosnowflake#1805).
 - Fixed gosnowflake writing a `gosnowflake-cgo` directory under the system temp dir at package import time even when the driver was never used (e.g. when imported only as a transitive dependency). Minicore now loads lazily when the driver is first referenced (`NewConnector`/`OpenWithConfig`) instead of in `init()` (snowflakedb/gosnowflake#1807).
 - Fixed `GET` from a LOCAL_FS stage downloading 0 files and returning `264011: not implemented`. Cloud downloads were unaffected (snowflakedb/gosnowflake#1810).
