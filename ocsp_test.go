@@ -7,11 +7,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"testing"
@@ -627,4 +629,81 @@ func syncUpdateOcspResponseCache(f func()) {
 	ocspResponseCacheLock.Lock()
 	defer ocspResponseCacheLock.Unlock()
 	f()
+}
+
+// issue#1818 - corrupt/mangled OCSP entries must be skipped both in the on-filesystem, pre-existing
+// OCSP cache file, and in the one which is freshly downloaded from OCSP_CACHE_SERVER, and
+// must not cause a panic on nil pointer dereference.
+// After skipping the corrupt entry, the driver continues to validate online with OCSP Responder.
+
+// Corrupt entry in file downloaded from OCSP_CACHE_SERVER
+func TestUnitDownloadOCSPCacheServerCorruptKey(t *testing.T) {
+	ocspCacheServerEnabled = true
+
+	// Build a JSON payload whose key is not valid base64 (so decodeCertIDKey
+	// returns nil) but whose value is a well-formed [ts, ocspRespBase64] pair.
+	payload, err := json.Marshal(map[string]any{
+		"not!valid!base64==": []any{
+			float64(time.Now().UTC().Unix()),
+			base64.StdEncoding.EncodeToString([]byte("junk-not-ocsp")),
+		},
+	})
+	assertNilF(t, err, "marshalling test payload")
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(payload)
+	}))
+	defer ts.Close()
+
+	ov := newOcspValidator(&Config{OCSPFailOpen: OCSPFailOpenTrue})
+	ov.cacheServerURL = ts.URL
+
+	syncUpdateOcspResponseCache(func() {
+		ocspResponseCache = make(map[certIDKey]*certCacheValue)
+	})
+
+	// Must not panic.
+	ov.downloadOCSPCacheServer()
+
+	func() {
+		ocspResponseCacheLock.RLock()
+		defer ocspResponseCacheLock.RUnlock()
+		assertEqualF(t, len(ocspResponseCache), 0, "corrupt key must not be stored in cache")
+	}()
+}
+
+// Corrupt entry in the on-disk OCSP cache file
+func TestUnitInitOCSPCacheCorruptKey(t *testing.T) {
+	ocspCacheServerEnabled = true
+
+	// Build a JSON payload with a key that is valid base64 but does not decode
+	// to a valid ASN.1 certID structure.
+	corruptKey := base64.StdEncoding.EncodeToString([]byte("this-is-not-asn1"))
+	payload, err := json.Marshal(map[string]any{
+		corruptKey: []any{
+			float64(time.Now().UTC().Unix()),
+			base64.StdEncoding.EncodeToString([]byte("junk-not-ocsp")),
+		},
+	})
+	assertNilF(t, err, "marshalling test payload")
+
+	f, err := os.CreateTemp(t.TempDir(), "ocsp_cache_corrupt_*.json")
+	assertNilF(t, err, "creating temp cache file")
+	_, err = f.Write(payload)
+	assertNilF(t, err, "writing temp cache file")
+	assertNilF(t, f.Close(), "closing temp cache file")
+
+	origCacheFileName := cacheFileName
+	cacheFileName = f.Name()
+	defer func() { cacheFileName = origCacheFileName }()
+
+	// Must not panic.
+	initOCSPCache()
+
+	func() {
+		ocspResponseCacheLock.RLock()
+		defer ocspResponseCacheLock.RUnlock()
+		assertEqualF(t, len(ocspResponseCache), 0, "corrupt key from file must not be stored in cache")
+	}()
 }

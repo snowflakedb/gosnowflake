@@ -812,6 +812,10 @@ func (ov *ocspValidator) downloadOCSPCacheServer() {
 	ocspResponseCacheLock.Lock()
 	for k, cacheValue := range *ret {
 		cacheKey := decodeCertIDKey(k)
+		if cacheKey == nil {
+			logger.Debugf("OCSP cache server returned a corrupt or unrecognised cache key, skipping entry")
+			continue
+		}
 		status := extractOCSPCacheResponseValueWithoutSubject(cacheKey, cacheValue)
 		if !isValidOCSPStatus(status.code) {
 			continue
@@ -906,6 +910,10 @@ func initOCSPCache() {
 		}
 		certValue := &certCacheValue{ts, ocspRespBase64}
 		cacheKey := decodeCertIDKey(k)
+		if cacheKey == nil {
+			logger.Debugf("OCSP cache file contains a corrupt or unrecognised cache key, skipping entry")
+			continue
+		}
 		status := extractOCSPCacheResponseValueWithoutSubject(cacheKey, certValue)
 		if !isValidOCSPStatus(status.code) {
 			continue
