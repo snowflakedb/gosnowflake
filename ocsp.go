@@ -267,27 +267,25 @@ func extractCertIDKeyFromRequest(ocspReq []byte) (*certIDKey, *ocspStatus) {
 	}
 }
 
-func decodeCertIDKey(certIDKeyBase64 string) *certIDKey {
+func decodeCertIDKey(certIDKeyBase64 string) (*certIDKey, error) {
 	r, err := base64.StdEncoding.DecodeString(certIDKeyBase64)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	var c certID
 	rest, err := asn1.Unmarshal(r, &c)
 	if err != nil {
-		// error in parsing
-		return nil
+		return nil, err
 	}
 	if len(rest) > 0 {
-		// extra bytes to the end
-		return nil
+		return nil, fmt.Errorf("extra bytes after ASN.1 certID structure")
 	}
 	return &certIDKey{
 		getHashAlgorithmFromOID(c.HashAlgorithm),
 		base64.StdEncoding.EncodeToString(c.NameHash),
 		base64.StdEncoding.EncodeToString(c.IssuerKeyHash),
 		c.SerialNumber.String(),
-	}
+	}, nil
 }
 
 func encodeCertIDKey(k *certIDKey) string {
@@ -811,9 +809,9 @@ func (ov *ocspValidator) downloadOCSPCacheServer() {
 
 	ocspResponseCacheLock.Lock()
 	for k, cacheValue := range *ret {
-		cacheKey := decodeCertIDKey(k)
-		if cacheKey == nil {
-			logger.Debugf("OCSP cache server returned a corrupt or unrecognised cache key, skipping entry")
+		cacheKey, err := decodeCertIDKey(k)
+		if err != nil {
+			logger.Debugf("OCSP cache server returned a corrupt or unrecognised cache key, skipping entry: %v", err)
 			continue
 		}
 		status := extractOCSPCacheResponseValueWithoutSubject(cacheKey, cacheValue)
@@ -909,9 +907,9 @@ func initOCSPCache() {
 			continue
 		}
 		certValue := &certCacheValue{ts, ocspRespBase64}
-		cacheKey := decodeCertIDKey(k)
-		if cacheKey == nil {
-			logger.Debugf("OCSP cache file contains a corrupt or unrecognised cache key, skipping entry")
+		cacheKey, err := decodeCertIDKey(k)
+		if err != nil {
+			logger.Debugf("OCSP cache file contains a corrupt or unrecognised cache key, skipping entry: %v", err)
 			continue
 		}
 		status := extractOCSPCacheResponseValueWithoutSubject(cacheKey, certValue)

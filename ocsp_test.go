@@ -13,7 +13,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"testing"
@@ -640,24 +639,10 @@ func syncUpdateOcspResponseCache(f func()) {
 func TestUnitDownloadOCSPCacheServerCorruptKey(t *testing.T) {
 	ocspCacheServerEnabled = true
 
-	// Build a JSON payload whose key is not valid base64 (so decodeCertIDKey
-	// returns nil) but whose value is a well-formed [ts, ocspRespBase64] pair.
-	payload, err := json.Marshal(map[string]any{
-		"not!valid!base64==": []any{
-			float64(time.Now().UTC().Unix()),
-			base64.StdEncoding.EncodeToString([]byte("junk-not-ocsp")),
-		},
-	})
-	assertNilF(t, err, "marshalling test payload")
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(payload)
-	}))
-	defer ts.Close()
+	wiremock.registerMappings(t, newWiremockMapping("ocsp/corrupt_cache_key.json"))
 
 	ov := newOcspValidator(&Config{OCSPFailOpen: OCSPFailOpenTrue})
-	ov.cacheServerURL = ts.URL
+	ov.cacheServerURL = fmt.Sprintf("%v/ocsp_response_cache.json", wiremock.baseURL())
 
 	syncUpdateOcspResponseCache(func() {
 		ocspResponseCache = make(map[certIDKey]*certCacheValue)
