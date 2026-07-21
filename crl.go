@@ -156,7 +156,7 @@ const (
 const (
 	defaultCrlHTTPClientTimeout       = 10 * time.Second
 	defaultCrlCacheValidityTime       = 24 * time.Hour
-	defaultCrlOnDiskCacheRemovalDelay = 7 * time.Hour
+	defaultCrlOnDiskCacheRemovalDelay = 7 * 24 * time.Hour
 	defaultCrlDownloadMaxSize         = 20 * 1024 * 1024 // 20 MB
 )
 
