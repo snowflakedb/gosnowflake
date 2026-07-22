@@ -1480,6 +1480,14 @@ To download a file into an in-memory stream (rather than a file) use code simila
 	// streamBuf is now filled with the stream. Use bytes.NewReader(streamBuf.Bytes()) to read uncompressed stream or
 	// use gzip.NewReader(&streamBuf) for to read compressed stream.
 
+A GET resolves its stage path by prefix matching, so it can match more than one file (for
+example "foo" alongside "foobar"). Because a get-stream has a single io.Writer, it can return
+only one file: if the GET matches more than one, it returns ErrGetStreamMultipleFiles instead of
+streaming a corrupt mix of them. Use the GET command's PATTERN argument to narrow the match to a
+single file, for example:
+
+	sql := `get @~ file:///tmp/testData pattern='.*data1.txt.gz'`
+
 Note: GET statements are not supported for multi-statement queries.
 
 Specifying temporary directory for encryption and compression:
