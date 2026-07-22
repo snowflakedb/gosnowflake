@@ -44,14 +44,16 @@ var defaultLinuxCacheDirConf = []cacheDirConf{
 	{envVar: "HOME", pathSegments: []string{".cache", "snowflake"}},
 }
 
-// cacheKeyInput contains the five fields that define a unique token cache entry.
+// cacheKeyInput contains the fields that define a unique token cache entry.
 // All fields are raw (un-normalized) values; normalization happens inside buildCacheKey.
+// For OAuth flows the key uses all four data fields (idp, role, snowflake, username).
+// For MFA/ID token flows only snowflake and username are included in keyData.
 type cacheKeyInput struct {
-	tokenType tokenType // canonical wire string value (e.g. "MFA_TOKEN")
-	idp       string    // raw IdP/token-endpoint URL
+	tokenType tokenType // canonical wire string (e.g. "MFA_TOKEN"); appears in key prefix, not in keyData
+	idp       string    // raw IdP/token-endpoint URL (OAuth only)
 	snowflake string    // raw Snowflake server URL
 	username  string    // raw username
-	role      string    // raw role; empty for MFA
+	role      string    // raw role (OAuth only)
 }
 
 type secureTokenSpec struct {
@@ -65,20 +67,16 @@ func (t *secureTokenSpec) buildKey() (string, error) {
 func newMfaTokenSpec(snowflakeURL, username string) *secureTokenSpec {
 	return &secureTokenSpec{cacheKeyInput{
 		tokenType: mfaToken,
-		idp:       snowflakeURL,
 		snowflake: snowflakeURL,
 		username:  username,
-		role:      "",
 	}}
 }
 
-func newIDTokenSpec(snowflakeURL, username, role string) *secureTokenSpec {
+func newIDTokenSpec(snowflakeURL, username string) *secureTokenSpec {
 	return &secureTokenSpec{cacheKeyInput{
 		tokenType: idToken,
-		idp:       snowflakeURL,
 		snowflake: snowflakeURL,
 		username:  username,
-		role:      role,
 	}}
 }
 
@@ -484,6 +482,11 @@ func (ssm *fileBasedSecureStorageManager) writeTemporaryCacheFile(cache map[stri
 
 // buildCacheKey produces a versioned, SHA-256-hashed cache key from the
 // normalized values of the five key fields.
+var mfaOrIDTokenTypes = map[tokenType]bool{
+	mfaToken: true,
+	idToken:  true,
+}
+
 func buildCacheKey(input cacheKeyInput) (string, error) {
 	if input.snowflake == "" {
 		return "", errors.New("snowflake URL is required for token cache key")
@@ -492,12 +495,19 @@ func buildCacheKey(input cacheKeyInput) (string, error) {
 		return "", errors.New("username is required for token cache key")
 	}
 
-	keyData := map[string]string{
-		"idp":        normalizeURL(input.idp),
-		"role":       normalizeIdentifier(input.role),
-		"snowflake":  normalizeURL(input.snowflake),
-		"token_type": string(input.tokenType),
-		"username":   normalizeIdentifier(input.username),
+	var keyData map[string]string
+	if mfaOrIDTokenTypes[input.tokenType] {
+		keyData = map[string]string{
+			"snowflake": normalizeURL(input.snowflake),
+			"username":  normalizeIdentifier(input.username),
+		}
+	} else {
+		keyData = map[string]string{
+			"idp":       normalizeURL(input.idp),
+			"role":      normalizeIdentifier(input.role),
+			"snowflake": normalizeURL(input.snowflake),
+			"username":  normalizeIdentifier(input.username),
+		}
 	}
 
 	// json.Marshal on a map[string]string emits compact JSON with keys in
@@ -509,7 +519,7 @@ func buildCacheKey(input cacheKeyInput) (string, error) {
 
 	sum := sha256.Sum256(jsonBytes)
 	hexHash := hex.EncodeToString(sum[:])
-	return "SnowflakeTokenCache.v2." + hexHash, nil
+	return "SnowflakeTokenCache.v2." + string(input.tokenType) + "." + hexHash, nil
 }
 
 // normalizeURL strips the scheme and userinfo, drops query/fragment,

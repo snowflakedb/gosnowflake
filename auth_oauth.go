@@ -389,7 +389,7 @@ func (oauthClient *oauthClient) refreshToken() error {
 		logger.Debug("credentials storage is disabled, cannot use refresh tokens")
 		return nil
 	}
-	refreshTokenSpec := newOAuthRefreshTokenSpec(oauthClient.cfg.OauthTokenRequestURL, oauthClient.cfg.Host, oauthClient.cfg.User, oauthClient.cfg.Role)
+	refreshTokenSpec := newOAuthRefreshTokenSpec(oauthClient.tokenURL(), oauthClient.cfg.Host, oauthClient.cfg.User, oauthClient.cfg.Role)
 	refreshToken := credentialsStorage.getCredential(refreshTokenSpec)
 	if refreshToken == "" {
 		logger.Debug("no refresh token in cache, full flow must be run")

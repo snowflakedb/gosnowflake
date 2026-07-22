@@ -9,7 +9,7 @@ New features:
 - Added option to load private key from `connections.toml` file (snowflakedb/gosnowflake#1822).
 
 Bug fixes:
-- Fixed token cache key collisions for multi-account (shared IdP) and multi-role scenarios by switching to a versioned, SHA256-hashed canonical-JSON key applied uniformly across keyring (macOS/Windows) and file (Linux) backends (snowflakedb/gosnowflake#1817).
+- Fixed token cache key collisions for multi-account (shared IdP) and multi-role scenarios by switching to a versioned, SHA256-hashed canonical-JSON key with the token type in the key prefix, applied uniformly across keyring (macOS/Windows) and file (Linux) backends (snowflakedb/gosnowflake#1821).
 - Fixed nil pointer dereference panic when a corrupt or malformed OCSP cache key is encountered, either from the remote OCSP cache server or the local cache file (snowflakedb/gosnowflake#1819).
 - Fixed `WithFileGetStream` returning corrupt or wrong-file bytes when a `GET` prefix-matched more than one file; a get-stream can return only one file, so a multi-file match now returns the new `ErrGetStreamMultipleFiles` (pointing to the GET `PATTERN` argument) instead of a nondeterministic mix (snowflakedb/gosnowflake#1809).
 - Do not attempt to get S3 bucket accelerate config for Snowflake-internal stages (matched by bucket name `sfc-*`) since s3:GetAccelerateConfiguration not granted anyways (snowflakedb/gosnowflake#1805).
