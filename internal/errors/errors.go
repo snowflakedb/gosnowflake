@@ -158,6 +158,9 @@ const (
 	ErrNotImplemented = 264011
 	// ErrInvalidPadding is an error code denoting the invalid padding of decryption key
 	ErrInvalidPadding = 264012
+	// ErrGetStreamMultipleFiles is an error code denoting a streaming GET whose stage path
+	// matched more than one file, so it cannot be streamed into a single writer.
+	ErrGetStreamMultipleFiles = 264013
 
 	/* binding */
 
@@ -265,6 +268,7 @@ const (
 	ErrMsgNoResultIDs                        = "no result IDs returned with the multi-statement query"
 	ErrMsgQueryStatus                        = "server ErrorCode=%s, ErrorMessage=%s"
 	ErrMsgInvalidPadding                     = "invalid padding on input"
+	ErrMsgGetStreamMultipleFiles             = "get stream can only return one file, please use the GET PATTERN argument"
 	ErrMsgClientConfigFailed                 = "client configuration failed: %v"
 	ErrMsgNullValueInArray                   = "for handling null values in arrays use WithArrayValuesNullable(ctx)"
 	ErrMsgNullValueInMap                     = "for handling null values in maps use WithMapValuesNullable(ctx)"
