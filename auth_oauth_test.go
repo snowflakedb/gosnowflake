@@ -183,8 +183,9 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 			ClientStoreTemporaryCredential: ConfigBoolTrue,
 		}
 	}
-	cacheTokenSpec := newOAuthAccessTokenSpec(cfgFactory().OauthTokenRequestURL, cfgFactory().Host, cfgFactory().User, cfgFactory().Role)
-	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfgFactory(), &snowflakeConn{})
+	cfg := cfgFactory()
+	cacheTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg, &snowflakeConn{})
 	assertNilF(t, err)
 
 	t.Run("success", func(t *testing.T) {
