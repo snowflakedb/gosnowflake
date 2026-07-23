@@ -2,8 +2,8 @@
 // Prerequisite: Follow the steps to set up a keypair - https://docs.snowflake.com/en/user-guide/key-pair-auth.html#configuring-key-pair-authentication
 //
 // This example loads the key from an environment variable via GetConfigFromEnv.
-// Alternatively, you can keep keypair credentials in a connections.toml file and
-// point at the key with a private_key_path (or private_key_file) entry, e.g.:
+// Alternatively, you can reference the private key from a connections.toml file
+// via a private_key_path (or private_key_file) entry, e.g.:
 //
 //	[my_connection]
 //	account = "myaccount"
