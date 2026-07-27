@@ -14,6 +14,15 @@ Bug fixes:
 - Fixed `GET` from a LOCAL_FS stage downloading 0 files and returning `264011: not implemented`. Cloud downloads were unaffected (snowflakedb/gosnowflake#1810).
 
 Internal changes:
+- Migrated from deprecated `github.com/aws/aws-sdk-go-v2/feature/s3/manager` (v1.16.15) to `github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager` (v0.3.5).
+- Updated AWS SDK dependencies:
+  - `github.com/aws/aws-sdk-go-v2`: v1.38.1 → v1.43.0
+  - `github.com/aws/aws-sdk-go-v2/config`: v1.27.11 → v1.32.31
+  - `github.com/aws/aws-sdk-go-v2/credentials`: v1.17.11 → v1.19.30
+  - `github.com/aws/aws-sdk-go-v2/feature/ec2/imds`: v1.16.1 → v1.18.31
+  - `github.com/aws/aws-sdk-go-v2/service/s3`: v1.53.1 → v1.106.0
+  - `github.com/aws/aws-sdk-go-v2/service/sts`: v1.28.6 → v1.45.0
+  - `github.com/aws/smithy-go`: v1.22.5 → v1.27.4
 
 ## 2.1.0
 
