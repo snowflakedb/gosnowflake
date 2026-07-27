@@ -352,11 +352,13 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 }
 
 type mockAwsAttestationMetadataProvider struct {
-	creds           aws.Credentials
-	region          string
-	chainingCreds   aws.Credentials
-	chainingError   error
-	useRoleChaining bool
+	creds            aws.Credentials
+	region           string
+	chainingCreds    aws.Credentials
+	chainingError    error
+	useRoleChaining  bool
+	webIdentityToken string
+	webIdentityError error
 }
 
 var mockCreds = aws.Credentials{
@@ -381,6 +383,104 @@ func (m *mockAwsAttestationMetadataProvider) awsCredentialsViaRoleChaining() (aw
 
 func (m *mockAwsAttestationMetadataProvider) awsRegion() string {
 	return m.region
+}
+
+func (m *mockAwsAttestationMetadataProvider) awsWebIdentityToken(_ aws.Credentials, _ string) (string, error) {
+	if m.webIdentityError != nil {
+		return "", m.webIdentityError
+	}
+	return m.webIdentityToken, nil
+}
+
+func TestAwsIdentityAttestationCreatorOutboundToken(t *testing.T) {
+	const jwt = "header.payload.signature"
+	tests := []struct {
+		name               string
+		config             Config
+		attestationSvc     awsAttestationMetadataProvider
+		expectedError      error
+		expectedCredential string
+	}{
+		{
+			name: "Successful outbound attestation",
+			config: Config{
+				WorkloadIdentityAwsUseOutboundToken: ConfigBoolTrue,
+			},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds:            mockCreds,
+				region:           "us-west-2",
+				webIdentityToken: jwt,
+			},
+			expectedCredential: jwt,
+		},
+		{
+			name: "Successful outbound attestation with role chaining",
+			config: Config{
+				WorkloadIdentityAwsUseOutboundToken: ConfigBoolTrue,
+				WorkloadIdentityImpersonationPath:   []string{"arn:aws:iam::123456789012:role/test-role"},
+			},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds: mockCreds,
+				chainingCreds: aws.Credentials{
+					AccessKeyID:     "chainedAccessKey",
+					SecretAccessKey: "chainedSecretKey",
+					SessionToken:    "chainedSessionToken",
+				},
+				region:           "us-east-1",
+				useRoleChaining:  true,
+				webIdentityToken: jwt,
+			},
+			expectedCredential: jwt,
+		},
+		{
+			name: "STS returns no token",
+			config: Config{
+				WorkloadIdentityAwsUseOutboundToken: ConfigBoolTrue,
+			},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds:            mockCreds,
+				region:           "us-west-2",
+				webIdentityToken: "",
+			},
+			expectedError: fmt.Errorf("failed to obtain AWS web identity token from STS"),
+		},
+		{
+			name: "STS call fails",
+			config: Config{
+				WorkloadIdentityAwsUseOutboundToken: ConfigBoolTrue,
+			},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds:            mockCreds,
+				region:           "us-west-2",
+				webIdentityError: fmt.Errorf("AccessDenied"),
+			},
+			expectedError: fmt.Errorf("AccessDenied"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			creator := &awsIdentityAttestationCreator{
+				attestationServiceFactory: func(ctx context.Context, cfg *Config) awsAttestationMetadataProvider {
+					return test.attestationSvc
+				},
+				ctx: context.Background(),
+				cfg: &test.config,
+			}
+			attestation, err := creator.createAttestation()
+			if test.expectedError != nil {
+				assertNilF(t, attestation)
+				assertNotNilE(t, err)
+				assertEqualE(t, test.expectedError.Error(), err.Error())
+			} else {
+				assertNilE(t, err)
+				assertNotNilE(t, attestation)
+				assertEqualE(t, "AWS", attestation.ProviderType)
+				// The outbound token is sent verbatim, not base64-encoded.
+				assertEqualE(t, test.expectedCredential, attestation.Credential)
+			}
+		})
+	}
 }
 
 func TestGcpIdentityAttestationCreator(t *testing.T) {
@@ -804,6 +904,26 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 				assertNotEqualF(t, os.Getenv("SNOWFLAKE_TEST_WIF_USERNAME_IMPERSONATION"), "", "SNOWFLAKE_TEST_WIF_USERNAME_IMPERSONATION is not set")
 			},
 			expectedUsername: os.Getenv("SNOWFLAKE_TEST_WIF_USERNAME_IMPERSONATION"),
+		},
+		{
+			// AWS WIF supports two attestation methods: GetCallerIdentity (default) and
+			// GetWebIdentityToken (enabled via WorkloadIdentityAwsUseOutboundToken). This case
+			// covers the GetWebIdentityToken method against the dedicated TEST_WIF_E2E_AWS_WITH_ISSUER
+			// Snowflake user (configured with an ISSUER). Since an EC2 instance can only have one IAM
+			// role, the test impersonates a dedicated role that maps to that user.
+			name: "provider=" + provider + ",outboundToken",
+			skip: func() (bool, string) {
+				if provider != "AWS" {
+					return true, "GetWebIdentityToken outbound token is supported only on AWS"
+				}
+				return false, ""
+			},
+			setupCfg: func(_ *testing.T, config *Config) {
+				config.WorkloadIdentityProvider = provider
+				config.WorkloadIdentityAwsUseOutboundToken = ConfigBoolTrue
+				config.WorkloadIdentityImpersonationPath = []string{"arn:aws:iam::376129840140:role/drivers-wif-automated-tests-with-issuer"}
+			},
+			expectedUsername: "TEST_WIF_E2E_AWS_WITH_ISSUER",
 		},
 	}
 	for _, tc := range testCases {
