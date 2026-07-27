@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -302,8 +303,18 @@ func (sc *snowflakeConn) Close() (err error) {
 
 	if sc.cfg != nil && !sc.cfg.ServerSessionKeepAlive {
 		logger.WithContext(sc.ctx).Debug("Closing session since ServerSessionKeepAlive is false")
-		// we have to replace context with background, otherwise we can use a one that is cancelled or timed out
-		if err = sc.rest.FuncCloseSession(context.Background(), sc.rest, sc.rest.RequestTimeout); err != nil {
+		// we have to strip cancellation, otherwise we can use a ctx that is cancelled or timed out
+		// We reset the request ID so the abort gets its own fresh one instead of reusing the aborted query's
+		// ID (which WithRequestID would otherwise leak into the abort request URL).
+		closeCtx := context.WithValue(context.WithoutCancel(cmp.Or(sc.ctx, context.Background())), snowflakeRequestIDKey, nilUUID)
+		if sc.cfg.CleanupTimeout > 0 {
+			// Bound the logout so Close does not block past CleanupTimeout. Stays
+			// synchronous to honor the io.Closer expectation of blocking on close.
+			var cancelClose context.CancelFunc
+			closeCtx, cancelClose = context.WithTimeout(closeCtx, sc.cfg.CleanupTimeout)
+			defer cancelClose()
+		}
+		if err = sc.rest.FuncCloseSession(closeCtx, sc.rest, sc.rest.RequestTimeout); err != nil {
 			logger.WithContext(sc.ctx).Errorf("error while closing session: %v", err)
 		}
 	} else {

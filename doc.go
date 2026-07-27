@@ -98,6 +98,21 @@ The following connection parameters are supported:
     0 (zero) specifies that the driver should wait indefinitely. The default is 0 seconds.
     The query request gives up after the timeout length if the HTTP response is success.
 
+  - cleanupTimeout: Specifies the timeout, in seconds, that bounds post-cancellation
+    cleanup — the best-effort query abort sent after a QueryContext/PingContext/ExecContext
+    is canceled or times out, and the session logout sent by Close. 0 (zero, the default)
+    preserves the pre-existing behavior: cleanup runs synchronously on the caller's
+    goroutine using a background context and is unbounded, so a canceled query can block
+    the caller minutes-to-hours past its own deadline. When positive, the query abort is
+    detached onto its own goroutine bounded by this timeout so the caller regains control
+    at its own deadline, and Close bounds the logout to this timeout (Close stays
+    synchronous to honor the io.Closer contract). Because the abort then runs concurrently
+    with any reuse of the same connection, keep this value small (5 seconds is a reasonable
+    starting point) to bound the overlap window.
+
+    Note: this field was added to bypass a Behavior Change Release (BCR) and may be subject
+    to change in the next breaking change release.
+
   - authenticator: Specifies the authenticator to use for authenticating user credentials.
     See "Authenticator Values" section below for supported values.
 
@@ -1464,6 +1479,14 @@ To download a file into an in-memory stream (rather than a file) use code simila
 	dbt.mustExecContext(ctx, sql)
 	// streamBuf is now filled with the stream. Use bytes.NewReader(streamBuf.Bytes()) to read uncompressed stream or
 	// use gzip.NewReader(&streamBuf) for to read compressed stream.
+
+A GET resolves its stage path by prefix matching, so it can match more than one file (for
+example "foo" alongside "foobar"). Because a get-stream has a single io.Writer, it can return
+only one file: if the GET matches more than one, it returns ErrGetStreamMultipleFiles instead of
+streaming a corrupt mix of them. Use the GET command's PATTERN argument to narrow the match to a
+single file, for example:
+
+	sql := `get @~ file:///tmp/testData pattern='.*data1.txt.gz'`
 
 Note: GET statements are not supported for multi-statement queries.
 

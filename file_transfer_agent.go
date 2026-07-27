@@ -261,6 +261,15 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 			}, sfa.sc)
 		}
 
+		// A get-stream has a single io.Writer, so a GET matching more than one file would
+		// stream a corrupt mix. Fail deterministically instead of guessing which file the
+		// caller meant, pointing them at the GET PATTERN argument to narrow the match.
+		if isFileGetStream(sfa.ctx) {
+			if err = sfa.ensureSingleGetStreamFile(); err != nil {
+				return err
+			}
+		}
+
 		sfa.localLocation, err = expandUser(sfa.data.LocalLocation)
 		if err != nil {
 			return err
@@ -295,6 +304,22 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 			QueryID:     sfa.data.QueryID,
 			Message:     errors2.ErrMsgInvalidStageFs,
 			MessageArgs: []any{sfa.stageLocationType},
+		}, sfa.sc)
+	}
+	return nil
+}
+
+// ensureSingleGetStreamFile fails a get-stream that matched more than one file. A GET resolves its
+// stage path by prefix, so it can match several files, but a get-stream has a single io.Writer and
+// streaming them all into it yields a corrupt mix. Rather than guess which file the caller meant,
+// return ErrGetStreamMultipleFiles so the caller narrows the GET with its PATTERN argument.
+func (sfa *snowflakeFileTransferAgent) ensureSingleGetStreamFile() error {
+	if len(sfa.srcFiles) > 1 {
+		return exceptionTelemetry(&SnowflakeError{
+			Number:   ErrGetStreamMultipleFiles,
+			SQLState: sfa.data.SQLState,
+			QueryID:  sfa.data.QueryID,
+			Message:  errors2.ErrMsgGetStreamMultipleFiles,
 		}, sfa.sc)
 	}
 	return nil
