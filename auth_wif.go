@@ -123,6 +123,7 @@ type awsAttestationMetadataProvider interface {
 	awsCredentials() (aws.Credentials, error)
 	awsCredentialsViaRoleChaining() (aws.Credentials, error)
 	awsRegion() string
+	awsWebIdentityToken(creds aws.Credentials, region string) (string, error)
 }
 
 type defaultAwsAttestationMetadataProvider struct {
@@ -189,6 +190,26 @@ func (s *defaultAwsAttestationMetadataProvider) awsRegion() string {
 	return s.awsCfg.Region
 }
 
+func (s *defaultAwsAttestationMetadataProvider) awsWebIdentityToken(creds aws.Credentials, region string) (string, error) {
+	awsCfg := s.awsCfg
+	awsCfg.Credentials = credentials.StaticCredentialsProvider{Value: creds}
+	awsCfg.Region = region
+	stsClient := sts.NewFromConfig(awsCfg)
+
+	resp, err := stsClient.GetWebIdentityToken(s.ctx, &sts.GetWebIdentityTokenInput{
+		Audience:         []string{snowflakeAudience},
+		SigningAlgorithm: aws.String("ES384"),
+	})
+	if err != nil {
+		logger.Debugf("failed to obtain AWS web identity token from STS: %v", err)
+		return "", err
+	}
+	if resp.WebIdentityToken == nil {
+		return "", nil
+	}
+	return *resp.WebIdentityToken, nil
+}
+
 func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
 	logger.Debug("Creating AWS identity attestation...")
 
@@ -221,6 +242,15 @@ func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 		return nil, fmt.Errorf("no AWS region was found")
 	}
 
+	if c.cfg.WorkloadIdentityAwsUseOutboundToken == ConfigBoolTrue {
+		return c.createOutboundIdentityAttestation(attestationService, creds, region)
+	}
+	return c.createCallerIdentityAttestation(creds, region)
+}
+
+// createCallerIdentityAttestation produces the attestation as a base64-encoded,
+// SigV4-signed STS GetCallerIdentity request envelope.
+func (c *awsIdentityAttestationCreator) createCallerIdentityAttestation(creds aws.Credentials, region string) (*wifAttestation, error) {
 	stsHostname := stsHostname(region)
 	req, err := c.createStsRequest(stsHostname)
 	if err != nil {
@@ -240,6 +270,23 @@ func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 	return &wifAttestation{
 		ProviderType: string(awsWif),
 		Credential:   credential,
+		Metadata:     map[string]string{},
+	}, nil
+}
+
+// createOutboundIdentityAttestation produces the attestation as a signed JWT
+// obtained from the STS GetWebIdentityToken API.
+func (c *awsIdentityAttestationCreator) createOutboundIdentityAttestation(attestationService awsAttestationMetadataProvider, creds aws.Credentials, region string) (*wifAttestation, error) {
+	token, err := attestationService.awsWebIdentityToken(creds, region)
+	if err != nil {
+		return nil, err
+	}
+	if token == "" {
+		return nil, errors.New("failed to obtain AWS web identity token from STS")
+	}
+	return &wifAttestation{
+		ProviderType: string(awsWif),
+		Credential:   token,
 		Metadata:     map[string]string{},
 	}, nil
 }
