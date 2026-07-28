@@ -480,13 +480,23 @@ func (ssm *fileBasedSecureStorageManager) writeTemporaryCacheFile(cache map[stri
 	return nil
 }
 
-// buildCacheKey produces a versioned, SHA-256-hashed cache key from the
-// normalized values of the five key fields.
+// mfaOrIDTokenTypes are the flows whose keyData contains only snowflake +
+// username. All other (OAuth) flows additionally include idp + role.
 var mfaOrIDTokenTypes = map[tokenType]bool{
 	mfaToken: true,
 	idToken:  true,
 }
 
+// buildCacheKey produces the versioned, SHA-256-hashed cache key
+//
+//	SnowflakeTokenCache.v2.<TOKEN_TYPE>.<lowercase_sha256(canonical_json(keyData))>
+//
+// The token type lives in the readable key prefix and is never part of keyData.
+// keyData is flow-specific: OAuth flows serialize idp, role, snowflake and
+// username; MFA/ID token flows serialize only snowflake and username, because
+// those flows never embed an idp or a role. The canonical JSON (compact, keys
+// sorted lexicographically) is identical across all Snowflake drivers, enabling
+// cross-driver token reuse.
 func buildCacheKey(input cacheKeyInput) (string, error) {
 	if input.snowflake == "" {
 		return "", errors.New("snowflake URL is required for token cache key")

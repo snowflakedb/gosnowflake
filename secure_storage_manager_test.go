@@ -300,6 +300,12 @@ func TestStoreTemporaryCredential(t *testing.T) {
 		{newOAuthRefreshTokenSpec("https://idp.example.com/token", "testhost", "testuser", "testrole"), "refresh token"},
 	}
 
+	credCacheDir, err := os.MkdirTemp("", "")
+	assertNilF(t, err)
+	defer os.RemoveAll(credCacheDir)
+	credCacheDirEnvOverride := overrideEnv(credCacheDirEnv, credCacheDir)
+	defer credCacheDirEnvOverride.rollback()
+
 	ssm, err := newFileBasedSecureStorageManager()
 	assertNilF(t, err)
 
