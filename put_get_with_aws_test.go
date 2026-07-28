@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
@@ -144,8 +144,8 @@ func TestPutWithInvalidToken(t *testing.T) {
 		defer func() {
 			assertNilF(t, f.Close())
 		}()
-		uploader := manager.NewUploader(client)
-		if _, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
+		uploader := transfermanager.New(client)
+		if _, err = uploader.UploadObject(context.Background(), &transfermanager.UploadObjectInput{
 			Bucket: &s3Loc.bucketName,
 			Key:    &s3Path,
 			Body:   f,
@@ -154,7 +154,7 @@ func TestPutWithInvalidToken(t *testing.T) {
 		}
 
 		parentPath := filepath.Dir(filepath.Dir(s3Path)) + "/"
-		if _, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
+		if _, err = uploader.UploadObject(context.Background(), &transfermanager.UploadObjectInput{
 			Bucket: &s3Loc.bucketName,
 			Key:    &parentPath,
 			Body:   f,
@@ -174,8 +174,8 @@ func TestPutWithInvalidToken(t *testing.T) {
 		}
 		client = s3Cli.(*s3.Client)
 
-		uploader = manager.NewUploader(client)
-		if _, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
+		uploader = transfermanager.New(client)
+		if _, err = uploader.UploadObject(context.Background(), &transfermanager.UploadObjectInput{
 			Bucket: &s3Loc.bucketName,
 			Key:    &s3Path,
 			Body:   f,
