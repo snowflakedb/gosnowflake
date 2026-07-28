@@ -225,6 +225,8 @@ func HandleSingleParam(cfg *Config, key string, value any) error {
 		cfg.WorkloadIdentityEntraResource, err = parseString(value)
 	case "workloadidentityimpersonatinpath":
 		cfg.WorkloadIdentityImpersonationPath, err = parseStrings(value)
+	case "workloadidentityawsuseoutboundtoken":
+		cfg.WorkloadIdentityAwsUseOutboundToken, err = parseConfigBool(value)
 	case "tokenfilepath":
 		cfg.TokenFilePath, err = parseString(value)
 		if err = checkParsingError(err, key, value); err != nil {

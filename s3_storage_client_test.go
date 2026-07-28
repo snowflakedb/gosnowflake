@@ -5,13 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"strconv"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
 )
@@ -47,12 +47,12 @@ func TestExtractBucketNameAndPath(t *testing.T) {
 	}
 }
 
-type mockUploadObjectAPI func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error)
+type mockUploadObjectAPI func(ctx context.Context, params *transfermanager.UploadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.UploadObjectOutput, error)
 
-func (m mockUploadObjectAPI) Upload(
+func (m mockUploadObjectAPI) UploadObject(
 	ctx context.Context,
-	params *s3.PutObjectInput,
-	optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
+	params *transfermanager.UploadObjectInput,
+	optFns ...func(*transfermanager.Options)) (*transfermanager.UploadObjectOutput, error) {
 	return m(ctx, params, optFns...)
 }
 
@@ -86,7 +86,7 @@ func TestUploadOneFileToS3WSAEConnAborted(t *testing.T) {
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: multiPartThreshold,
 		},
-		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
+		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *transfermanager.UploadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.UploadObjectOutput, error) {
 			return nil, &smithy.GenericAPIError{
 				Code:    errNoWsaeconnaborted,
 				Message: "mock err, connection aborted",
@@ -163,7 +163,7 @@ func TestUploadOneFileToS3ConnReset(t *testing.T) {
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: multiPartThreshold,
 		},
-		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
+		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *transfermanager.UploadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.UploadObjectOutput, error) {
 			return nil, &smithy.GenericAPIError{
 				Code:    strconv.Itoa(-1),
 				Message: "mock err, connection aborted",
@@ -223,7 +223,7 @@ func TestUploadFileWithS3UploadFailedError(t *testing.T) {
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: multiPartThreshold,
 		},
-		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
+		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *transfermanager.UploadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.UploadObjectOutput, error) {
 			return nil, &smithy.GenericAPIError{
 				Code: expiredToken,
 				Message: "An error occurred (ExpiredToken) when calling the " +
@@ -356,14 +356,13 @@ func TestGetHeaderNotFoundError(t *testing.T) {
 	}
 }
 
-type mockDownloadObjectAPI func(ctx context.Context, w io.WriterAt, params *s3.GetObjectInput, optFns ...func(*manager.Downloader)) (int64, error)
+type mockDownloadObjectAPI func(ctx context.Context, params *transfermanager.DownloadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.DownloadObjectOutput, error)
 
-func (m mockDownloadObjectAPI) Download(
+func (m mockDownloadObjectAPI) DownloadObject(
 	ctx context.Context,
-	w io.WriterAt,
-	params *s3.GetObjectInput,
-	optFns ...func(*manager.Downloader)) (int64, error) {
-	return m(ctx, w, params, optFns...)
+	params *transfermanager.DownloadObjectInput,
+	optFns ...func(*transfermanager.Options)) (*transfermanager.DownloadObjectOutput, error) {
+	return m(ctx, params, optFns...)
 }
 
 func TestDownloadFileWithS3TokenExpired(t *testing.T) {
@@ -394,8 +393,8 @@ func TestDownloadFileWithS3TokenExpired(t *testing.T) {
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: multiPartThreshold,
 		},
-		mockDownloader: mockDownloadObjectAPI(func(ctx context.Context, w io.WriterAt, params *s3.GetObjectInput, optFns ...func(*manager.Downloader)) (int64, error) {
-			return 0, &smithy.GenericAPIError{
+		mockDownloader: mockDownloadObjectAPI(func(ctx context.Context, params *transfermanager.DownloadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.DownloadObjectOutput, error) {
+			return nil, &smithy.GenericAPIError{
 				Code: expiredToken,
 				Message: "An error occurred (ExpiredToken) when calling the " +
 					"operation: The provided token has expired.",
@@ -448,8 +447,8 @@ func TestDownloadFileWithS3ConnReset(t *testing.T) {
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: multiPartThreshold,
 		},
-		mockDownloader: mockDownloadObjectAPI(func(ctx context.Context, w io.WriterAt, params *s3.GetObjectInput, optFns ...func(*manager.Downloader)) (int64, error) {
-			return 0, &smithy.GenericAPIError{
+		mockDownloader: mockDownloadObjectAPI(func(ctx context.Context, params *transfermanager.DownloadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.DownloadObjectOutput, error) {
+			return nil, &smithy.GenericAPIError{
 				Code:    strconv.Itoa(-1),
 				Message: "mock err, connection aborted",
 			}
@@ -501,8 +500,8 @@ func TestDownloadOneFileToS3WSAEConnAborted(t *testing.T) {
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: multiPartThreshold,
 		},
-		mockDownloader: mockDownloadObjectAPI(func(ctx context.Context, w io.WriterAt, params *s3.GetObjectInput, optFns ...func(*manager.Downloader)) (int64, error) {
-			return 0, &smithy.GenericAPIError{
+		mockDownloader: mockDownloadObjectAPI(func(ctx context.Context, params *transfermanager.DownloadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.DownloadObjectOutput, error) {
+			return nil, &smithy.GenericAPIError{
 				Code:    errNoWsaeconnaborted,
 				Message: "mock err, connection aborted",
 			}
@@ -555,8 +554,8 @@ func TestDownloadOneFileToS3Failed(t *testing.T) {
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: multiPartThreshold,
 		},
-		mockDownloader: mockDownloadObjectAPI(func(ctx context.Context, w io.WriterAt, params *s3.GetObjectInput, optFns ...func(*manager.Downloader)) (int64, error) {
-			return 0, errors.New("Failed to upload file")
+		mockDownloader: mockDownloadObjectAPI(func(ctx context.Context, params *transfermanager.DownloadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.DownloadObjectOutput, error) {
+			return nil, errors.New("Failed to upload file")
 		}),
 		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
 			return &s3.HeadObjectOutput{}, nil
@@ -687,9 +686,9 @@ func TestS3UploadRetryWithHeaderNotFound(t *testing.T) {
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: multiPartThreshold,
 		},
-		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
-			return &manager.UploadOutput{
-				Location: "https://sfc-customer-stage/rwyi-testacco/users/9220/data1.txt.gz",
+		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *transfermanager.UploadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.UploadObjectOutput, error) {
+			return &transfermanager.UploadObjectOutput{
+				Location: aws.String("https://sfc-customer-stage/rwyi-testacco/users/9220/data1.txt.gz"),
 			}, nil
 		}),
 		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
@@ -749,7 +748,7 @@ func TestS3UploadStreamFailed(t *testing.T) {
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: multiPartThreshold,
 		},
-		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
+		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *transfermanager.UploadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.UploadObjectOutput, error) {
 			return nil, errors.New("unexpected error uploading file")
 		}),
 		sfa: &snowflakeFileTransferAgent{

@@ -100,9 +100,10 @@ type Config struct {
 
 	DisableSamlURLCheck Bool // Indicates whether the SAML URL check should be disabled
 
-	WorkloadIdentityProvider          string   // The workload identity provider to use for WIF authentication
-	WorkloadIdentityEntraResource     string   // The resource to use for WIF authentication on Azure environment
-	WorkloadIdentityImpersonationPath []string // The components to use for WIF impersonation.
+	WorkloadIdentityProvider            string   // The workload identity provider to use for WIF authentication
+	WorkloadIdentityEntraResource       string   // The resource to use for WIF authentication on Azure environment
+	WorkloadIdentityImpersonationPath   []string // The components to use for WIF impersonation.
+	WorkloadIdentityAwsUseOutboundToken Bool     // For AWS WIF, obtain the attestation as an STS GetWebIdentityToken JWT instead of a signed GetCallerIdentity request envelope
 
 	CertRevocationCheckMode           CertRevocationCheckMode // revocation check mode for CRLs
 	CrlAllowCertificatesWithoutCrlURL Bool                    // Allow certificates (not short-lived) without CRL DP included to be treated as correct ones
