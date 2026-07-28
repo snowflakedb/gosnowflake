@@ -3,10 +3,10 @@
 package gosnowflake
 
 import (
-	"github.com/99designs/keyring"
 	"runtime"
-	"strings"
 	"sync"
+
+	"github.com/99designs/keyring"
 )
 
 func defaultOsSpecificSecureStorageManager() secureStorageManager {
@@ -39,8 +39,8 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 		switch runtime.GOOS {
 		case "windows":
 			ring, _ := keyring.Open(keyring.Config{
-				WinCredPrefix: strings.ToUpper(tokenSpec.host),
-				ServiceName:   strings.ToUpper(tokenSpec.user),
+				WinCredPrefix: credentialsKey,
+				ServiceName:   credentialsKey,
 			})
 			item := keyring.Item{
 				Key:  credentialsKey,
@@ -53,9 +53,8 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 			ring, _ := keyring.Open(keyring.Config{
 				ServiceName: credentialsKey,
 			})
-			account := strings.ToUpper(tokenSpec.user)
 			item := keyring.Item{
-				Key:  account,
+				Key:  credentialsKey,
 				Data: []byte(value),
 			}
 			if err := ring.Set(item); err != nil {
@@ -75,8 +74,8 @@ func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec
 	switch runtime.GOOS {
 	case "windows":
 		ring, _ := keyring.Open(keyring.Config{
-			WinCredPrefix: strings.ToUpper(tokenSpec.host),
-			ServiceName:   strings.ToUpper(tokenSpec.user),
+			WinCredPrefix: credentialsKey,
+			ServiceName:   credentialsKey,
 		})
 		i, err := ring.Get(credentialsKey)
 		if err != nil {
@@ -87,8 +86,7 @@ func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec
 		ring, _ := keyring.Open(keyring.Config{
 			ServiceName: credentialsKey,
 		})
-		account := strings.ToUpper(tokenSpec.user)
-		i, err := ring.Get(account)
+		i, err := ring.Get(credentialsKey)
 		if err != nil {
 			logger.Debugf("Failed to find the item in keychain or item does not exist. Error: %v", err)
 		}
@@ -111,10 +109,10 @@ func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenS
 	switch runtime.GOOS {
 	case "windows":
 		ring, _ := keyring.Open(keyring.Config{
-			WinCredPrefix: strings.ToUpper(tokenSpec.host),
-			ServiceName:   strings.ToUpper(tokenSpec.user),
+			WinCredPrefix: credentialsKey,
+			ServiceName:   credentialsKey,
 		})
-		err := ring.Remove(string(credentialsKey))
+		err := ring.Remove(credentialsKey)
 		if err != nil {
 			logger.Debugf("Failed to delete credentialsKey in Windows Credential Manager. Error: %v", err)
 		}
@@ -122,8 +120,7 @@ func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenS
 		ring, _ := keyring.Open(keyring.Config{
 			ServiceName: credentialsKey,
 		})
-		account := strings.ToUpper(tokenSpec.user)
-		err := ring.Remove(account)
+		err := ring.Remove(credentialsKey)
 		if err != nil {
 			logger.Debugf("Failed to delete credentialsKey in keychain. Error: %v", err)
 		}
