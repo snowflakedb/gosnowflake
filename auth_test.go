@@ -1,7 +1,6 @@
 package gosnowflake
 
 import (
-	"cmp"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -726,7 +725,7 @@ func TestMfaParallelLogin(t *testing.T) {
 	skipOnMissingHome(t)
 	skipOnMac(t, "interactive keyring access not available on macOS runners")
 	cfg := wiremock.connectionConfig()
-	tokenSpec := newMfaTokenSpec(cfg.Host, cfg.User)
+	tokenSpec := newMfaTokenSpec(cfg)
 
 	for _, singleAuthenticationPrompt := range []ConfigBool{ConfigBoolTrue, ConfigBoolFalse} {
 		t.Run("starts without mfa token, singleAuthenticationPrompt="+singleAuthenticationPrompt.String(), func(t *testing.T) {
@@ -819,11 +818,11 @@ func TestUnitAuthenticateWithExternalBrowserParallel(t *testing.T) {
 		cfg.Authenticator = AuthTypeExternalBrowser
 		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
-		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User))
+		credentialsStorage.deleteCredential(newIDTokenSpec(cfg))
 		db := sql.OpenDB(connector)
 		defer db.Close()
 		runSmokeQuery(t, db)
-		assertEqualE(t, credentialsStorage.getCredential(newIDTokenSpec(cfg.Host, cfg.User)), "test-id-token")
+		assertEqualE(t, credentialsStorage.getCredential(newIDTokenSpec(cfg)), "test-id-token")
 	})
 
 	t.Run("ID token cached", func(t *testing.T) {
@@ -834,7 +833,7 @@ func TestUnitAuthenticateWithExternalBrowserParallel(t *testing.T) {
 		cfg.Authenticator = AuthTypeExternalBrowser
 		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
-		credentialsStorage.setCredential(newIDTokenSpec(cfg.Host, cfg.User), "test-id-token")
+		credentialsStorage.setCredential(newIDTokenSpec(cfg), "test-id-token")
 		db := sql.OpenDB(connector)
 		defer db.Close()
 		runSmokeQuery(t, db)
@@ -853,7 +852,7 @@ func TestUnitAuthenticateWithExternalBrowserParallel(t *testing.T) {
 		cfg.Authenticator = AuthTypeExternalBrowser
 		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
-		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User))
+		credentialsStorage.deleteCredential(newIDTokenSpec(cfg))
 		db := sql.OpenDB(connector)
 		defer db.Close()
 		conn1, err := db.Conn(context.Background())
@@ -879,7 +878,7 @@ func TestUnitAuthenticateWithExternalBrowserParallel(t *testing.T) {
 		cfg.Authenticator = AuthTypeExternalBrowser
 		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
-		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User))
+		credentialsStorage.deleteCredential(newIDTokenSpec(cfg))
 		db := sql.OpenDB(connector)
 		defer db.Close()
 		errs := initPoolWithSizeAndReturnErrors(db, 20)
@@ -899,7 +898,7 @@ func TestUnitAuthenticateWithExternalBrowserParallel(t *testing.T) {
 		cfg.Authenticator = AuthTypeExternalBrowser
 		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
-		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User))
+		credentialsStorage.deleteCredential(newIDTokenSpec(cfg))
 		db := sql.OpenDB(connector)
 		defer db.Close()
 		errs := initPoolWithSizeAndReturnErrors(db, 20)
@@ -1246,9 +1245,8 @@ func TestWithOauthAuthorizationCodeFlowManual(t *testing.T) {
 			})
 			assertNilF(t, err)
 			cfg.Authenticator = AuthTypeOAuthAuthorizationCode
-			tokenRequestURL := cmp.Or(cfg.OauthTokenRequestURL, fmt.Sprintf("https://%v.snowflakecomputing.com:443/oauth/token-request", cfg.Account))
-			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(tokenRequestURL, cfg.Host, cfg.User, cfg.Role))
-			credentialsStorage.deleteCredential(newOAuthRefreshTokenSpec(tokenRequestURL, cfg.Host, cfg.User, cfg.Role))
+			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(cfg))
+			credentialsStorage.deleteCredential(newOAuthRefreshTokenSpec(cfg))
 			connector := NewConnector(&SnowflakeDriver{}, *cfg)
 			db := sql.OpenDB(connector)
 			defer db.Close()
@@ -1260,7 +1258,7 @@ func TestWithOauthAuthorizationCodeFlowManual(t *testing.T) {
 			assertNilF(t, err)
 			defer conn2.Close()
 			runSmokeQueryWithConn(t, conn2)
-			credentialsStorage.setCredential(newOAuthAccessTokenSpec(tokenRequestURL, cfg.Host, cfg.User, cfg.Role), "expired-token")
+			credentialsStorage.setCredential(newOAuthAccessTokenSpec(cfg), "expired-token")
 			conn3, err := db.Conn(context.Background())
 			assertNilF(t, err)
 			defer conn3.Close()
