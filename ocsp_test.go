@@ -448,114 +448,241 @@ func TestOCSPCacheServerRetry(t *testing.T) {
 	}
 }
 
-type tcCanEarlyExit struct {
-	results       []*ocspStatus
-	resultLen     int
-	retFailOpen   *ocspStatus
-	retFailClosed *ocspStatus
-}
-
-func TestCanEarlyExitForOCSP(t *testing.T) {
-	testcases := []tcCanEarlyExit{
-		{ // 0
+func TestEvaluateChain(t *testing.T) {
+	testcases := []struct {
+		results   []*ocspStatus
+		resultLen int
+		verdict   ocspChainResult
+		// statusCode is the code of the representative status returned alongside the
+		// verdict; ignored for ocspChainUnrevoked (which returns nil).
+		statusCode ocspStatusCode
+	}{
+		{ // 0: every certificate good -> unrevoked
 			results: []*ocspStatus{
-				{
-					code: ocspStatusGood,
-				},
-				{
-					code: ocspStatusGood,
-				},
-				{
-					code: ocspStatusGood,
-				},
+				{code: ocspStatusGood},
+				{code: ocspStatusGood},
+				{code: ocspStatusGood},
 			},
-			retFailOpen:   nil,
-			retFailClosed: nil,
+			verdict: ocspChainUnrevoked,
 		},
-		{ // 1
+		{ // 1: a revoked certificate -> revoked
 			results: []*ocspStatus{
-				{
-					code: ocspStatusRevoked,
-					err:  errors.New("revoked"),
-				},
-				{
-					code: ocspStatusGood,
-				},
-				{
-					code: ocspStatusGood,
-				},
+				{code: ocspStatusRevoked, err: errors.New("revoked")},
+				{code: ocspStatusGood},
+				{code: ocspStatusGood},
 			},
-			retFailOpen:   &ocspStatus{ocspStatusRevoked, errors.New("revoked")},
-			retFailClosed: &ocspStatus{ocspStatusRevoked, errors.New("revoked")},
+			verdict:    ocspChainRevoked,
+			statusCode: ocspStatusRevoked,
 		},
-		{ // 2
+		{ // 2: an unknown status -> error
 			results: []*ocspStatus{
-				{
-					code: ocspStatusUnknown,
-					err:  errors.New("unknown"),
-				},
-				{
-					code: ocspStatusGood,
-				},
-				{
-					code: ocspStatusGood,
-				},
+				{code: ocspStatusUnknown, err: errors.New("unknown")},
+				{code: ocspStatusGood},
+				{code: ocspStatusGood},
 			},
-			retFailOpen:   nil,
-			retFailClosed: &ocspStatus{ocspStatusUnknown, errors.New("unknown")},
+			verdict:    ocspChainError,
+			statusCode: ocspStatusUnknown,
 		},
-		{ // 3: not taken as revoked if any invalid OCSP response (ocspInvalidValidity) is included.
+		{ // 3: revoked dominates other errors (aligned with the CRL validator)
 			results: []*ocspStatus{
-				{
-					code: ocspStatusRevoked,
-					err:  errors.New("revoked"),
-				},
-				{
-					code: ocspInvalidValidity,
-				},
-				{
-					code: ocspStatusGood,
-				},
+				{code: ocspStatusRevoked, err: errors.New("revoked")},
+				{code: ocspInvalidValidity},
+				{code: ocspStatusGood},
 			},
-			retFailOpen:   nil,
-			retFailClosed: &ocspStatus{ocspStatusRevoked, errors.New("revoked")},
+			verdict:    ocspChainRevoked,
+			statusCode: ocspStatusRevoked,
 		},
-		{ // 4: not taken as revoked if the number of results don't match the expected results.
+		{ // 4: fewer results than certificates in the chain -> not unrevoked
 			results: []*ocspStatus{
-				{
-					code: ocspStatusRevoked,
-					err:  errors.New("revoked"),
-				},
-				{
-					code: ocspStatusGood,
-				},
+				{code: ocspStatusRevoked, err: errors.New("revoked")},
+				{code: ocspStatusGood},
 			},
-			resultLen:     3,
-			retFailOpen:   nil,
-			retFailClosed: &ocspStatus{ocspStatusRevoked, errors.New("revoked")},
+			resultLen:  3,
+			verdict:    ocspChainRevoked,
+			statusCode: ocspStatusRevoked,
+		},
+		{ // 5: incomplete results with no revoked certificate -> error
+			results: []*ocspStatus{
+				{code: ocspStatusGood},
+			},
+			resultLen:  3,
+			verdict:    ocspChainError,
+			statusCode: 0,
 		},
 	}
 
+	ov := newOcspValidator(&Config{OCSPFailOpen: OCSPFailOpenTrue})
 	for idx, tt := range testcases {
 		t.Run("", func(t *testing.T) {
-			ovOpen := newOcspValidator(&Config{OCSPFailOpen: OCSPFailOpenTrue})
 			expectedLen := len(tt.results)
 			if tt.resultLen > 0 {
 				expectedLen = tt.resultLen
 			}
-			expectedLen++ // add one because normally there is a root certificate that is not included in the results.
+			expectedLen++ // add one for the root certificate that is not checked.
 			mockVerifiedChain := make([]*x509.Certificate, expectedLen)
-			r := ovOpen.canEarlyExitForOCSP(tt.results, mockVerifiedChain)
-			if !(tt.retFailOpen == nil && r == nil) && !(tt.retFailOpen != nil && r != nil && tt.retFailOpen.code == r.code) {
-				t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailOpen, r)
+			verdict, status := ov.evaluateChain(tt.results, mockVerifiedChain)
+			if verdict != tt.verdict {
+				t.Fatalf("%d: verdict mismatch. expected: %v, got: %v", idx, tt.verdict, verdict)
 			}
-			ovClosed := newOcspValidator(&Config{OCSPFailOpen: OCSPFailOpenFalse})
-			r = ovClosed.canEarlyExitForOCSP(tt.results, mockVerifiedChain)
-			if !(tt.retFailClosed == nil && r == nil) && !(tt.retFailClosed != nil && r != nil && tt.retFailClosed.code == r.code) {
-				t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailClosed, r)
+			if tt.verdict == ocspChainUnrevoked {
+				if status != nil {
+					t.Fatalf("%d: expected nil status for unrevoked chain, got: %v", idx, status)
+				}
+				return
+			}
+			if tt.statusCode != 0 && (status == nil || status.code != tt.statusCode) {
+				t.Fatalf("%d: status code mismatch. expected: %v, got: %v", idx, tt.statusCode, status)
 			}
 		})
 	}
+}
+
+// seedOCSPResponse inserts a signed OCSP response for (subject, issuer) into the
+// in-memory response cache so verifyPeerCertificate resolves the certificate's
+// status from cache without any network call. issuerKey signs the response.
+func seedOCSPResponse(t *testing.T, subject, issuer *x509.Certificate, issuerKey crypto.Signer, status int) {
+	tmpl := ocsp.Response{
+		Status:       status,
+		SerialNumber: subject.SerialNumber,
+		ThisUpdate:   time.Now().Add(-time.Hour),
+		NextUpdate:   time.Now().Add(time.Hour),
+	}
+	if status == ocsp.Revoked {
+		tmpl.RevokedAt = time.Now().Add(-2 * time.Hour)
+		tmpl.RevocationReason = ocsp.Unspecified
+	}
+	respBytes, err := ocsp.CreateResponse(issuer, issuer, tmpl, issuerKey)
+	assertNilF(t, err)
+	req, err := ocsp.CreateRequest(subject, issuer, nil)
+	assertNilF(t, err)
+	key, s := extractCertIDKeyFromRequest(req)
+	assertEqualF(t, s.code, ocspSuccess)
+	syncUpdateOcspResponseCache(func() {
+		ocspResponseCache[*key] = &certCacheValue{float64(time.Now().Unix()), base64.StdEncoding.EncodeToString(respBytes)}
+	})
+}
+
+// TestVerifyPeerCertificateMultiChain verifies the multi-chain revocation policy:
+// a connection is accepted as soon as one verified chain is fully unrevoked, and
+// rejected only when every chain fails. Chains are evaluated purely from the
+// in-memory OCSP cache (good/revoked leaves) or a missing responder URL (error
+// leaves), so the test performs no network calls.
+func TestVerifyPeerCertificateMultiChain(t *testing.T) {
+	prevEnabled := ocspCacheServerEnabled
+	prevCacheFile := cacheFileName
+	prevUpdated := cacheUpdated
+	t.Cleanup(func() {
+		ocspCacheServerEnabled = prevEnabled
+		cacheFileName = prevCacheFile
+		cacheUpdated = prevUpdated
+	})
+	ocspCacheServerEnabled = true
+	cacheFileName = fmt.Sprintf("%s/%s", t.TempDir(), cacheFileBaseName)
+
+	caKey, caCert := createCa(t, nil, nil, "root CA", 0)
+	const dummyResponder = ocspServerType("http://ocsp.test.invalid/")
+
+	resetCaches := func() {
+		syncUpdateOcspResponseCache(func() {
+			ocspResponseCache = make(map[certIDKey]*certCacheValue)
+		})
+		ocspParsedRespCacheLock.Lock()
+		ocspParsedRespCache = make(map[parsedOcspRespKey]*ocspStatus)
+		ocspParsedRespCacheLock.Unlock()
+		cacheUpdated = false
+	}
+
+	// goodLeaf / revokedLeaf advertise a responder URL and are resolved from the
+	// seeded cache. errorLeaf has no responder URL and is not cached, so it can
+	// never be verified (and never triggers a network call).
+	goodLeaf := func() *x509.Certificate {
+		_, leaf := createLeafCert(t, caCert, caKey, 0, dummyResponder)
+		seedOCSPResponse(t, leaf, caCert, caKey, ocsp.Good)
+		return leaf
+	}
+	revokedLeaf := func() *x509.Certificate {
+		_, leaf := createLeafCert(t, caCert, caKey, 0, dummyResponder)
+		seedOCSPResponse(t, leaf, caCert, caKey, ocsp.Revoked)
+		return leaf
+	}
+	errorLeaf := func() *x509.Certificate {
+		_, leaf := createLeafCert(t, caCert, caKey, 0)
+		return leaf
+	}
+
+	bothModes := []OCSPFailOpenMode{OCSPFailOpenTrue, OCSPFailOpenFalse}
+
+	t.Run("error chain then good chain is accepted", func(t *testing.T) {
+		for _, mode := range bothModes {
+			resetCaches()
+			chains := [][]*x509.Certificate{
+				{errorLeaf(), caCert},
+				{goodLeaf(), caCert},
+			}
+			ov := newOcspValidator(&Config{OCSPFailOpen: mode})
+			err := ov.verifyPeerCertificate(context.Background(), chains)
+			assertNilF(t, err, fmt.Sprintf("mode %v should accept when any chain is unrevoked", mode))
+		}
+	})
+
+	t.Run("revoked chain then good chain is accepted", func(t *testing.T) {
+		for _, mode := range bothModes {
+			resetCaches()
+			chains := [][]*x509.Certificate{
+				{revokedLeaf(), caCert},
+				{goodLeaf(), caCert},
+			}
+			ov := newOcspValidator(&Config{OCSPFailOpen: mode})
+			err := ov.verifyPeerCertificate(context.Background(), chains)
+			assertNilF(t, err, fmt.Sprintf("mode %v should accept when a later chain is unrevoked", mode))
+		}
+	})
+
+	t.Run("all chains revoked is rejected in both modes", func(t *testing.T) {
+		for _, mode := range bothModes {
+			resetCaches()
+			chains := [][]*x509.Certificate{
+				{revokedLeaf(), caCert},
+				{revokedLeaf(), caCert},
+			}
+			ov := newOcspValidator(&Config{OCSPFailOpen: mode})
+			err := ov.verifyPeerCertificate(context.Background(), chains)
+			assertNotNilF(t, err, fmt.Sprintf("mode %v must reject when every chain is revoked", mode))
+		}
+	})
+
+	t.Run("revoked plus error chain follows CRL semantics", func(t *testing.T) {
+		// Fail-open accepts (the error chain clears allRevoked, no chain is fully
+		// unrevoked, revocation is not treated as definitive); fail-closed rejects.
+		resetCaches()
+		revoked := revokedLeaf()
+		errored := errorLeaf()
+		buildChains := func() [][]*x509.Certificate {
+			return [][]*x509.Certificate{
+				{revoked, caCert},
+				{errored, caCert},
+			}
+		}
+
+		ovOpen := newOcspValidator(&Config{OCSPFailOpen: OCSPFailOpenTrue})
+		assertNilF(t, ovOpen.verifyPeerCertificate(context.Background(), buildChains()), "fail-open should accept a revoked+error mix")
+
+		ovClosed := newOcspValidator(&Config{OCSPFailOpen: OCSPFailOpenFalse})
+		assertNotNilF(t, ovClosed.verifyPeerCertificate(context.Background(), buildChains()), "fail-closed should reject a revoked+error mix")
+	})
+
+	t.Run("all chains unverifiable follows mode", func(t *testing.T) {
+		resetCaches()
+		chains := [][]*x509.Certificate{
+			{errorLeaf(), caCert},
+			{errorLeaf(), caCert},
+		}
+		ovOpen := newOcspValidator(&Config{OCSPFailOpen: OCSPFailOpenTrue})
+		assertNilF(t, ovOpen.verifyPeerCertificate(context.Background(), chains), "fail-open should accept when no chain can be verified")
+
+		ovClosed := newOcspValidator(&Config{OCSPFailOpen: OCSPFailOpenFalse})
+		assertNotNilF(t, ovClosed.verifyPeerCertificate(context.Background(), chains), "fail-closed should reject when no chain can be verified")
+	})
 }
 
 func TestInitOCSPCacheFileCreation(t *testing.T) {
