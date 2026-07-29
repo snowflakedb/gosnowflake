@@ -183,6 +183,13 @@ func HandleSingleParam(cfg *Config, key string, value any) error {
 			}
 		}
 		cfg.PrivateKey, err = ParsePKCS8PrivateKey(block)
+	case "privatekeypath", "privatekeyfile":
+		var keyPath string
+		keyPath, err = parseString(value)
+		if err = checkParsingError(err, key, value); err != nil {
+			return err
+		}
+		cfg.PrivateKey, err = parsePrivateKeyFromFile(keyPath)
 	case "validatedefaultparameters":
 		cfg.ValidateDefaultParameters, err = parseConfigBool(value)
 	case "clientrequestmfatoken":

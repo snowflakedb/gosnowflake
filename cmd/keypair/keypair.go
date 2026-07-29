@@ -1,5 +1,18 @@
 // Example: Authenticate with Keypair.
 // Prerequisite: Follow the steps to set up a keypair - https://docs.snowflake.com/en/user-guide/key-pair-auth.html#configuring-key-pair-authentication
+//
+// This example loads the key from an environment variable via GetConfigFromEnv.
+// Alternatively, you can reference the private key from a connections.toml file
+// via a private_key_path (or private_key_file) entry, e.g.:
+//
+//	[my_connection]
+//	account = "myaccount"
+//	user = "myuser"
+//	authenticator = "SNOWFLAKE_JWT"
+//	private_key_path = "/path/to/rsa_key.p8"
+//
+// then connect with sql.Open("snowflake", "autoConfig").
+// See the cmd/tomlfileconnection example
 
 package main
 

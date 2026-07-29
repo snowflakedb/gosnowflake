@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"os"
 	path "path/filepath"
@@ -518,6 +519,88 @@ func TestParseToml(t *testing.T) {
 					}
 				})
 			}
+		}
+	}
+}
+
+// TestParseTomlPrivateKeyFromFile verifies that connections.toml keypair auth
+// works when the key is supplied as a path to a PEM file (private_key_path /
+// private_key_file) rather than as inline base64 PKCS8 contents (privatekey).
+func TestParseTomlPrivateKeyFromFile(t *testing.T) {
+	generatedKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate test private key: %s", err.Error())
+	}
+
+	// Marshal to PKCS8 DER, then PEM-wrap
+	var pemKey []byte
+	pemKey, err = x509.MarshalPKCS8PrivateKey(generatedKey)
+	if err != nil {
+		t.Fatalf("Failed to marshal test private key: %s", err.Error())
+	}
+	pemData := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pemKey})
+
+	keyFile := createTmpFile(t, "exampleKey.p8", pemData)
+	defer os.Remove(keyFile)
+
+	// Exercise every accepted spelling. ParseToml normalizes keys via
+	// ToLower + strip underscores, so all four collapse to privatekeypath /
+	// privatekeyfile and must resolve to the same code path.
+	// See https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-a-private-key-file-for-authentication
+	// for various path naming the CLI checks
+	for _, param := range []string{"private_key_path", "privateKeyPath", "private_key_file", "privateKeyFile"} {
+		t.Run(param, func(t *testing.T) {
+			cfg := &Config{}
+			connectionMap := map[string]any{param: keyFile}
+
+			if err := ParseToml(cfg, connectionMap); err != nil {
+				t.Fatalf("The value should be parsed: %v", err)
+			}
+			// The path must actually be loaded into cfg.PrivateKey, not silently
+			// discarded
+			if cfg.PrivateKey == nil {
+				t.Fatal("PrivateKey should be set from the key file path")
+			}
+			if !cfg.PrivateKey.Equal(generatedKey) {
+				t.Fatal("parsed PrivateKey does not equal the generated key")
+			}
+		})
+	}
+}
+
+// TestParseTomlPrivateKeyFromFileErrors verifies that a private_key_path /
+// private_key_file pointing at an unusable key surfaces an error from ParseToml
+// rather than silently leaving cfg.PrivateKey nil.
+func TestParseTomlPrivateKeyFromFileErrors(t *testing.T) {
+	badPath := path.Join(t.TempDir(), "does-not-exist.p8")
+
+	// A file that exists but does not contain a valid PEM key.
+	gibberishFile := createTmpFile(t, "gibberish.p8", []byte("not a pem key"))
+	defer os.Remove(gibberishFile)
+
+	testCases := []struct {
+		name  string
+		value string
+	}{
+		{name: "missing file", value: badPath},
+		{name: "invalid contents", value: gibberishFile},
+	}
+
+	for _, param := range []string{"private_key_path", "privateKeyPath", "private_key_file", "privateKeyFile"} {
+		for _, tc := range testCases {
+			t.Run(param+"/"+tc.name, func(t *testing.T) {
+				cfg := &Config{}
+				connectionMap := map[string]any{param: tc.value}
+
+				err := ParseToml(cfg, connectionMap)
+				if err == nil {
+					t.Fatal("expected an error for an unusable private key path")
+				}
+				// On failure the key must not be partially set.
+				if cfg.PrivateKey != nil {
+					t.Fatal("PrivateKey should remain nil when the key file cannot be loaded")
+				}
+			})
 		}
 	}
 }

@@ -6,6 +6,7 @@ New features:
 - Added `WorkloadIdentityAwsUseOutboundToken` config option (DSN field `workloadIdentityAwsUseOutboundToken`) that produces the AWS WIF attestation as an STS `GetWebIdentityToken` JWT instead of the default signed `GetCallerIdentity` request envelope (snowflakedb/gosnowflake#1824).
 - Added `CleanupTimeout` config option (DSN field `cleanupTimeout`, in seconds) that bounds post-cancellation cleanup (snowflakedb/gosnowflake#1816).
 - Increased CRL disk cache removal delay to 7 days (snowflakedb/gosnowflake#1820).
+- Added option to load private key from `connections.toml` file (snowflakedb/gosnowflake#1822).
 
 Bug fixes:
 - Fixed token cache key collisions for multi-account (shared IdP) and multi-role scenarios by switching to a versioned, SHA256-hashed canonical-JSON key applied uniformly across keyring (macOS/Windows) and file (Linux) backends (snowflakedb/gosnowflake#1817).
