@@ -5,6 +5,7 @@
 New features:
 - Added `CleanupTimeout` config option (DSN field `cleanupTimeout`, in seconds) that bounds post-cancellation cleanup (snowflakedb/gosnowflake#1816).
 - Increased CRL disk cache removal delay to 7 days (snowflakedb/gosnowflake#1820).
+- Added option to load private key from `connections.toml` file (snowflakedb/gosnowflake#1822).
 
 Bug fixes:
 - Fixed nil pointer dereference panic when a corrupt or malformed OCSP cache key is encountered, either from the remote OCSP cache server or the local cache file (snowflakedb/gosnowflake#1819).
