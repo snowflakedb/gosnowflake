@@ -3,11 +3,13 @@
 ## Upcoming release
 
 New features:
+- Added `WorkloadIdentityAwsUseOutboundToken` config option (DSN field `workloadIdentityAwsUseOutboundToken`) that produces the AWS WIF attestation as an STS `GetWebIdentityToken` JWT instead of the default signed `GetCallerIdentity` request envelope (snowflakedb/gosnowflake#1824).
 - Added `CleanupTimeout` config option (DSN field `cleanupTimeout`, in seconds) that bounds post-cancellation cleanup (snowflakedb/gosnowflake#1816).
 - Increased CRL disk cache removal delay to 7 days (snowflakedb/gosnowflake#1820).
 - Added option to load private key from `connections.toml` file (snowflakedb/gosnowflake#1822).
 
 Bug fixes:
+- Fixed token cache key collisions for multi-account (shared IdP) and multi-role scenarios by switching to a versioned, SHA256-hashed canonical-JSON key applied uniformly across keyring (macOS/Windows) and file (Linux) backends (snowflakedb/gosnowflake#1817).
 - Fixed nil pointer dereference panic when a corrupt or malformed OCSP cache key is encountered, either from the remote OCSP cache server or the local cache file (snowflakedb/gosnowflake#1819).
 - Fixed `WithFileGetStream` returning corrupt or wrong-file bytes when a `GET` prefix-matched more than one file; a get-stream can return only one file, so a multi-file match now returns the new `ErrGetStreamMultipleFiles` (pointing to the GET `PATTERN` argument) instead of a nondeterministic mix (snowflakedb/gosnowflake#1809).
 - Do not attempt to get S3 bucket accelerate config for Snowflake-internal stages (matched by bucket name `sfc-*`) since s3:GetAccelerateConfiguration not granted anyways (snowflakedb/gosnowflake#1805).
@@ -15,6 +17,15 @@ Bug fixes:
 - Fixed `GET` from a LOCAL_FS stage downloading 0 files and returning `264011: not implemented`. Cloud downloads were unaffected (snowflakedb/gosnowflake#1810).
 
 Internal changes:
+- Migrated from deprecated `github.com/aws/aws-sdk-go-v2/feature/s3/manager` (v1.16.15) to `github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager` (v0.3.5).
+- Updated AWS SDK dependencies:
+  - `github.com/aws/aws-sdk-go-v2`: v1.38.1 → v1.43.0
+  - `github.com/aws/aws-sdk-go-v2/config`: v1.27.11 → v1.32.31
+  - `github.com/aws/aws-sdk-go-v2/credentials`: v1.17.11 → v1.19.30
+  - `github.com/aws/aws-sdk-go-v2/feature/ec2/imds`: v1.16.1 → v1.18.31
+  - `github.com/aws/aws-sdk-go-v2/service/s3`: v1.53.1 → v1.106.0
+  - `github.com/aws/aws-sdk-go-v2/service/sts`: v1.28.6 → v1.45.0
+  - `github.com/aws/smithy-go`: v1.22.5 → v1.27.4
 
 ## 2.1.0
 

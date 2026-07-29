@@ -140,6 +140,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if len(cfg.WorkloadIdentityImpersonationPath) > 0 {
 		params.Add("workloadIdentityImpersonationPath", strings.Join(cfg.WorkloadIdentityImpersonationPath, ","))
 	}
+	if cfg.WorkloadIdentityAwsUseOutboundToken != BoolNotSet {
+		params.Add("workloadIdentityAwsUseOutboundToken", strconv.FormatBool(cfg.WorkloadIdentityAwsUseOutboundToken != BoolFalse))
+	}
 	if cfg.Authenticator != AuthTypeSnowflake {
 		if cfg.Authenticator == AuthTypeOkta {
 			params.Add("authenticator", strings.ToLower(cfg.OktaURL.String()))
@@ -978,6 +981,17 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.WorkloadIdentityEntraResource = value
 		case "workloadIdentityImpersonationPath":
 			cfg.WorkloadIdentityImpersonationPath = strings.Split(value, ",")
+		case "workloadIdentityAwsUseOutboundToken":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			if vv {
+				cfg.WorkloadIdentityAwsUseOutboundToken = BoolTrue
+			} else {
+				cfg.WorkloadIdentityAwsUseOutboundToken = BoolFalse
+			}
 		case "privateKey":
 			var decodeErr error
 			block, decodeErr := base64.URLEncoding.DecodeString(value)
