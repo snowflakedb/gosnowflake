@@ -81,9 +81,6 @@ func (s *hostUserTokenSpec) buildKey() (string, error) {
 	})
 }
 
-func (s *hostUserTokenSpec) lockID() string {
-	return s.snowflake + "|" + s.username + "|" + string(s.tokenType)
-}
 
 type oauthTokenSpec struct {
 	tokenType tokenType
@@ -111,9 +108,6 @@ func (s *oauthTokenSpec) buildKey() (string, error) {
 	})
 }
 
-func (s *oauthTokenSpec) lockID() string {
-	return s.idp + "|" + s.snowflake + "|" + s.username + "|" + s.role + "|" + string(s.tokenType)
-}
 
 // finalizeCacheKey produces the versioned, SHA-256-hashed cache key
 //

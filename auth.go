@@ -616,6 +616,14 @@ func prepareJWTToken(config *Config) (string, error) {
 	return tokenString, err
 }
 
+func (s *hostUserTokenSpec) lockID() string {
+	return s.snowflake + "|" + s.username + "|" + string(s.tokenType)
+}
+
+func (s *oauthTokenSpec) lockID() string {
+	return s.idp + "|" + s.snowflake + "|" + s.username + "|" + s.role + "|" + string(s.tokenType)
+}
+
 func authenticateWithConfig(sc *snowflakeConn) error {
 	var authData *authResponseMain
 	var samlResponse []byte
