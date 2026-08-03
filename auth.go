@@ -1,7 +1,6 @@
 package gosnowflake
 
 import (
-	"cmp"
 	"context"
 	"crypto/sha256"
 	"crypto/x509"
@@ -552,45 +551,6 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]any,
 	return jsonBody, nil
 }
 
-type oauthLockKey struct {
-	idp       string
-	snowflake string
-	user      string
-	role      string
-	flowType  string
-}
-
-func newOAuthAuthorizationCodeLockKey(idpURL, snowflakeHost, user, role string) *oauthLockKey {
-	return &oauthLockKey{
-		idp:       idpURL,
-		snowflake: snowflakeHost,
-		user:      user,
-		role:      role,
-		flowType:  "authorization_code",
-	}
-}
-
-func newRefreshTokenLockKey(idpURL, snowflakeHost, user, role string) *oauthLockKey {
-	return &oauthLockKey{
-		idp:       idpURL,
-		snowflake: snowflakeHost,
-		user:      user,
-		role:      role,
-		flowType:  "refresh_token",
-	}
-}
-
-func (o *oauthLockKey) lockID() string {
-	return o.idp + "|" + o.snowflake + "|" + o.user + "|" + o.role + "|" + o.flowType
-}
-
-// oauthTokenRequestURL returns the full token endpoint URL for OAuth.
-// oauthClient.tokenURL() delegates to this function so that all cache key
-// construction and eviction paths use one canonical URL formula.
-func oauthTokenRequestURL(cfg *Config) string {
-	return cmp.Or(cfg.OauthTokenRequestURL, fmt.Sprintf("%v://%v:%v/oauth/token-request", cfg.Protocol, cfg.Host, cfg.Port))
-}
-
 func authenticateByAuthorizationCode(sc *snowflakeConn) (string, error) {
 	oauthClient, err := newOauthClient(sc.ctx, sc.cfg, sc)
 	if err != nil {
@@ -600,7 +560,7 @@ func authenticateByAuthorizationCode(sc *snowflakeConn) (string, error) {
 		return oauthClient.authenticateByOAuthAuthorizationCode()
 	}
 
-	lockKey := newOAuthAuthorizationCodeLockKey(oauthTokenRequestURL(sc.cfg), sc.cfg.Host, sc.cfg.User, sc.cfg.Role)
+	lockKey := newOAuthAccessTokenSpec(sc.cfg)
 	valueAwaiter := valueAwaitHolder.get(lockKey)
 	defer valueAwaiter.resumeOne()
 	token, err := awaitValue(valueAwaiter, func() (string, error) {
@@ -656,40 +616,14 @@ func prepareJWTToken(config *Config) (string, error) {
 	return tokenString, err
 }
 
-type tokenLockKey struct {
-	snowflake string
-	user      string
-	tokenType string
-}
-
-func newMfaTokenLockKey(snowflakeHost, user string) *tokenLockKey {
-	return &tokenLockKey{
-		snowflake: snowflakeHost,
-		user:      user,
-		tokenType: "MFA",
-	}
-}
-
-func newIDTokenLockKey(snowflakeHost, user string) *tokenLockKey {
-	return &tokenLockKey{
-		snowflake: snowflakeHost,
-		user:      user,
-		tokenType: "ID",
-	}
-}
-
-func (m *tokenLockKey) lockID() string {
-	return m.snowflake + "|" + m.user + "|" + m.tokenType
-}
-
 func authenticateWithConfig(sc *snowflakeConn) error {
 	var authData *authResponseMain
 	var samlResponse []byte
 	var proofKey []byte
 	var err error
 
-	mfaTokenLockKey := newMfaTokenLockKey(sc.cfg.Host, sc.cfg.User)
-	idTokenLockKey := newIDTokenLockKey(sc.cfg.Host, sc.cfg.User)
+	mfaTokenLockKey := newMfaTokenSpec(sc.cfg)
+	idTokenLockKey := newIDTokenSpec(sc.cfg)
 
 	if sc.cfg.Authenticator == AuthTypeExternalBrowser || sc.cfg.Authenticator == AuthTypeOAuthAuthorizationCode || sc.cfg.Authenticator == AuthTypeOAuthClientCredentials {
 		if (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && sc.cfg.ClientStoreTemporaryCredential == sfconfig.BoolNotSet {
@@ -797,7 +731,7 @@ func doRefreshTokenWithLock(sc *snowflakeConn) {
 	if oauthClient, err := newOauthClient(sc.ctx, sc.cfg, sc); err != nil {
 		logger.Warnf("failed to create oauth client. %v", err)
 	} else {
-		lockKey := newRefreshTokenLockKey(oauthTokenRequestURL(sc.cfg), sc.cfg.Host, sc.cfg.User, sc.cfg.Role)
+		lockKey := newOAuthRefreshTokenSpec(sc.cfg)
 		if _, err = getValueWithLock(chooseLockerForAuth(sc.cfg), lockKey, func() (string, error) {
 			if err = oauthClient.refreshToken(); err != nil {
 				logger.Warnf("cannot refresh token. %v", err)

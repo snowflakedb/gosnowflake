@@ -75,15 +75,14 @@ func (s *hostUserTokenSpec) buildKey() (string, error) {
 	if s.username == "" {
 		return "", errors.New("username is required for token cache key")
 	}
-	keyData := mfaIDKeyData{
+	return marshalAndFinalize(s.tokenType, mfaIDKeyData{
 		Snowflake: normalizeURL(s.snowflake),
 		Username:  normalizeIdentifier(s.username),
-	}
-	jsonBytes, err := json.Marshal(keyData)
-	if err != nil {
-		return "", fmt.Errorf("failed to serialize cache key: %w", err)
-	}
-	return finalizeCacheKey(s.tokenType, jsonBytes), nil
+	})
+}
+
+func (s *hostUserTokenSpec) lockID() string {
+	return s.snowflake + "|" + s.username + "|" + string(s.tokenType)
 }
 
 type oauthTokenSpec struct {
@@ -104,17 +103,16 @@ func (s *oauthTokenSpec) buildKey() (string, error) {
 	if s.idp == "" {
 		return "", errors.New("idp URL is required for OAuth token cache key")
 	}
-	keyData := oauthKeyData{
+	return marshalAndFinalize(s.tokenType, oauthKeyData{
 		Idp:       normalizeURL(s.idp),
 		Role:      normalizeIdentifier(s.role),
 		Snowflake: normalizeURL(s.snowflake),
 		Username:  normalizeIdentifier(s.username),
-	}
-	jsonBytes, err := json.Marshal(keyData)
-	if err != nil {
-		return "", fmt.Errorf("failed to serialize cache key: %w", err)
-	}
-	return finalizeCacheKey(s.tokenType, jsonBytes), nil
+	})
+}
+
+func (s *oauthTokenSpec) lockID() string {
+	return s.idp + "|" + s.snowflake + "|" + s.username + "|" + s.role + "|" + string(s.tokenType)
 }
 
 // finalizeCacheKey produces the versioned, SHA-256-hashed cache key
@@ -128,6 +126,14 @@ func finalizeCacheKey(tt tokenType, jsonBytes []byte) string {
 	sum := sha256.Sum256(jsonBytes)
 	hexHash := hex.EncodeToString(sum[:])
 	return "SnowflakeTokenCache.v2." + string(tt) + "." + hexHash
+}
+
+func marshalAndFinalize(tt tokenType, keyData any) (string, error) {
+	jsonBytes, err := json.Marshal(keyData)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize cache key: %w", err)
+	}
+	return finalizeCacheKey(tt, jsonBytes), nil
 }
 
 func newMfaTokenSpec(cfg *Config) *hostUserTokenSpec {
