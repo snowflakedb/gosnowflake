@@ -927,9 +927,40 @@ To preserve BigDecimal values within Arrow batches, use WithHigherPrecision.
 This offers two main benefits: it helps avoid precision loss and defers the conversion to upstream services.
 Alternatively, without this setting, all non-zero scale numbers will be converted to float64, potentially resulting in loss of precision.
 Zero-scale numbers (DECIMAL256, DECIMAL128) will be converted to int64, which could lead to overflow.
-WHen using NUMBERs with non zero scale, the value is returned as an integer type and a scale is provided in record metadata.
+When using NUMBERs with non zero scale, the value is returned as an integer type and a scale is provided in record metadata.
 Example. When we have a 123.45 value that comes from NUMBER(9, 4), it will be represented as 1234500 with scale equal to 4. It is a client responsibility to interpret it correctly.
 Also - see limitations section above.
+
+How to serialize Arrow batches for distributed fetch:
+
+An ArrowBatch is a live handle bound to the connection that produced it, so it cannot be
+shipped to another process or machine directly. To distribute the download of a large result
+across workers (e.g. Spark/Hadoop), convert each batch to a serializable descriptor:
+
+	batches, _ := arrowbatches.GetArrowBatches(rows.(sf.SnowflakeRows))
+	for _, b := range batches {
+		s, _ := b.ToSerializable()   // call before Fetch
+		data, _ := json.Marshal(s)   // ship `data` to a worker
+	}
+
+A worker reconstructs the batch and fetches it with its own HTTP client — no Snowflake
+connection is required, because the chunk URL is presigned and any decryption is performed
+server-side by cloud storage using the SSE-C key carried in the descriptor's headers:
+
+	var s arrowbatches.SerializableArrowBatch
+	json.Unmarshal(data, &s)
+	batch, _ := s.ToArrowBatch(arrowbatches.WithHTTPClient(&http.Client{}))
+	records, _ := batch.Fetch()
+
+See the cmd/arrow/serializablebatches example. Two important caveats:
+
+ 1. Security: a remote descriptor embeds the presigned URL (a bearer capability) and the
+    SSE-C decryption key in its headers. Treat a serialized batch as a credential and transmit
+    it only over secure channels.
+ 2. Expiry: presigned URLs are valid only for a server-controlled window (typically a few
+    hours). A remote descriptor must be shipped and fetched within it. The first (inline)
+    batch embeds its data and never expires. Named timezones with DST require tzdata on the
+    worker for full fidelity; fixed offsets are always preserved.
 
 How to handle JSON responses in Arrow batches:
 
