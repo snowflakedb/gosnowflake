@@ -23,11 +23,8 @@ import (
 // arrowToRecord transforms a raw arrow.Record from Snowflake into a record
 // with standard Arrow types (e.g., converting struct-based timestamps to
 // arrow.Timestamp, decimal128 to int64/float64, etc.)
-func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocator, rowType []query.ExecResponseRowType, loc *time.Location) (arrow.Record, error) {
-	timestampOption := ia.GetTimestampOption(ctx)
-	higherPrecision := ia.HigherPrecisionEnabled(ctx)
-
-	s, err := recordToSchema(record.Schema(), rowType, loc, timestampOption, higherPrecision)
+func arrowToRecord(ctx context.Context, opts ConversionOptions, record arrow.Record, pool memory.Allocator, rowType []query.ExecResponseRowType, loc *time.Location) (arrow.Record, error) {
+	s, err := recordToSchema(record.Schema(), rowType, loc, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +36,7 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 	for i, col := range record.Columns() {
 		fieldMetadata := rowType[i].ToFieldMetadata()
 
-		newCol, err := arrowToRecordSingleColumn(ctxAlloc, s.Field(i), col, fieldMetadata, higherPrecision, timestampOption, pool, loc, numRows)
+		newCol, err := arrowToRecordSingleColumn(ctxAlloc, opts, s.Field(i), col, fieldMetadata, pool, loc, numRows)
 		if err != nil {
 			return nil, err
 		}
@@ -50,13 +47,13 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 	return newRecord, nil
 }
 
-func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow.Array, fieldMetadata query.FieldMetadata, higherPrecisionEnabled bool, timestampOption ia.TimestampOption, pool memory.Allocator, loc *time.Location, numRows int64) (arrow.Array, error) {
+func arrowToRecordSingleColumn(ctx context.Context, opts ConversionOptions, field arrow.Field, col arrow.Array, fieldMetadata query.FieldMetadata, pool memory.Allocator, loc *time.Location, numRows int64) (arrow.Array, error) {
 	var err error
 	newCol := col
 	snowflakeType := types.GetSnowflakeType(fieldMetadata.Type)
 	switch snowflakeType {
 	case types.FixedType:
-		if higherPrecisionEnabled {
+		if opts.HigherPrecision {
 			col.Retain()
 		} else if col.DataType().ID() == arrow.DECIMAL || col.DataType().ID() == arrow.DECIMAL256 {
 			var toType arrow.DataType
@@ -97,11 +94,11 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			return nil, err
 		}
 	case types.TimestampNtzType, types.TimestampLtzType, types.TimestampTzType:
-		if timestampOption == ia.UseOriginalTimestamp {
+		if opts.TimestampOption == ia.UseOriginalTimestamp {
 			col.Retain()
 		} else {
 			var unit arrow.TimeUnit
-			switch timestampOption {
+			switch opts.TimestampOption {
 			case ia.UseMicrosecondTimestamp:
 				unit = arrow.Microsecond
 			case ia.UseMillisecondTimestamp:
@@ -123,7 +120,7 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 				ts := ArrowSnowflakeTimestampToTime(col, snowflakeType, int(fieldMetadata.Scale), i, loc)
 				if ts != nil {
 					var ar arrow.Timestamp
-					switch timestampOption {
+					switch opts.TimestampOption {
 					case ia.UseMicrosecondTimestamp:
 						ar = arrow.Timestamp(ts.UnixMicro())
 					case ia.UseMillisecondTimestamp:
@@ -149,14 +146,14 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 		}
 	case types.TextType:
 		if stringCol, ok := col.(*array.String); ok {
-			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows)
+			newCol = arrowStringRecordToColumn(opts, stringCol, pool, numRows)
 		}
 	case types.ObjectType:
 		if structCol, ok := col.(*array.Struct); ok {
 			var internalCols []arrow.Array
 			for i := 0; i < structCol.NumField(); i++ {
 				internalCol := structCol.Field(i)
-				newInternalCol, err := arrowToRecordSingleColumn(ctx, field.Type.(*arrow.StructType).Field(i), internalCol, fieldMetadata.Fields[i], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
+				newInternalCol, err := arrowToRecordSingleColumn(ctx, opts, field.Type.(*arrow.StructType).Field(i), internalCol, fieldMetadata.Fields[i], pool, loc, numRows)
 				if err != nil {
 					return nil, err
 				}
@@ -171,11 +168,11 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			numberOfNulls := structCol.NullN()
 			return array.NewStructArrayWithNulls(internalCols, fieldNames, nullBitmap, numberOfNulls, 0)
 		} else if stringCol, ok := col.(*array.String); ok {
-			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows)
+			newCol = arrowStringRecordToColumn(opts, stringCol, pool, numRows)
 		}
 	case types.ArrayType:
 		if listCol, ok := col.(*array.List); ok {
-			newCol, err = arrowToRecordSingleColumn(ctx, field.Type.(*arrow.ListType).ElemField(), listCol.ListValues(), fieldMetadata.Fields[0], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
+			newCol, err = arrowToRecordSingleColumn(ctx, opts, field.Type.(*arrow.ListType).ElemField(), listCol.ListValues(), fieldMetadata.Fields[0], pool, loc, numRows)
 			if err != nil {
 				return nil, err
 			}
@@ -184,16 +181,16 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			defer newData.Release()
 			return array.NewListData(newData), nil
 		} else if stringCol, ok := col.(*array.String); ok {
-			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows)
+			newCol = arrowStringRecordToColumn(opts, stringCol, pool, numRows)
 		}
 	case types.MapType:
 		if mapCol, ok := col.(*array.Map); ok {
-			keyCol, err := arrowToRecordSingleColumn(ctx, field.Type.(*arrow.MapType).KeyField(), mapCol.Keys(), fieldMetadata.Fields[0], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
+			keyCol, err := arrowToRecordSingleColumn(ctx, opts, field.Type.(*arrow.MapType).KeyField(), mapCol.Keys(), fieldMetadata.Fields[0], pool, loc, numRows)
 			if err != nil {
 				return nil, err
 			}
 			defer keyCol.Release()
-			valueCol, err := arrowToRecordSingleColumn(ctx, field.Type.(*arrow.MapType).ItemField(), mapCol.Items(), fieldMetadata.Fields[1], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
+			valueCol, err := arrowToRecordSingleColumn(ctx, opts, field.Type.(*arrow.MapType).ItemField(), mapCol.Items(), fieldMetadata.Fields[1], pool, loc, numRows)
 			if err != nil {
 				return nil, err
 			}
@@ -208,7 +205,7 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			defer newData.Release()
 			return array.NewMapData(newData), nil
 		} else if stringCol, ok := col.(*array.String); ok {
-			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows)
+			newCol = arrowStringRecordToColumn(opts, stringCol, pool, numRows)
 		}
 	default:
 		col.Retain()
@@ -217,12 +214,12 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 }
 
 func arrowStringRecordToColumn(
-	ctx context.Context,
+	opts ConversionOptions,
 	stringCol *array.String,
 	mem memory.Allocator,
 	numRows int64,
 ) arrow.Array {
-	if ia.Utf8ValidationEnabled(ctx) && stringCol.DataType().ID() == arrow.STRING {
+	if opts.Utf8Validation && stringCol.DataType().ID() == arrow.STRING {
 		tb := array.NewStringBuilder(mem)
 		defer tb.Release()
 
