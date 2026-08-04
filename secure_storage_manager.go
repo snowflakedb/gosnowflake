@@ -81,7 +81,6 @@ func (s *hostUserTokenSpec) buildKey() (string, error) {
 	})
 }
 
-
 type oauthTokenSpec struct {
 	tokenType tokenType
 	idp       string
@@ -107,7 +106,6 @@ func (s *oauthTokenSpec) buildKey() (string, error) {
 		Username:  normalizeIdentifier(s.username),
 	})
 }
-
 
 // finalizeCacheKey produces the versioned, SHA-256-hashed cache key
 //
