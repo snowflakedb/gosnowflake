@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/base64"
 	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
 	"reflect"
@@ -201,12 +202,27 @@ func (rows *snowflakeRows) GetArrowBatches() (*ia.BatchDataInfo, error) {
 			if scd.firstBatchRaw != nil {
 				capturedIdx = i - 1
 			}
+			chunkMeta := scd.ChunkMetas[capturedIdx]
+			batch.Descriptor = ia.ChunkDescriptor{
+				URL:              chunkMeta.URL,
+				Headers:          chunkDownloadHeaders(scd.ChunkHeader, scd.Qrmk),
+				UncompressedSize: chunkMeta.UncompressedSize,
+			}
 			batch.Download = func(ctx context.Context) (*[]arrow.Record, int, error) {
 				if err := scd.FuncDownloadHelper(ctx, scd, capturedIdx); err != nil {
 					return nil, 0, err
 				}
 				actualRaw := scd.rawBatches[capturedIdx]
 				return actualRaw.records, actualRaw.rowCount, nil
+			}
+		} else if scd.RowSet.RowSetBase64 != "" {
+			// The first (inline) batch carries its Arrow IPC bytes in the query
+			// response; embed them verbatim so the batch can be serialized without
+			// re-encoding (there is no IPC writer in the driver).
+			if inlineBytes, err := base64.StdEncoding.DecodeString(scd.RowSet.RowSetBase64); err == nil {
+				batch.Descriptor = ia.ChunkDescriptor{InlineData: inlineBytes}
+			} else {
+				logger.WithContext(scd.ctx).Warnf("failed to decode RowSetBase64 for arrow batch serialization: %v", err)
 			}
 		}
 		batches[i] = batch
