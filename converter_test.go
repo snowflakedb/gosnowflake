@@ -1198,3 +1198,88 @@ func mustArray(v any, typ ...any) driver.Value {
 	}
 	return array
 }
+
+// exactDecimalString renders unscaled/10^scale exactly, independently of the conversion under test.
+func exactDecimalString(unscaled *big.Int, scale int) string {
+	pow := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(scale)), nil)
+	return new(big.Rat).SetFrac(unscaled, pow).FloatString(scale)
+}
+
+// Fixed-point values with a non-zero scale must round-trip exactly, however many significant digits
+// they carry. The decimal128-backed path covers NUMBER with precision >= 19.
+func TestArrowDecimal128ToValueExactForNonZeroScale(t *testing.T) {
+	testcases := []struct {
+		unscaled string
+		scale    int
+	}{
+		// More significant digits than a 64-bit mantissa can represent.
+		{"12345678901234567890", 10},
+		{"-12345678901234567890", 10},
+		// 38 digits, the widest NUMBER Snowflake supports.
+		{"12345678901234567890123456789012345678", 10},
+		{"-12345678901234567890123456789012345678", 2},
+		{"99999999999999999999999999999999999999", 1},
+		// Values below one, where every digit is fractional.
+		{"5", 10},
+		{"-5", 10},
+		{"0", 10},
+		// Narrow values, as a regression guard.
+		{"12345", 2},
+		{"-12345", 2},
+	}
+
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("%s_scale_%d", tc.unscaled, tc.scale), func(t *testing.T) {
+			unscaled, ok := new(big.Int).SetString(tc.unscaled, 10)
+			if !ok {
+				t.Fatalf("could not parse %v", tc.unscaled)
+			}
+			expected := exactDecimalString(unscaled, tc.scale)
+
+			builder := array.NewDecimal128Builder(memory.DefaultAllocator, &arrow.Decimal128Type{
+				Precision: 38, Scale: int32(tc.scale),
+			})
+			defer builder.Release()
+			builder.Append(decimal128.FromBigInt(unscaled))
+			arr := builder.NewDecimal128Array()
+			defer arr.Release()
+
+			meta := query.FieldMetadata{Type: "fixed", Precision: 38, Scale: tc.scale}
+			if actual := arrowDecimal128ToValue(arr, 0, false, meta); actual != expected {
+				t.Errorf("expected %v, got %v", expected, actual)
+			}
+		})
+	}
+}
+
+// The integer-backed path covers NUMBER with precision <= 18.
+func TestArrowIntToValueExactForNonZeroScale(t *testing.T) {
+	testcases := []struct {
+		val   int64
+		scale int
+	}{
+		// More significant digits than a float64 mantissa can represent.
+		{123456789012345678, 4},
+		{-123456789012345678, 4},
+		{999999999999999999, 2},
+		{math.MaxInt64, 2},
+		{math.MinInt64, 2},
+		{12345678901234567, 2},
+		// Narrow values, as a regression guard.
+		{1234567890, 2},
+		{-1234567890, 2},
+		{5, 10},
+		{0, 2},
+	}
+
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("%d_scale_%d", tc.val, tc.scale), func(t *testing.T) {
+			expected := exactDecimalString(big.NewInt(tc.val), tc.scale)
+
+			meta := query.FieldMetadata{Type: "fixed", Precision: 18, Scale: tc.scale}
+			if actual := arrowIntToValue(meta, false, tc.val); actual != expected {
+				t.Errorf("expected %v, got %v", expected, actual)
+			}
+		})
+	}
+}
