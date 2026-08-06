@@ -10,17 +10,17 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 )
 
-func recordToSchema(sc *arrow.Schema, rowType []query.ExecResponseRowType, loc *time.Location, timestampOption ia.TimestampOption, withHigherPrecision bool) (*arrow.Schema, error) {
-	fields := recordToSchemaRecursive(sc.Fields(), rowType, loc, timestampOption, withHigherPrecision)
+func recordToSchema(sc *arrow.Schema, rowType []query.ExecResponseRowType, loc *time.Location, opts ConversionOptions) (*arrow.Schema, error) {
+	fields := recordToSchemaRecursive(sc.Fields(), rowType, loc, opts)
 	meta := sc.Metadata()
 	return arrow.NewSchema(fields, &meta), nil
 }
 
-func recordToSchemaRecursive(inFields []arrow.Field, rowType []query.ExecResponseRowType, loc *time.Location, timestampOption ia.TimestampOption, withHigherPrecision bool) []arrow.Field {
+func recordToSchemaRecursive(inFields []arrow.Field, rowType []query.ExecResponseRowType, loc *time.Location, opts ConversionOptions) []arrow.Field {
 	var outFields []arrow.Field
 	for i, f := range inFields {
 		fieldMetadata := rowType[i].ToFieldMetadata()
-		converted, t := recordToSchemaSingleField(fieldMetadata, f, withHigherPrecision, timestampOption, loc)
+		converted, t := recordToSchemaSingleField(fieldMetadata, f, opts, loc)
 
 		newField := f
 		if converted {
@@ -36,14 +36,14 @@ func recordToSchemaRecursive(inFields []arrow.Field, rowType []query.ExecRespons
 	return outFields
 }
 
-func recordToSchemaSingleField(fieldMetadata query.FieldMetadata, f arrow.Field, withHigherPrecision bool, timestampOption ia.TimestampOption, loc *time.Location) (bool, arrow.DataType) {
+func recordToSchemaSingleField(fieldMetadata query.FieldMetadata, f arrow.Field, opts ConversionOptions, loc *time.Location) (bool, arrow.DataType) {
 	t := f.Type
 	converted := true
 	switch types.GetSnowflakeType(fieldMetadata.Type) {
 	case types.FixedType:
 		switch f.Type.ID() {
 		case arrow.DECIMAL:
-			if withHigherPrecision {
+			if opts.HigherPrecision {
 				converted = false
 			} else if fieldMetadata.Scale == 0 {
 				t = &arrow.Int64Type{}
@@ -51,7 +51,7 @@ func recordToSchemaSingleField(fieldMetadata query.FieldMetadata, f arrow.Field,
 				t = &arrow.Float64Type{}
 			}
 		default:
-			if withHigherPrecision {
+			if opts.HigherPrecision {
 				converted = false
 			} else if fieldMetadata.Scale != 0 {
 				t = &arrow.Float64Type{}
@@ -62,7 +62,7 @@ func recordToSchemaSingleField(fieldMetadata query.FieldMetadata, f arrow.Field,
 	case types.TimeType:
 		t = &arrow.Time64Type{Unit: arrow.Nanosecond}
 	case types.TimestampNtzType, types.TimestampTzType:
-		switch timestampOption {
+		switch opts.TimestampOption {
 		case ia.UseOriginalTimestamp:
 			converted = false
 		case ia.UseMicrosecondTimestamp:
@@ -75,7 +75,7 @@ func recordToSchemaSingleField(fieldMetadata query.FieldMetadata, f arrow.Field,
 			t = &arrow.TimestampType{Unit: arrow.Nanosecond}
 		}
 	case types.TimestampLtzType:
-		switch timestampOption {
+		switch opts.TimestampOption {
 		case ia.UseOriginalTimestamp:
 			converted = false
 		case ia.UseMicrosecondTimestamp:
@@ -92,7 +92,7 @@ func recordToSchemaSingleField(fieldMetadata query.FieldMetadata, f arrow.Field,
 		if f.Type.ID() == arrow.STRUCT {
 			var internalFields []arrow.Field
 			for idx, internalField := range f.Type.(*arrow.StructType).Fields() {
-				internalConverted, convertedDataType := recordToSchemaSingleField(fieldMetadata.Fields[idx], internalField, withHigherPrecision, timestampOption, loc)
+				internalConverted, convertedDataType := recordToSchemaSingleField(fieldMetadata.Fields[idx], internalField, opts, loc)
 				converted = converted || internalConverted
 				if internalConverted {
 					newInternalField := arrow.Field{
@@ -110,7 +110,7 @@ func recordToSchemaSingleField(fieldMetadata query.FieldMetadata, f arrow.Field,
 		}
 	case types.ArrayType:
 		if _, ok := f.Type.(*arrow.ListType); ok {
-			converted, dataType := recordToSchemaSingleField(fieldMetadata.Fields[0], f.Type.(*arrow.ListType).ElemField(), withHigherPrecision, timestampOption, loc)
+			converted, dataType := recordToSchemaSingleField(fieldMetadata.Fields[0], f.Type.(*arrow.ListType).ElemField(), opts, loc)
 			if converted {
 				t = arrow.ListOf(dataType)
 			}
@@ -118,8 +118,8 @@ func recordToSchemaSingleField(fieldMetadata query.FieldMetadata, f arrow.Field,
 			t = f.Type
 		}
 	case types.MapType:
-		convertedKey, keyDataType := recordToSchemaSingleField(fieldMetadata.Fields[0], f.Type.(*arrow.MapType).KeyField(), withHigherPrecision, timestampOption, loc)
-		convertedValue, valueDataType := recordToSchemaSingleField(fieldMetadata.Fields[1], f.Type.(*arrow.MapType).ItemField(), withHigherPrecision, timestampOption, loc)
+		convertedKey, keyDataType := recordToSchemaSingleField(fieldMetadata.Fields[0], f.Type.(*arrow.MapType).KeyField(), opts, loc)
+		convertedValue, valueDataType := recordToSchemaSingleField(fieldMetadata.Fields[1], f.Type.(*arrow.MapType).ItemField(), opts, loc)
 		converted = convertedKey || convertedValue
 		if converted {
 			t = arrow.MapOf(keyDataType, valueDataType)

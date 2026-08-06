@@ -18,6 +18,7 @@ Bug fixes:
 
 Internal changes:
 - Migrated from deprecated `github.com/aws/aws-sdk-go-v2/feature/s3/manager` (v1.16.15) to `github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager` (v0.3.5).
+- Introduced `ConversionOptions` for Arrow batches configuration (snowflakedb/gosnowflake#1832).
 - Updated AWS SDK dependencies:
   - `github.com/aws/aws-sdk-go-v2`: v1.38.1 → v1.43.0
   - `github.com/aws/aws-sdk-go-v2/config`: v1.27.11 → v1.32.31

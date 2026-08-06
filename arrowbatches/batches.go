@@ -16,13 +16,17 @@ import (
 
 // ArrowBatch represents a chunk of data retrievable in arrow.Record format.
 type ArrowBatch struct {
-	raw       ia.BatchRaw
-	rowTypes  []query.ExecResponseRowType
-	allocator memory.Allocator
-	ctx       context.Context
+	raw               ia.BatchRaw
+	rowTypes          []query.ExecResponseRowType
+	allocator         memory.Allocator
+	ctx               context.Context
+	conversionOptions ConversionOptions
 }
 
-// WithContext sets the context for subsequent Fetch calls on this batch.
+// WithContext sets the context used by subsequent Fetch calls for cancellation and
+// deadlines. Note that conversion options (timestamp, higher precision, UTF-8 validation)
+// are captured when the batch is created and are NOT re-read from this context, so passing
+// a context with different option values does not change how the data is converted.
 func (rb *ArrowBatch) WithContext(ctx context.Context) *ArrowBatch {
 	rb.ctx = ctx
 	return rb
@@ -53,7 +57,7 @@ func (rb *ArrowBatch) Fetch() (*[]arrow.Record, error) {
 
 	var transformed []arrow.Record
 	for i, rec := range *rawRecords {
-		newRec, err := arrowToRecord(ctx, rec, rb.allocator, rb.rowTypes, rb.raw.Location)
+		newRec, err := arrowToRecord(ctx, rb.conversionOptions, rec, rb.allocator, rb.rowTypes, rb.raw.Location)
 		if err != nil {
 			for _, t := range transformed {
 				t.Release()
@@ -113,10 +117,11 @@ func GetArrowBatches(rows sf.SnowflakeRows) ([]*ArrowBatch, error) {
 	batches := make([]*ArrowBatch, len(info.Batches))
 	for i, raw := range info.Batches {
 		batches[i] = &ArrowBatch{
-			raw:       raw,
-			rowTypes:  info.RowTypes,
-			allocator: info.Allocator,
-			ctx:       info.Ctx,
+			raw:               raw,
+			rowTypes:          info.RowTypes,
+			allocator:         info.Allocator,
+			ctx:               info.Ctx,
+			conversionOptions: conversionOptionsFromContext(info.Ctx),
 		}
 	}
 	return batches, nil
