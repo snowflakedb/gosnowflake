@@ -10,6 +10,7 @@ import (
 	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -407,18 +408,27 @@ func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) 
 	logger.Debugf("“Processed %v chunk %v out of %v. It took %v ms. Chunk size: %v, rows: %v”.", scd.getQueryResultFormat(), idx+1, len(scd.ChunkMetas), elapsedTime, scd.ChunkMetas[idx].UncompressedSize, scd.ChunkMetas[idx].RowCount)
 }
 
-func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx int) error {
+// chunkDownloadHeaders builds the HTTP headers used to fetch a result chunk. If
+// chunkHeader is non-empty it is used directly (e.g. GCS/Azure); otherwise the S3
+// SSE-C headers carrying the query result master key (qrmk) are used, so cloud
+// storage decrypts the chunk server-side. This is the single source of truth for
+// chunk headers, shared by the live download path and GetArrowBatches (which embeds
+// the same headers into a serializable ChunkDescriptor).
+func chunkDownloadHeaders(chunkHeader map[string]string, qrmk string) map[string]string {
 	headers := make(map[string]string)
-	if len(scd.ChunkHeader) > 0 {
-		logger.WithContext(ctx).Debug("chunk header is provided.")
-		for k, v := range scd.ChunkHeader {
-			logger.WithContext(ctx).Debugf("adding header: %v, value: %v", k, v)
-
-			headers[k] = v
-		}
+	if len(chunkHeader) > 0 {
+		maps.Copy(headers, chunkHeader)
 	} else {
 		headers[headerSseCAlgorithm] = headerSseCAes
-		headers[headerSseCKey] = scd.Qrmk
+		headers[headerSseCKey] = qrmk
+	}
+	return headers
+}
+
+func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx int) error {
+	headers := chunkDownloadHeaders(scd.ChunkHeader, scd.Qrmk)
+	if len(scd.ChunkHeader) > 0 {
+		logger.WithContext(ctx).Debug("chunk header is provided.")
 	}
 
 	resp, err := scd.FuncGet(ctx, scd.sc, scd.ChunkMetas[idx].URL, headers, scd.sc.rest.RequestTimeout)

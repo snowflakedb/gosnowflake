@@ -9,17 +9,21 @@ import (
 // ConversionOptions bundles the options that control how raw Snowflake Arrow data is
 // converted into standard Arrow records (see ArrowBatch.Fetch). It is the single source of
 // truth for these options: add a new option here and thread it through the conversion
-// functions, and everything that carries options forward — including the batch itself —
-// gets it without further changes.
+// functions, and everything that carries options forward — including the batch itself and
+// its serialized form (SerializableArrowBatch) — gets it without further changes.
+//
+// All fields must remain serializable plain data (they are embedded into
+// SerializableArrowBatch); runtime resources such as an HTTP client or allocator do not
+// belong here and are supplied separately via Option.
 type ConversionOptions struct {
 	// TimestampOption controls how Snowflake timestamps are converted (see WithTimestampOption).
-	TimestampOption ia.TimestampOption
+	TimestampOption ia.TimestampOption `json:"timestampOption,omitempty"`
 	// HigherPrecision preserves BigDecimal values instead of converting to int64/float64
 	// (see WithHigherPrecision).
-	HigherPrecision bool
+	HigherPrecision bool `json:"higherPrecision,omitempty"`
 	// Utf8Validation replaces invalid UTF-8 in string columns with the replacement
 	// character (see WithUtf8Validation).
-	Utf8Validation bool
+	Utf8Validation bool `json:"utf8Validation,omitempty"`
 }
 
 // conversionOptionsFromContext snapshots the conversion options set on ctx via the public
