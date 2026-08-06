@@ -27,7 +27,7 @@ func newKeyringBasedSecureStorageManager() *keyringSecureStorageManager {
 	return &keyringSecureStorageManager{}
 }
 
-func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec, value string) {
+func (ssm *keyringSecureStorageManager) setCredential(tokenSpec secureTokenSpec, value string) {
 	if value == "" {
 		logger.Debug("no token provided")
 	} else {
@@ -64,7 +64,7 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 	}
 }
 
-func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec) string {
+func (ssm *keyringSecureStorageManager) getCredential(tokenSpec secureTokenSpec) string {
 	cred := ""
 	credentialsKey, err := tokenSpec.buildKey()
 	if err != nil {
@@ -100,7 +100,7 @@ func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec
 	return cred
 }
 
-func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenSpec) {
+func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec secureTokenSpec) {
 	credentialsKey, err := tokenSpec.buildKey()
 	if err != nil {
 		logger.Warnf("cannot build token spec: %v", err)

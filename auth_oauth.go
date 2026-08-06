@@ -261,12 +261,15 @@ func (oauthClient *oauthClient) defaultAuthorizationURL() string {
 	return fmt.Sprintf("%v://%v:%v/oauth/authorize", oauthClient.cfg.Protocol, oauthClient.cfg.Host, oauthClient.cfg.Port)
 }
 
-func (oauthClient *oauthClient) tokenURL() string {
-	return cmp.Or(oauthClient.cfg.OauthTokenRequestURL, oauthClient.defaultTokenURL())
+// oauthTokenRequestURL returns the full token endpoint URL for OAuth.
+// oauthClient.tokenURL() delegates to this function so that all cache key
+// construction and eviction paths use one canonical URL formula.
+func oauthTokenRequestURL(cfg *Config) string {
+	return cmp.Or(cfg.OauthTokenRequestURL, fmt.Sprintf("%v://%v:%v/oauth/token-request", cfg.Protocol, cfg.Host, cfg.Port))
 }
 
-func (oauthClient *oauthClient) defaultTokenURL() string {
-	return fmt.Sprintf("%v://%v:%v/oauth/token-request", oauthClient.cfg.Protocol, oauthClient.cfg.Host, oauthClient.cfg.Port)
+func (oauthClient *oauthClient) tokenURL() string {
+	return oauthTokenRequestURL(oauthClient.cfg)
 }
 
 func (oauthClient *oauthClient) buildRedirectURI(port int) string {
@@ -389,7 +392,7 @@ func (oauthClient *oauthClient) refreshToken() error {
 		logger.Debug("credentials storage is disabled, cannot use refresh tokens")
 		return nil
 	}
-	refreshTokenSpec := newOAuthRefreshTokenSpec(oauthClient.cfg.OauthTokenRequestURL, oauthClient.cfg.Host, oauthClient.cfg.User, oauthClient.cfg.Role)
+	refreshTokenSpec := newOAuthRefreshTokenSpec(oauthClient.cfg)
 	refreshToken := credentialsStorage.getCredential(refreshTokenSpec)
 	if refreshToken == "" {
 		logger.Debug("no refresh token in cache, full flow must be run")
@@ -439,12 +442,12 @@ type tokenExchangeResponseBody struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-func (oauthClient *oauthClient) accessTokenSpec() *secureTokenSpec {
-	return newOAuthAccessTokenSpec(oauthClient.tokenURL(), oauthClient.cfg.Host, oauthClient.cfg.User, oauthClient.cfg.Role)
+func (oauthClient *oauthClient) accessTokenSpec() *oauthTokenSpec {
+	return newOAuthAccessTokenSpec(oauthClient.cfg)
 }
 
-func (oauthClient *oauthClient) refreshTokenSpec() *secureTokenSpec {
-	return newOAuthRefreshTokenSpec(oauthClient.tokenURL(), oauthClient.cfg.Host, oauthClient.cfg.User, oauthClient.cfg.Role)
+func (oauthClient *oauthClient) refreshTokenSpec() *oauthTokenSpec {
+	return newOAuthRefreshTokenSpec(oauthClient.cfg)
 }
 
 func (oauthClient *oauthClient) logIfHTTPInUse(u string) {

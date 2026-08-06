@@ -35,8 +35,8 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 	}
 	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg, &snowflakeConn{})
 	assertNilF(t, err)
-	accessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
-	refreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+	accessTokenSpec := newOAuthAccessTokenSpec(cfg)
+	refreshTokenSpec := newOAuthRefreshTokenSpec(cfg)
 
 	t.Run("Success", func(t *testing.T) {
 		credentialsStorage.deleteCredential(accessTokenSpec)
@@ -184,7 +184,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 		}
 	}
 	cfg := cfgFactory()
-	cacheTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+	cacheTokenSpec := newOAuthAccessTokenSpec(cfg)
 	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg, &snowflakeConn{})
 	assertNilF(t, err)
 
@@ -287,8 +287,8 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
 		cfg.OauthRedirectURI = "http://localhost:1234/snowflake/oauth-redirect"
 		cfg.Transporter = roundTripper
-		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
-		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg)
+		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg)
 		credentialsStorage.deleteCredential(oauthAccessTokenSpec)
 		credentialsStorage.deleteCredential(oauthRefreshTokenSpec)
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
@@ -321,8 +321,8 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 				cfg.Authenticator = AuthTypeOAuthAuthorizationCode
 				cfg.Transporter = roundTripper
 				cfg.SingleAuthenticationPrompt = singleAuthenticationPrompt
-				oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
-				oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+				oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg)
+				oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg)
 				credentialsStorage.deleteCredential(oauthAccessTokenSpec)
 				credentialsStorage.deleteCredential(oauthRefreshTokenSpec)
 				connector := NewConnector(SnowflakeDriver{}, *cfg)
@@ -349,8 +349,8 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		cfg.OauthRedirectURI = "http://localhost:1234/snowflake/oauth-redirect"
 		cfg.Transporter = roundTripper
 		cfg.EnableSingleUseRefreshTokens = true
-		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
-		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg)
+		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg)
 		credentialsStorage.deleteCredential(oauthAccessTokenSpec)
 		credentialsStorage.deleteCredential(oauthRefreshTokenSpec)
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
@@ -369,8 +369,8 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
 		cfg.OauthRedirectURI = "http://localhost:1234/snowflake/oauth-redirect"
 		cfg.Transporter = roundTripper
-		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
-		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg)
+		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg)
 		credentialsStorage.deleteCredential(oauthAccessTokenSpec)
 		credentialsStorage.deleteCredential(oauthRefreshTokenSpec)
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
@@ -398,8 +398,8 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
 		cfg.OauthRedirectURI = "http://localhost:1234/snowflake/oauth-redirect"
 		cfg.Transporter = roundTripper
-		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
-		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg)
+		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg)
 		credentialsStorage.setCredential(oauthAccessTokenSpec, "expired-token")
 		credentialsStorage.deleteCredential(oauthRefreshTokenSpec)
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
@@ -416,8 +416,8 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
 		cfg.OauthRedirectURI = "http://localhost:1234/snowflake/oauth-redirect"
 		cfg.Transporter = roundTripper
-		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
-		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg)
+		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg)
 		credentialsStorage.deleteCredential(oauthAccessTokenSpec)
 		credentialsStorage.setCredential(oauthRefreshTokenSpec, "refresh-token-123")
 		wiremock.registerMappings(t, newWiremockMapping("auth/oauth2/login_request_with_expired_access_token.json"),
@@ -440,8 +440,8 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
 		cfg.OauthRedirectURI = "http://localhost:1234/snowflake/oauth-redirect"
 		cfg.Transporter = roundTripper
-		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
-		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg)
+		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg)
 		credentialsStorage.setCredential(oauthAccessTokenSpec, "expired-token")
 		credentialsStorage.setCredential(oauthRefreshTokenSpec, "refresh-token-123")
 		wiremock.registerMappings(t, newWiremockMapping("auth/oauth2/login_request_with_expired_access_token.json"),
@@ -464,8 +464,8 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
 		cfg.OauthRedirectURI = "http://localhost:1234/snowflake/oauth-redirect"
 		cfg.Transporter = roundTripper
-		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
-		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg)
+		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg)
 		credentialsStorage.setCredential(oauthAccessTokenSpec, "expired-token")
 		credentialsStorage.setCredential(oauthRefreshTokenSpec, "refresh-token-123")
 		wiremock.registerMappings(t, newWiremockMapping("auth/oauth2/login_request_with_expired_access_token.json"),
@@ -488,8 +488,8 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
 		cfg.OauthRedirectURI = "http://localhost:1234/snowflake/oauth-redirect"
 		cfg.Transporter = roundTripper
-		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
-		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg)
+		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg)
 		credentialsStorage.setCredential(oauthAccessTokenSpec, "expired-token")
 		credentialsStorage.setCredential(oauthRefreshTokenSpec, "expired-refresh-token")
 		wiremock.registerMappings(t, newWiremockMapping("auth/oauth2/login_request_with_expired_access_token.json"),
@@ -513,8 +513,8 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		cfg.OauthRedirectURI = "http://localhost:1234/snowflake/oauth-redirect"
 		cfg.Transporter = roundTripper
 		cfg.ClientStoreTemporaryCredential = ConfigBoolFalse
-		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
-		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg)
+		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg)
 		credentialsStorage.setCredential(oauthAccessTokenSpec, "old-access-token")
 		credentialsStorage.setCredential(oauthRefreshTokenSpec, "old-refresh-token")
 		wiremock.registerMappings(t, newWiremockMapping("auth/oauth2/authorization_code/successful_flow_with_offline_access.json"),
@@ -551,8 +551,8 @@ func TestClientCredentialsFlow(t *testing.T) {
 	cfg.Authenticator = AuthTypeOAuthClientCredentials
 	cfg.Transporter = roundTripper
 
-	oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
-	oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.Host, cfg.User, cfg.Role)
+	oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg)
+	oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg)
 
 	t.Run("successful flow", func(t *testing.T) {
 		credentialsStorage.deleteCredential(oauthAccessTokenSpec)
