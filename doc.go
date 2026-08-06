@@ -845,8 +845,9 @@ The arrow-compute dependency (which significantly increases binary size) is only
 arrowbatches sub-package. If you don't need Arrow batch support, simply don't import it.
 
 An ArrowBatch can exist in a state where the underlying data has not yet been loaded. The data is downloaded and
-translated only on demand. Translation options are retrieved from a context.Context interface, which is either
-passed from query context or set by the user using WithContext(ctx) method.
+translated only on demand. Translation (conversion) options are taken from the query context and captured when the
+batches are created by GetArrowBatches; they are then fixed for the life of each batch. WithContext(ctx) sets the
+context used for cancellation and deadlines only and does not change the conversion options.
 
 In order to access them you must use `arrowbatches.WithArrowBatches` context, similar to the following:
 
@@ -871,13 +872,15 @@ Returns the number of rows in the ArrowBatch. Note that this returns 0 if the da
 irrespective of it’s actual size.
 
 WithContext(ctx context.Context):
-Sets the context of the ArrowBatch to the one provided. Note that the context will not retroactively apply to data
-that has already been downloaded. For example:
+Sets the context used for cancellation and deadlines on subsequent Fetch calls. Conversion options are NOT read from
+this context: they are captured from the query context when the batch is created, so providing a context with
+different option values will not change how the data is converted. For example:
 
 	records1, _ := batch.Fetch()
 	records2, _ := batch.WithContext(ctx).Fetch()
 
-will produce the same result in records1 and records2, irrespective of the newly provided ctx. Context worth noting are:
+will produce the same conversion in records1 and records2, irrespective of the newly provided ctx. The conversion
+options, which must be set on the query context before running the query, are:
 -arrowbatches.WithTimestampOption
 -WithHigherPrecision
 -arrowbatches.WithUtf8Validation

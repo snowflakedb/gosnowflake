@@ -1168,7 +1168,7 @@ func TestArrowToRecord(t *testing.T) {
 				ctx = ia.WithHigherPrecision(ctx)
 			}
 
-			transformedRec, err := arrowToRecord(ctx, rawRec, pool, []query.ExecResponseRowType{meta}, localTime.Location())
+			transformedRec, err := arrowToRecord(ctx, conversionOptionsFromContext(ctx), rawRec, pool, []query.ExecResponseRowType{meta}, localTime.Location())
 			if err != nil {
 				if tc.error == "" || !strings.Contains(err.Error(), tc.error) {
 					t.Fatalf("error: %s", err)
