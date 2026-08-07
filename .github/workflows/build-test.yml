@@ -39,9 +39,9 @@ jobs:
         runs-on: ubuntu-latest
         name: Check linter
         steps:
-          - uses: actions/checkout@v4
+          - uses: actions/checkout@v7
           - name: Setup go
-            uses: actions/setup-go@v5
+            uses: actions/setup-go@v7
             with:
               go-version: ${{ env.GO_VERSION }}
           - name: golangci-lint
@@ -63,13 +63,13 @@ jobs:
                 go: [ '1.24', '1.25', '1.26' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-java@v4 # for wiremock
+            - uses: actions/checkout@v7
+            - uses: actions/setup-java@v5 # for wiremock
               with:
                 java-version: 17
                 distribution: 'temurin'
             - name: Setup go
-              uses: actions/setup-go@v5
+              uses: actions/setup-go@v7
               with:
                   go-version: ${{ matrix.go }}
             - name: Test
@@ -97,13 +97,13 @@ jobs:
       runs-on: ubuntu-latest
       name: Ubuntu - no HOME
       steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-java@v4 # for wiremock
+        - uses: actions/checkout@v7
+        - uses: actions/setup-java@v5 # for wiremock
           with:
             java-version: 17
             distribution: 'temurin'
         - name: Setup go
-          uses: actions/setup-go@v5
+          uses: actions/setup-go@v7
           with:
             go-version: ${{ env.GO_VERSION }}
         - name: Test
@@ -128,13 +128,13 @@ jobs:
                 go: [ '1.24', '1.25', '1.26' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-java@v4 # for wiremock
+            - uses: actions/checkout@v7
+            - uses: actions/setup-java@v5 # for wiremock
               with:
                 java-version: 17
                 distribution: 'temurin'
             - name: Setup go
-              uses: actions/setup-go@v5
+              uses: actions/setup-go@v7
               with:
                   go-version: ${{ matrix.go }}
             - name: Test
@@ -160,13 +160,13 @@ jobs:
       runs-on: macos-latest
       name: Mac - no HOME
       steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-java@v4 # for wiremock
+        - uses: actions/checkout@v7
+        - uses: actions/setup-java@v5 # for wiremock
           with:
             java-version: 17
             distribution: 'temurin'
         - name: Setup go
-          uses: actions/setup-go@v5
+          uses: actions/setup-go@v7
           with:
             go-version: ${{ env.GO_VERSION }}
         - name: Test
@@ -189,16 +189,16 @@ jobs:
                 go: [ '1.24', '1.25', '1.26' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-java@v4 # for wiremock
+            - uses: actions/checkout@v7
+            - uses: actions/setup-java@v5 # for wiremock
               with:
                 java-version: 17
                 distribution: 'temurin'
             - name: Setup go
-              uses: actions/setup-go@v5
+              uses: actions/setup-go@v7
               with:
                   go-version: ${{ matrix.go }}
-            - uses: actions/setup-python@v5
+            - uses: actions/setup-python@v7
               with:
                 python-version: '3.x'
                 architecture: 'x64'
@@ -228,13 +228,13 @@ jobs:
         fail-fast: false
       name: FIPS only mode
       steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-java@v4 # for wiremock
+        - uses: actions/checkout@v7
+        - uses: actions/setup-java@v5 # for wiremock
           with:
             java-version: 17
             distribution: 'temurin'
         - name: Setup go
-          uses: actions/setup-go@v5
+          uses: actions/setup-go@v7
           with:
             go-version: ${{ env.GO_VERSION }}
         - name: Test
@@ -263,13 +263,13 @@ jobs:
       runs-on: ubuntu-latest
       name: Ubuntu - minicore disabled
       steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-java@v4 # for wiremock
+        - uses: actions/checkout@v7
+        - uses: actions/setup-java@v5 # for wiremock
           with:
             java-version: 17
             distribution: 'temurin'
         - name: Setup go
-          uses: actions/setup-go@v5
+          uses: actions/setup-go@v7
           with:
             go-version: ${{ env.GO_VERSION }}
         - name: Test
@@ -287,13 +287,13 @@ jobs:
       runs-on: macos-latest
       name: Mac - minicore disabled
       steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-java@v4 # for wiremock
+        - uses: actions/checkout@v7
+        - uses: actions/setup-java@v5 # for wiremock
           with:
             java-version: 17
             distribution: 'temurin'
         - name: Setup go
-          uses: actions/setup-go@v5
+          uses: actions/setup-go@v7
           with:
             go-version: ${{ env.GO_VERSION }}
         - name: Test
@@ -310,16 +310,16 @@ jobs:
       runs-on: windows-latest
       name: Windows - minicore disabled
       steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-java@v4 # for wiremock
+        - uses: actions/checkout@v7
+        - uses: actions/setup-java@v5 # for wiremock
           with:
             java-version: 17
             distribution: 'temurin'
         - name: Setup go
-          uses: actions/setup-go@v5
+          uses: actions/setup-go@v7
           with:
             go-version: ${{ env.GO_VERSION }}
-        - uses: actions/setup-python@v5
+        - uses: actions/setup-python@v7
           with:
             python-version: '3.x'
             architecture: 'x64'
@@ -339,13 +339,13 @@ jobs:
         fail-fast: false
       name: Elliptic curves check
       steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-java@v4 # for wiremock
+        - uses: actions/checkout@v7
+        - uses: actions/setup-java@v5 # for wiremock
           with:
             java-version: 17
             distribution: 'temurin'
         - name: Setup go
-          uses: actions/setup-go@v5
+          uses: actions/setup-go@v7
           with:
             go-version: ${{ env.GO_VERSION }}
         - name: Test
@@ -374,7 +374,7 @@ jobs:
                 go: '1.26.3'
         name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.go }} on Rocky Linux 9
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v7
             - name: Test
               shell: bash
               env:
@@ -401,13 +401,13 @@ jobs:
               go: '1.26'
       name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.go }} on Ubuntu ARM
       steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-java@v4 # for wiremock
+        - uses: actions/checkout@v7
+        - uses: actions/setup-java@v5 # for wiremock
           with:
             java-version: 17
             distribution: 'temurin'
         - name: Setup go
-          uses: actions/setup-go@v5
+          uses: actions/setup-go@v7
           with:
             go-version: ${{ matrix.cloud_go.go }}
         - name: Test
@@ -444,16 +444,16 @@ jobs:
               go: '1.26'
       name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.cloud }} on Windows ARM
       steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-java@v4 # for wiremock
+        - uses: actions/checkout@v7
+        - uses: actions/setup-java@v5 # for wiremock
           with:
             java-version: 21
             distribution: 'temurin'
         - name: Setup go
-          uses: actions/setup-go@v5
+          uses: actions/setup-go@v7
           with:
             go-version: ${{ matrix.cloud_go.go }}
-        - uses: actions/setup-python@v5
+        - uses: actions/setup-python@v7
           with:
             python-version: '3.x'
             architecture: 'x64'
