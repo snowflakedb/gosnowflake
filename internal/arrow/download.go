@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -119,8 +120,12 @@ func DecodeIPCRecords(r io.Reader, opts ...ipc.Option) (*[]arrow.Record, int, er
 // reader (e.g. ipc.WithAllocator). The returned records are retained and must be released by
 // the caller (ArrowBatch.Fetch does this after transforming them).
 func DownloadBatchRecords(ctx context.Context, client *http.Client, desc ChunkDescriptor, opts ...ipc.Option) (*[]arrow.Record, int, error) {
-	if len(desc.InlineData) > 0 {
-		return DecodeIPCRecords(bytes.NewReader(desc.InlineData), opts...)
+	if desc.InlineDataBase64 != "" {
+		inline, err := base64.StdEncoding.DecodeString(desc.InlineDataBase64)
+		if err != nil {
+			return nil, 0, fmt.Errorf("arrow: decoding inline batch base64: %w", err)
+		}
+		return DecodeIPCRecords(bytes.NewReader(inline), opts...)
 	}
 	if desc.URL == "" {
 		empty := make([]arrow.Record, 0)
