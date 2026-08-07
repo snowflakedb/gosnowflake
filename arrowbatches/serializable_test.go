@@ -3,6 +3,7 @@ package arrowbatches
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -116,7 +117,7 @@ func TestSerializableArrowBatchInline(t *testing.T) {
 
 	s := SerializableArrowBatch{
 		Format:       arrowFormatName,
-		InlineData:   ipcBytes,
+		InlineData:   base64.StdEncoding.EncodeToString(ipcBytes),
 		RowCount:     len(fixtureInts),
 		RowTypes:     rowTypes,
 		TimezoneName: "UTC",
@@ -171,7 +172,7 @@ func TestSerializableArrowBatchRemote(t *testing.T) {
 	}
 }
 
-func TestSerializableArrowBatchRemoteRequiresClient(t *testing.T) {
+func TestSerializableArrowBatchRemoteDefaultsHTTPClient(t *testing.T) {
 	_, rowTypes := buildFixtureIPC(t)
 	s := SerializableArrowBatch{
 		Format:   arrowFormatName,
@@ -179,8 +180,13 @@ func TestSerializableArrowBatchRemoteRequiresClient(t *testing.T) {
 		RowCount: len(fixtureInts),
 		RowTypes: rowTypes,
 	}
-	if _, err := s.ToArrowBatch(); err == nil {
-		t.Fatal("expected error when a remote batch has no HTTP client")
+	// No WithHTTPClient: a remote batch is reconstructed successfully using http.DefaultClient.
+	batch, err := s.ToArrowBatch()
+	if err != nil {
+		t.Fatalf("ToArrowBatch without a client should succeed (defaults to http.DefaultClient): %v", err)
+	}
+	if batch == nil {
+		t.Fatal("expected a non-nil batch")
 	}
 }
 
@@ -225,7 +231,7 @@ func TestSerializableArrowBatchJSONRoundTrip(t *testing.T) {
 
 	orig := SerializableArrowBatch{
 		Format:                arrowFormatName,
-		InlineData:            ipcBytes,
+		InlineData:            base64.StdEncoding.EncodeToString(ipcBytes),
 		URL:                   "https://example.invalid/chunk",
 		Headers:               map[string]string{"h": "v"},
 		RowCount:              len(fixtureInts),
@@ -249,7 +255,7 @@ func TestSerializableArrowBatchJSONRoundTrip(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 
-	if !bytes.Equal(got.InlineData, orig.InlineData) {
+	if got.InlineData != orig.InlineData {
 		t.Fatal("InlineData did not round-trip")
 	}
 	if got.TimestampOption != orig.TimestampOption || got.HigherPrecision != orig.HigherPrecision || got.Utf8Validation != orig.Utf8Validation {
@@ -297,9 +303,10 @@ func TestToSerializableRoundTripInline(t *testing.T) {
 	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer pool.AssertSize(t, 0)
 
+	inlineB64 := base64.StdEncoding.EncodeToString(ipcBytes)
 	src := SerializableArrowBatch{
 		Format:       arrowFormatName,
-		InlineData:   ipcBytes,
+		InlineData:   inlineB64,
 		RowCount:     len(fixtureInts),
 		RowTypes:     rowTypes,
 		TimezoneName: "UTC",
@@ -313,7 +320,7 @@ func TestToSerializableRoundTripInline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToSerializable: %v", err)
 	}
-	if !bytes.Equal(round.InlineData, ipcBytes) || round.RowCount != len(fixtureInts) {
+	if round.InlineData != inlineB64 || round.RowCount != len(fixtureInts) {
 		t.Fatalf("re-serialized descriptor mismatch: %+v", round)
 	}
 	batch2, err := round.ToArrowBatch(WithAllocator(pool))
@@ -374,7 +381,7 @@ func TestSerializableArrowBatchAppliesConversionOptions(t *testing.T) {
 
 			s := SerializableArrowBatch{
 				Format:            arrowFormatName,
-				InlineData:        ipcBytes,
+				InlineData:        base64.StdEncoding.EncodeToString(ipcBytes),
 				RowCount:          1,
 				RowTypes:          rowTypes,
 				ConversionOptions: ConversionOptions{HigherPrecision: tc.higherPrecision},

@@ -35,9 +35,10 @@ const arrowFormatName = "arrow"
 type SerializableArrowBatch struct {
 	// Format is the chunk payload format; currently always "arrow".
 	Format string `json:"format"`
-	// InlineData holds the Arrow IPC bytes for the first batch (embedded in the query
-	// response). When set, the batch is local and no download is performed.
-	InlineData []byte `json:"inlineData,omitempty"`
+	// InlineData holds the base64-encoded Arrow IPC bytes for the first batch (carried
+	// verbatim from the query response). When set, the batch is local and no download is
+	// performed; the bytes are base64-decoded only when the batch is materialized.
+	InlineData string `json:"inlineData,omitempty"`
 	// URL is the presigned cloud-storage URL for a remote chunk (empty for inline batches).
 	URL string `json:"url,omitempty"`
 	// Headers are the HTTP headers required to fetch URL, including the SSE-C key.
@@ -68,7 +69,7 @@ type SerializableArrowBatch struct {
 // released, though the descriptor itself remains valid for re-serialization.
 func (rb *ArrowBatch) ToSerializable() (SerializableArrowBatch, error) {
 	desc := rb.raw.Descriptor
-	if len(desc.InlineData) == 0 && desc.URL == "" {
+	if desc.InlineDataBase64 == "" && desc.URL == "" {
 		return SerializableArrowBatch{}, fmt.Errorf(
 			"arrowbatches: batch has neither inline data nor a chunk URL and cannot be serialized")
 	}
@@ -77,7 +78,7 @@ func (rb *ArrowBatch) ToSerializable() (SerializableArrowBatch, error) {
 
 	return SerializableArrowBatch{
 		Format:                arrowFormatName,
-		InlineData:            desc.InlineData,
+		InlineData:            desc.InlineDataBase64,
 		URL:                   desc.URL,
 		Headers:               desc.Headers,
 		RowCount:              rb.raw.RowCount,
@@ -98,9 +99,11 @@ type arrowBatchOpts struct {
 // Option configures ToArrowBatch.
 type Option func(*arrowBatchOpts)
 
-// WithHTTPClient injects the HTTP client used to download remote chunks. It is required
-// for batches that reference a URL; the worker has no Snowflake connection to build one
-// from, and this is also the seam for configuring proxy/TLS/timeouts.
+// WithHTTPClient injects the HTTP client used to download remote chunks. It is optional:
+// when not set, http.DefaultClient is used. Since the worker has no Snowflake connection to
+// inherit transport settings from, this is the seam for configuring proxy/TLS/timeouts;
+// note that http.DefaultClient has no timeout, so pass a client with one (or a Fetch context
+// with a deadline) for remote batches.
 func WithHTTPClient(client *http.Client) Option {
 	return func(o *arrowBatchOpts) { o.client = client }
 }
@@ -115,9 +118,10 @@ func WithAllocator(pool memory.Allocator) Option {
 // The returned batch's Fetch downloads (if remote) and transforms the records exactly
 // as a batch obtained directly from GetArrowBatches would.
 //
-// A remote batch (URL set) requires an *http.Client via WithHTTPClient. Inline batches
-// need no client. Call WithContext on the returned batch to bind a cancellation context
-// to Fetch.
+// The HTTP client used for a remote batch defaults to http.DefaultClient; supply your own
+// with WithHTTPClient to configure proxy/TLS/timeouts (recommended, since http.DefaultClient
+// has no timeout). Inline batches perform no download. Call WithContext on the returned batch
+// to bind a cancellation context to Fetch.
 func (s SerializableArrowBatch) ToArrowBatch(opts ...Option) (*ArrowBatch, error) {
 	if s.Format != "" && s.Format != arrowFormatName {
 		return nil, fmt.Errorf("arrowbatches: unsupported serialized batch format %q", s.Format)
@@ -130,17 +134,15 @@ func (s SerializableArrowBatch) ToArrowBatch(opts ...Option) (*ArrowBatch, error
 	if o.allocator == nil {
 		o.allocator = memory.DefaultAllocator
 	}
-
-	remote := len(s.InlineData) == 0 && s.URL != ""
-	if remote && o.client == nil {
-		return nil, fmt.Errorf("arrowbatches: a remote arrow batch requires an *http.Client (use WithHTTPClient)")
+	if o.client == nil {
+		o.client = http.DefaultClient
 	}
 
 	client, alloc := o.client, o.allocator
 	desc := ia.ChunkDescriptor{
 		URL:              s.URL,
 		Headers:          s.Headers,
-		InlineData:       s.InlineData,
+		InlineDataBase64: s.InlineData,
 		UncompressedSize: s.UncompressedSize,
 	}
 
