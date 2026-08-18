@@ -201,6 +201,12 @@ func (rows *snowflakeRows) GetArrowBatches() (*ia.BatchDataInfo, error) {
 			if scd.firstBatchRaw != nil {
 				capturedIdx = i - 1
 			}
+			chunkMeta := scd.ChunkMetas[capturedIdx]
+			batch.Descriptor = ia.ChunkDescriptor{
+				URL:              chunkMeta.URL,
+				Headers:          chunkDownloadHeaders(scd.ChunkHeader, scd.Qrmk),
+				UncompressedSize: chunkMeta.UncompressedSize,
+			}
 			batch.Download = func(ctx context.Context) (*[]arrow.Record, int, error) {
 				if err := scd.FuncDownloadHelper(ctx, scd, capturedIdx); err != nil {
 					return nil, 0, err
@@ -208,6 +214,12 @@ func (rows *snowflakeRows) GetArrowBatches() (*ia.BatchDataInfo, error) {
 				actualRaw := scd.rawBatches[capturedIdx]
 				return actualRaw.records, actualRaw.rowCount, nil
 			}
+		} else if scd.RowSet.RowSetBase64 != "" {
+			// The first (inline) batch carries its Arrow IPC bytes base64-encoded in the
+			// query response. Keep the server's base64 string verbatim; it is decoded only
+			// if and when the batch is materialized on a worker (avoiding a decode/re-encode
+			// round trip here, since this data is used only for serialization).
+			batch.Descriptor = ia.ChunkDescriptor{InlineDataBase64: scd.RowSet.RowSetBase64}
 		}
 		batches[i] = batch
 	}

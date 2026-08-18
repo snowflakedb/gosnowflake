@@ -7,6 +7,7 @@ New features:
 - Added `CleanupTimeout` config option (DSN field `cleanupTimeout`, in seconds) that bounds post-cancellation cleanup (snowflakedb/gosnowflake#1816).
 - Increased CRL disk cache removal delay to 7 days (snowflakedb/gosnowflake#1820).
 - Added option to load private key from `connections.toml` file (snowflakedb/gosnowflake#1822).
+- Added `arrowbatches.SerializableArrowBatch` with `ArrowBatch.ToSerializable` and `SerializableArrowBatch.ToArrowBatch` to enable distributed fetch: Arrow batches can be serialized, shipped to other machines, and downloaded there with an injected HTTP client and no Snowflake connection (snowflakedb/gosnowflake#1833).
 
 Bug fixes:
 - Fixed token cache key collisions for multi-account (shared IdP) and multi-role scenarios by switching to a versioned, SHA256-hashed canonical-JSON key with the token type in the key prefix, applied uniformly across keyring (macOS/Windows) and file (Linux) backends; also replaced the bag-of-fields spec struct with typed token-spec types (`hostUserTokenSpec` for MFA/ID flows, `oauthTokenSpec` for OAuth flows) so each spec validates and serializes only its own fields (snowflakedb/gosnowflake#1817, snowflakedb/gosnowflake#1821).

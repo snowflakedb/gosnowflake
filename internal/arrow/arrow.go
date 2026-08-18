@@ -103,13 +103,36 @@ func HigherPrecisionEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
+// ChunkDescriptor holds the portable, serializable information needed to fetch a
+// single result chunk without a live Snowflake connection. Either InlineDataBase64 is set
+// (the first batch, whose Arrow IPC bytes are embedded base64-encoded in the query
+// response) or URL and Headers point at a presigned cloud-storage object.
+//
+// InlineDataBase64 is kept as the server's base64 string and decoded only when the batch is
+// materialized (on the worker), avoiding a needless decode/re-encode round trip on the
+// producer.
+//
+// Headers may carry the SSE-C decryption key (Qrmk); treat a ChunkDescriptor as
+// sensitive. Presigned URLs expire (server-controlled, typically a few hours).
+type ChunkDescriptor struct {
+	URL              string
+	Headers          map[string]string
+	InlineDataBase64 string
+	UncompressedSize int64
+}
+
 // BatchRaw holds raw (untransformed) arrow records for a single batch.
+//
+// Records/Download are live-handle state used within the same process. Descriptor
+// holds the portable fetch information used to serialize the batch for distributed
+// fetch (see the arrowbatches sub-package).
 type BatchRaw struct {
-	Records  *[]arrow.Record
-	Index    int
-	RowCount int
-	Location *time.Location
-	Download func(ctx context.Context) (*[]arrow.Record, int, error)
+	Records    *[]arrow.Record
+	Index      int
+	RowCount   int
+	Location   *time.Location
+	Download   func(ctx context.Context) (*[]arrow.Record, int, error)
+	Descriptor ChunkDescriptor
 }
 
 // BatchDataInfo contains all information needed to build arrow batches.
