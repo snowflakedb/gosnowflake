@@ -2406,11 +2406,10 @@ func arrowDecimal128ToValue(srcValue *array.Decimal128, rowIdx int, higherPrecis
 			}
 			return num.ToString(0)
 		}
-		f := decimalToBigFloat(num, int64(srcColumnMeta.Scale))
 		if higherPrecision {
-			return f
+			return decimalToBigFloat(num, int64(srcColumnMeta.Scale))
 		}
-		return fmt.Sprintf("%.*f", srcColumnMeta.Scale, f)
+		return num.ToString(int32(srcColumnMeta.Scale))
 	}
 	return nil
 }
@@ -2461,7 +2460,7 @@ func arrowIntToValue(srcColumnMeta query.FieldMetadata, higherPrecision bool, va
 		f := intToBigFloat(val, int64(srcColumnMeta.Scale))
 		return f
 	}
-	return fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(srcColumnMeta.Scale))
+	return decimal128.FromI64(val).ToString(int32(srcColumnMeta.Scale))
 }
 
 func arrowRealToValue(srcValue *array.Float64, rowIdx int) snowflakeValue {

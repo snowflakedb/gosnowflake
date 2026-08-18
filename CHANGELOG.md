@@ -15,6 +15,7 @@ Bug fixes:
 - Do not attempt to get S3 bucket accelerate config for Snowflake-internal stages (matched by bucket name `sfc-*`) since s3:GetAccelerateConfiguration not granted anyways (snowflakedb/gosnowflake#1805).
 - Fixed gosnowflake writing a `gosnowflake-cgo` directory under the system temp dir at package import time even when the driver was never used (e.g. when imported only as a transitive dependency). Minicore now loads lazily when the driver is first referenced (`NewConnector`/`OpenWithConfig`) instead of in `init()` (snowflakedb/gosnowflake#1807).
 - Fixed `GET` from a LOCAL_FS stage downloading 0 files and returning `264011: not implemented`. Cloud downloads were unaffected (snowflakedb/gosnowflake#1810).
+- Fixed `NUMBER` columns with a non-zero scale losing precision: values needing more significant digits than a binary float's mantissa were silently rounded, so `NUMBER(20,10)` holding `1234567890.1234567890` returned `1234567890.1234567889`. The `WithHigherPrecision` path is unchanged and still returns a 64-bit `*big.Float` (snowflakedb/gosnowflake#1835).
 
 Internal changes:
 - Migrated from deprecated `github.com/aws/aws-sdk-go-v2/feature/s3/manager` (v1.16.15) to `github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager` (v0.3.5).
