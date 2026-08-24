@@ -216,7 +216,7 @@ func (w *waitAlgo) calculateWaitBeforeRetry(sleep time.Duration) time.Duration {
 	defer w.mutex.Unlock()
 	// use decorrelated jitter in retry time
 	randDuration := randMilliSecondDuration(w.base, sleep*3)
-	return durationMin(w.cap, randDuration)
+	return min(w.cap, randDuration)
 }
 
 func randMilliSecondDuration(base time.Duration, bound time.Duration) time.Duration {

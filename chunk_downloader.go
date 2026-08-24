@@ -139,7 +139,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 				scd.getQueryResultFormat(), i+1, chunk.URL, chunk.RowCount, chunk.UncompressedSize, scd.QueryResultFormat)
 			scd.ChunksChan <- i
 		}
-		for i := 0; i < intMin(chunkDownloadWorkers, chunkMetaLen); i++ {
+		for i := 0; i < min(chunkDownloadWorkers, chunkMetaLen); i++ {
 			scd.schedule()
 		}
 	}

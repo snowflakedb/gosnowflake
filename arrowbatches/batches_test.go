@@ -273,9 +273,7 @@ func TestGetArrowBatchesLargeResultSet(t *testing.T) {
 	work := make(chan int, len(batches))
 
 	for range maxWorkers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for i := range work {
 				recs, fetchErr := batches[i].Fetch()
 				if fetchErr != nil {
@@ -289,7 +287,7 @@ func TestGetArrowBatchesLargeResultSet(t *testing.T) {
 					r.Release()
 				}
 			}
-		}()
+		})
 	}
 	for i := range batches {
 		work <- i

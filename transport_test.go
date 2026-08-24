@@ -205,6 +205,33 @@ func TestProxyTransportCreation(t *testing.T) {
 			},
 			proxyURL: "",
 		},
+		{
+			// A literal IPv6 proxy host has to be bracketed, otherwise the
+			// resulting proxy URL cannot be parsed at all.
+			config: &Config{
+				ProxyProtocol: "http",
+				ProxyHost:     "::1",
+				ProxyPort:     1234,
+			},
+			proxyURL: "http://[::1]:1234",
+		},
+		{
+			config: &Config{
+				ProxyProtocol: "https",
+				ProxyHost:     "2001:db8::1",
+				ProxyPort:     1234,
+			},
+			proxyURL: "https://[2001:db8::1]:1234",
+		},
+		{
+			// Already bracketed by the user - must not be double-bracketed.
+			config: &Config{
+				ProxyProtocol: "http",
+				ProxyHost:     "[fe80::1]",
+				ProxyPort:     1234,
+			},
+			proxyURL: "http://[fe80::1]:1234",
+		},
 	}
 
 	for _, test := range proxyTests {

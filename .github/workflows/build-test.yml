@@ -32,7 +32,7 @@ env:
   # *-minicore-disabled, ecc). Multi-version compatibility matrices below
   # intentionally pin literal versions and cannot reference env (GitHub
   # Actions does not expose the env context to strategy.matrix).
-  GO_VERSION: '1.26'
+  GO_VERSION: '1.27'
 
 jobs:
     lint:
@@ -47,7 +47,7 @@ jobs:
           - name: golangci-lint
             uses: golangci/golangci-lint-action@v7
             with:
-              version: v2.11
+              version: v2.13
           - name: Format, Lint
             shell: bash
             run: ./ci/build.sh
@@ -60,7 +60,7 @@ jobs:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.24', '1.25', '1.26' ]
+                go: [ '1.25', '1.26', '1.27' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
             - uses: actions/checkout@v7
@@ -125,7 +125,7 @@ jobs:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.24', '1.25', '1.26' ]
+                go: [ '1.25', '1.26', '1.27' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
             - uses: actions/checkout@v7
@@ -186,7 +186,7 @@ jobs:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.24', '1.25', '1.26' ]
+                go: [ '1.25', '1.26', '1.27' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:
             - uses: actions/checkout@v7
@@ -367,11 +367,11 @@ jobs:
             matrix:
               cloud_go:
               - cloud: 'AWS'
-                go: '1.24.2'
+                go: '1.25.14'
               - cloud: 'AZURE'
-                go: '1.25.0'
+                go: '1.26.7'
               - cloud: 'GCP'
-                go: '1.26.3'
+                go: '1.27.0'
         name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.go }} on Rocky Linux 9
         steps:
             - uses: actions/checkout@v7
@@ -394,11 +394,11 @@ jobs:
         matrix:
           cloud_go:
             - cloud: 'AWS'
-              go: '1.24'
-            - cloud: 'AZURE'
               go: '1.25'
-            - cloud: 'GCP'
+            - cloud: 'AZURE'
               go: '1.26'
+            - cloud: 'GCP'
+              go: '1.27'
       name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.go }} on Ubuntu ARM
       steps:
         - uses: actions/checkout@v7
@@ -437,11 +437,11 @@ jobs:
         matrix:
           cloud_go:
             - cloud: 'AWS'
-              go: '1.24'
-            - cloud: 'AZURE'
               go: '1.25'
-            - cloud: 'GCP'
+            - cloud: 'AZURE'
               go: '1.26'
+            - cloud: 'GCP'
+              go: '1.27'
       name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.cloud }} on Windows ARM
       steps:
         - uses: actions/checkout@v7

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -464,9 +465,9 @@ func (cv *crlValidator) downloadCrl(crlURL string) (*x509.RevocationList, *time.
 	if cv.crlDownloadMaxSize > 0 && len(crlBytes) >= cv.crlDownloadMaxSize {
 		return nil, nil, fmt.Errorf("CRL from %v exceeds maximum size of %d bytes", crlURL, cv.crlDownloadMaxSize)
 	}
-	telemetryEvent.Message["crl_bytes"] = fmt.Sprintf("%d", len(crlBytes))
+	telemetryEvent.Message["crl_bytes"] = strconv.Itoa(len(crlBytes))
 	downloadTime := time.Since(now)
-	telemetryEvent.Message["crl_download_time_ms"] = fmt.Sprintf("%d", downloadTime.Milliseconds())
+	telemetryEvent.Message["crl_download_time_ms"] = strconv.FormatInt(downloadTime.Milliseconds(), 10)
 	logger.Debugf("downloaded %v bytes for CRL %v", len(crlBytes), crlURL)
 	timeBeforeParsing := time.Now()
 	crl, err := x509.ParseRevocationList(crlBytes)
@@ -475,8 +476,8 @@ func (cv *crlValidator) downloadCrl(crlURL string) (*x509.RevocationList, *time.
 		return nil, nil, err
 	}
 	logger.Debugf("parsed CRL from %v, next update at %v", crlURL, crl.NextUpdate)
-	telemetryEvent.Message["crl_parse_time_ms"] = fmt.Sprintf("%d", time.Since(timeBeforeParsing).Milliseconds())
-	telemetryEvent.Message["crl_revoked_certificates"] = fmt.Sprintf("%d", len(crl.RevokedCertificateEntries))
+	telemetryEvent.Message["crl_parse_time_ms"] = strconv.FormatInt(time.Since(timeBeforeParsing).Milliseconds(), 10)
+	telemetryEvent.Message["crl_revoked_certificates"] = strconv.Itoa(len(crl.RevokedCertificateEntries))
 	return crl, &now, err
 }
 

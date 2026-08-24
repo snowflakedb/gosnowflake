@@ -1195,7 +1195,7 @@ func TestBulkArrayMultiPartBindingWithNull(t *testing.T) {
 		stringArr := make([]any, numRows)
 		for i := startNum; i < endNum; i++ {
 			intArr[i-startNum] = i
-			stringArr[i-startNum] = fmt.Sprint(i)
+			stringArr[i-startNum] = strconv.Itoa(i)
 		}
 
 		// Set some of the rows to NULL
@@ -1549,7 +1549,7 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 				defer func() {
 					assertNilF(t, rows.Close())
 				}()
-				assertTrueF(t, rows.Next(), fmt.Sprintf("%s: no rows returned", tc.testDesc))
+				assertTrueF(t, rows.Next(), tc.testDesc+": no rows returned")
 
 				err = rows.Scan(&c1, &c2, &c3)
 				assertNilF(t, err)

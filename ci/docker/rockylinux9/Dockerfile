@@ -33,7 +33,7 @@ RUN dnf install -y --allowerasing --nobest \
 ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
-# Accept full Go version as build argument (e.g., GO_VERSION=1.24.2)
+# Accept full Go version as build argument (e.g., GO_VERSION=1.25.14)
 ARG GO_VERSION
 
 # Download and install Go version
@@ -44,7 +44,7 @@ RUN GOARCH=${TARGETARCH} && \
     mkdir -p /usr/local/go${GO_VERSION_SHORT} && \
     tar -C /usr/local/go${GO_VERSION_SHORT} --strip-components=1 -xzf /tmp/go.tar.gz && \
     rm /tmp/go.tar.gz && \
-    # Create wrapper script for short version (e.g., go1.24) \
+    # Create wrapper script for short version (e.g., go1.25) \
     echo "#!/bin/bash" > /usr/local/bin/go${GO_VERSION_SHORT} && \
     echo "export GOROOT=/usr/local/go${GO_VERSION_SHORT}" >> /usr/local/bin/go${GO_VERSION_SHORT} && \
     echo 'exec $GOROOT/bin/go "$@"' >> /usr/local/bin/go${GO_VERSION_SHORT} && \

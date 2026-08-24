@@ -31,7 +31,7 @@ run_tests_and_set_result() {
         -e SNOWFLAKE_TEST_WIF_USERNAME \
         -e SNOWFLAKE_TEST_WIF_IMPERSONATION_PATH \
         -e SNOWFLAKE_TEST_WIF_USERNAME_IMPERSONATION \
-        snowflakedb/client-go-chainguard-go1.24-test:1 \
+        snowflakedb/client-go-chainguard-go1.25-test:1 \
           bash -c "
             cd /home/user
             echo 'Running tests on branch: \$BRANCH, provider: \$SNOWFLAKE_TEST_WIF_PROVIDER'

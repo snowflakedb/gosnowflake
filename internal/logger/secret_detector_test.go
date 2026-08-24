@@ -51,23 +51,23 @@ func TestSecretsDetector(t *testing.T) {
 		expected string
 	}{
 		// Token masking tests
-		{"Token with equals", fmt.Sprintf("Token =%s", longToken), "Token =****"},
-		{"idToken with colon space", fmt.Sprintf("idToken : %s", longToken), "idToken : ****"},
-		{"sessionToken with colon space", fmt.Sprintf("sessionToken : %s", longToken), "sessionToken : ****"},
-		{"masterToken with colon space", fmt.Sprintf("masterToken : %s", longToken), "masterToken : ****"},
-		{"accessToken with colon space", fmt.Sprintf("accessToken : %s", longToken), "accessToken : ****"},
-		{"refreshToken with colon space", fmt.Sprintf("refreshToken : %s", longToken), "refreshToken : ****"},
-		{"programmaticAccessToken with colon space", fmt.Sprintf("programmaticAccessToken : %s", longToken), "programmaticAccessToken : ****"},
-		{"programmatic_access_token with colon space", fmt.Sprintf("programmatic_access_token : %s", longToken), "programmatic_access_token : ****"},
-		{"JWT - with Bearer prefix", fmt.Sprintf("Bearer %s", generateTestJWT(t)), "Bearer ****"},
-		{"JWT - with JWT prefix", fmt.Sprintf("JWT %s", generateTestJWT(t)), "JWT ****"},
+		{"Token with equals", "Token =" + longToken, "Token =****"},
+		{"idToken with colon space", "idToken : " + longToken, "idToken : ****"},
+		{"sessionToken with colon space", "sessionToken : " + longToken, "sessionToken : ****"},
+		{"masterToken with colon space", "masterToken : " + longToken, "masterToken : ****"},
+		{"accessToken with colon space", "accessToken : " + longToken, "accessToken : ****"},
+		{"refreshToken with colon space", "refreshToken : " + longToken, "refreshToken : ****"},
+		{"programmaticAccessToken with colon space", "programmaticAccessToken : " + longToken, "programmaticAccessToken : ****"},
+		{"programmatic_access_token with colon space", "programmatic_access_token : " + longToken, "programmatic_access_token : ****"},
+		{"JWT - with Bearer prefix", "Bearer " + generateTestJWT(t), "Bearer ****"},
+		{"JWT - with JWT prefix", "JWT " + generateTestJWT(t), "JWT ****"},
 
 		// Password masking tests
-		{"password with colon", fmt.Sprintf("password:%s", randomPassword), "password:****"},
-		{"PASSWORD uppercase with colon", fmt.Sprintf("PASSWORD:%s", randomPassword), "PASSWORD:****"},
-		{"PaSsWoRd mixed case with colon", fmt.Sprintf("PaSsWoRd:%s", randomPassword), "PaSsWoRd:****"},
-		{"password with equals and spaces", fmt.Sprintf("password = %s", randomPassword), "password = ****"},
-		{"pwd with colon", fmt.Sprintf("pwd:%s", randomPassword), "pwd:****"},
+		{"password with colon", "password:" + randomPassword, "password:****"},
+		{"PASSWORD uppercase with colon", "PASSWORD:" + randomPassword, "PASSWORD:****"},
+		{"PaSsWoRd mixed case with colon", "PaSsWoRd:" + randomPassword, "PaSsWoRd:****"},
+		{"password with equals and spaces", "password = " + randomPassword, "password = ****"},
+		{"pwd with colon", "pwd:" + randomPassword, "pwd:****"},
 
 		// Mixed token and password tests
 		{

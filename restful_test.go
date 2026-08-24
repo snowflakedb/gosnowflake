@@ -345,12 +345,10 @@ func TestUnitTokenAccessorRenewBlocked(t *testing.T) {
 	var renewalStart sync.WaitGroup
 	var renewalDone sync.WaitGroup
 	renewalStart.Add(1)
-	renewalDone.Add(1)
-	go func() {
+	renewalDone.Go(func() {
 		renewalStart.Done()
 		assertNilE(t, sr.renewExpiredSessionToken(context.Background(), time.Hour, oldToken))
-		renewalDone.Done()
-	}()
+	})
 
 	// wait for renewal to start and get blocked on lock
 	renewalStart.Wait()

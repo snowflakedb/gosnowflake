@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -34,18 +35,23 @@ func (e *fakeHTTPError) Temporary() bool { return true }
 
 type fakeResponseBody struct {
 	body    []byte
-	cnt     int
+	read    int
 	onClose func()
 }
 
+// Read honours the io.Reader contract: it never reports more bytes than fit in
+// p. Returning len(b.body) unconditionally used to work only because
+// encoding/json v1 always handed it a buffer larger than the body; the v2
+// decoder starts with a 64-byte buffer and panics on an over-reported n.
+// Reaching EOF rewinds, so a body can be replayed across retries as before.
 func (b *fakeResponseBody) Read(p []byte) (n int, err error) {
-	if b.cnt == 0 {
-		copy(p, b.body)
-		b.cnt = 1
-		return len(b.body), nil
+	if b.read >= len(b.body) {
+		b.read = 0
+		return 0, io.EOF
 	}
-	b.cnt = 0
-	return 0, io.EOF
+	n = copy(p, b.body[b.read:])
+	b.read += n
+	return n, nil
 }
 
 func (b *fakeResponseBody) Close() error {
@@ -287,7 +293,16 @@ func TestRetryQuerySuccessWithRetryReasonDisabled(t *testing.T) {
 	}
 }
 
+// Runs inside a synctest bubble: the fake client's simulated one-second timeout
+// and the retry backoff waits are virtualized, so the test is instant and its
+// timing is deterministic.
 func TestRetryQuerySuccessWithTimeout(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		testRetryQuerySuccessWithTimeout(t)
+	})
+}
+
+func testRetryQuerySuccessWithTimeout(t *testing.T) {
 	logger.Info("Retry N times and Success")
 	client := &fakeHTTPClient{
 		cnt:     3,

@@ -840,8 +840,7 @@ func TestConcurrentReadOnParams(t *testing.T) {
 	var successCount, failureCount int32
 	wg := sync.WaitGroup{}
 	for range 10 {
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			for range 10 {
 				func() {
 					stmt, err := db.PrepareContext(context.Background(), "SELECT table_schema FROM information_schema.columns WHERE table_schema = ? LIMIT 1")
@@ -868,8 +867,7 @@ func TestConcurrentReadOnParams(t *testing.T) {
 					}
 				}()
 			}
-			wg.Done()
-		}()
+		})
 	}
 	wg.Wait()
 

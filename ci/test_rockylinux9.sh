@@ -2,11 +2,11 @@
 #
 # Test GoSnowflake driver in Rocky Linux 9
 # NOTES:
-#   - Go version MUST be passed in as the first argument, e.g: "1.24.2"
+#   - Go version MUST be passed in as the first argument, e.g: "1.25.14"
 #   - This is the script that test_rockylinux9_docker.sh runs inside of the docker container
 
 if [[ -z "${1}" ]]; then
-    echo "[ERROR] Go version is required as first argument (e.g., '1.24.2')"
+    echo "[ERROR] Go version is required as first argument (e.g., '1.25.14')"
     echo "Usage: $0 <go_version>"
     exit 1
 fi
@@ -37,7 +37,7 @@ if ! command -v go${GO_VERSION_SHORT} &> /dev/null; then
     exit 1
 fi
 
-# Set GOROOT to short version directory (e.g., /usr/local/go1.24)  
+# Set GOROOT to short version directory (e.g., /usr/local/go1.25)  
 export GOROOT="/usr/local/go${GO_VERSION_SHORT}"
 export PATH="${GOROOT}/bin:$PATH"
 export GOPATH="/home/user/go"

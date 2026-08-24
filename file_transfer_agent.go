@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -825,24 +826,22 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 	fileMetaLen := len(fileMetas)
 	var err error
 	for idx < fileMetaLen {
-		endOfIdx := intMin(fileMetaLen, idx+int(sfa.parallel))
+		endOfIdx := min(fileMetaLen, idx+int(sfa.parallel))
 		targetMeta := fileMetas[idx:endOfIdx]
 		for {
 			var wg sync.WaitGroup
 			results := make([]*fileMetadata, len(targetMeta))
 			errors := make([]error, len(targetMeta))
 			for i, meta := range targetMeta {
-				wg.Add(1)
-				go func(k int, m *fileMetadata) {
-					defer wg.Done()
+				wg.Go(func() {
 					defer func() {
 						if r := recover(); r != nil {
-							errors[k] = fmt.Errorf("panic during file upload: %v", r)
-							results[k] = nil
+							errors[i] = fmt.Errorf("panic during file upload: %v", r)
+							results[i] = nil
 						}
 					}()
-					results[k], errors[k] = sfa.uploadOneFile(m)
-				}(i, meta)
+					results[i], errors[i] = sfa.uploadOneFile(meta)
+				})
 			}
 			wg.Wait()
 
@@ -993,24 +992,22 @@ func (sfa *snowflakeFileTransferAgent) downloadFilesParallel(fileMetas []*fileMe
 	fileMetaLen := len(fileMetas)
 	var err error
 	for idx < fileMetaLen {
-		endOfIdx := intMin(fileMetaLen, idx+int(sfa.parallel))
+		endOfIdx := min(fileMetaLen, idx+int(sfa.parallel))
 		targetMeta := fileMetas[idx:endOfIdx]
 		for {
 			var wg sync.WaitGroup
 			results := make([]*fileMetadata, len(targetMeta))
 			errors := make([]error, len(targetMeta))
 			for i, meta := range targetMeta {
-				wg.Add(1)
-				go func(k int, m *fileMetadata) {
-					defer wg.Done()
+				wg.Go(func() {
 					defer func() {
 						if r := recover(); r != nil {
-							errors[k] = fmt.Errorf("panic during file download: %v", r)
-							results[k] = nil
+							errors[i] = fmt.Errorf("panic during file download: %v", r)
+							results[i] = nil
 						}
 					}()
-					results[k], errors[k] = sfa.downloadOneFile(sfa.ctx, m)
-				}(i, meta)
+					results[i], errors[i] = sfa.downloadOneFile(sfa.ctx, meta)
+				})
 			}
 			wg.Wait()
 
@@ -1175,8 +1172,8 @@ func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
 			})
 			ccrs := make([][]*string, 0, len(rowset))
 			for _, rs := range rowset {
-				srcFileSize := fmt.Sprintf("%v", rs.srcFileSize)
-				dstFileSize := fmt.Sprintf("%v", rs.dstFileSize)
+				srcFileSize := strconv.FormatInt(rs.srcFileSize, 10)
+				dstFileSize := strconv.FormatInt(rs.dstFileSize, 10)
 				resStatus := rs.resStatus.String()
 				errorStr := ""
 				if rs.errorDetails != nil {
@@ -1234,7 +1231,7 @@ func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
 			})
 			ccrs := make([][]*string, 0, len(rowset))
 			for _, rs := range rowset {
-				dstFileSize := fmt.Sprintf("%v", rs.dstFileSize)
+				dstFileSize := strconv.FormatInt(rs.dstFileSize, 10)
 				resStatus := rs.resStatus.String()
 				errorStr := ""
 				if rs.errorDetails != nil {

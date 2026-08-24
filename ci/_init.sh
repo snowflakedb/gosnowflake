@@ -10,6 +10,6 @@ export DRIVER_NAME=go
 
 TEST_IMAGE_VERSION=1
 declare -A TEST_IMAGE_NAMES=(
-    [$DRIVER_NAME-chainguard-go1_24]=$DOCKER_REGISTRY_NAME/client-$DRIVER_NAME-chainguard-go1.24-test:$TEST_IMAGE_VERSION
+    [$DRIVER_NAME-chainguard-go1_25]=$DOCKER_REGISTRY_NAME/client-$DRIVER_NAME-chainguard-go1.25-test:$TEST_IMAGE_VERSION
 )
 export TEST_IMAGE_NAMES

@@ -93,7 +93,7 @@ func formData(cfg *Config) url.Values {
 	data.Set("username", cfg.User)
 	data.Set("password", cfg.Password)
 	data.Set("grant_type", "password")
-	data.Set("scope", fmt.Sprintf("session:role:%s", strings.ToLower(cfg.Role)))
+	data.Set("scope", "session:role:"+strings.ToLower(cfg.Role))
 
 	return data
 

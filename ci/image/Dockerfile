@@ -1,4 +1,4 @@
-FROM artifactory.int.snowflakecomputing.com/development-chainguard-virtual/snowflake.com/go:1.24.0-dev
+FROM artifactory.int.snowflakecomputing.com/development-chainguard-virtual/snowflake.com/go:1.25.0-dev
 
 USER root
 

@@ -232,7 +232,7 @@ func getHashAlgorithmFromOID(target pkix.AlgorithmIdentifier) crypto.Hash {
 
 // calcTolerableValidity returns the maximum validity buffer
 func calcTolerableValidity(thisUpdate, nextUpdate time.Time) time.Duration {
-	return durationMax(time.Duration(nextUpdate.Sub(thisUpdate)/tolerableValidityRatio), maxClockSkew)
+	return max(time.Duration(nextUpdate.Sub(thisUpdate)/tolerableValidityRatio), maxClockSkew)
 }
 
 // isInValidityRange checks the validity
@@ -592,7 +592,7 @@ func printStatus(response *ocsp.Response) string {
 	case ocsp.Unknown:
 		return "Unknown"
 	default:
-		return fmt.Sprintf("%d", response.Status)
+		return strconv.Itoa(response.Status)
 	}
 }
 

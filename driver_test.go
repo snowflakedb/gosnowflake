@@ -75,7 +75,7 @@ func init() {
 	host = os.Getenv("SNOWFLAKE_TEST_HOST")
 	port = env("SNOWFLAKE_TEST_PORT", "443")
 	if host == "" {
-		host = fmt.Sprintf("%s.snowflakecomputing.com", account)
+		host = account + ".snowflakecomputing.com"
 	} else {
 		host = fmt.Sprintf("%s:%s", host, port)
 	}

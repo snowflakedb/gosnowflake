@@ -2236,7 +2236,7 @@ func TestParsePrivateKeyFromFile(t *testing.T) {
 }
 
 func createTmpFile(t *testing.T, fileName string, content []byte) string {
-	tempFile, _ := os.CreateTemp("", fileName)
+	tempFile, _ := os.CreateTemp(t.TempDir(), fileName)
 	_, err := tempFile.Write(content)
 	assertNilF(t, err)
 	absolutePath := tempFile.Name()

@@ -93,16 +93,14 @@ func detectPlatforms(ctx context.Context, timeout time.Duration) []string {
 	detectionStates := make(map[string]platformDetectionState, len(detectors))
 	var waitGroup sync.WaitGroup
 	var mutex sync.Mutex
-	waitGroup.Add(len(detectors))
 
 	for _, detector := range detectors {
-		go func(detector detectorFunc) {
-			defer waitGroup.Done()
+		waitGroup.Go(func() {
 			detectionState := detector.fn(ctx, timeout)
 			mutex.Lock()
+			defer mutex.Unlock()
 			detectionStates[detector.name] = detectionState
-			mutex.Unlock()
-		}(detector)
+		})
 	}
 	waitGroup.Wait()
 

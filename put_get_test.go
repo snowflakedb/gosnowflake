@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math/rand"
@@ -614,7 +615,7 @@ func TestPutGetWithSpacesInDirectoryName(t *testing.T) {
 		for _, useStream := range []bool{true, false} {
 			t.Run(fmt.Sprintf("useStream=%v", useStream), func(t *testing.T) {
 				stageName := "test_stage_sse_" + randomString(10)
-				dbt.mustExec(fmt.Sprintf("CREATE STAGE %s", stageName))
+				dbt.mustExec("CREATE STAGE " + stageName)
 				defer dbt.mustExec("DROP STAGE " + stageName)
 
 				uploadCtx := context.Background()
@@ -1223,7 +1224,7 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 		hash := sha256.New()
 		_, err = io.Copy(hash, r)
 		assertNilE(t, err)
-		downloadedChecksum := fmt.Sprintf("%x", hash.Sum(nil))
+		downloadedChecksum := hex.EncodeToString(hash.Sum(nil))
 
 		originalFile, err := os.Open(fname)
 		assertNilF(t, err)
@@ -1234,7 +1235,7 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 		originalHash := sha256.New()
 		_, err = io.Copy(originalHash, originalFile)
 		assertNilE(t, err)
-		originalChecksum := fmt.Sprintf("%x", originalHash.Sum(nil))
+		originalChecksum := hex.EncodeToString(originalHash.Sum(nil))
 
 		assertEqualF(t, downloadedChecksum, originalChecksum, "file integrity check failed - checksums don't match")
 	})
