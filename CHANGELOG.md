@@ -7,6 +7,7 @@ New features:
 - Added `CleanupTimeout` config option (DSN field `cleanupTimeout`, in seconds) that bounds post-cancellation cleanup (snowflakedb/gosnowflake#1816).
 - Increased CRL disk cache removal delay to 7 days (snowflakedb/gosnowflake#1820).
 - Added option to load private key from `connections.toml` file (snowflakedb/gosnowflake#1822).
+- Added support for Go 1.27, dropped support for Go 1.24 (snowflakedb/gosnowflake#TBD).
 
 Bug fixes:
 - Fixed token cache key collisions for multi-account (shared IdP) and multi-role scenarios by switching to a versioned, SHA256-hashed canonical-JSON key with the token type in the key prefix, applied uniformly across keyring (macOS/Windows) and file (Linux) backends; also replaced the bag-of-fields spec struct with typed token-spec types (`hostUserTokenSpec` for MFA/ID flows, `oauthTokenSpec` for OAuth flows) so each spec validates and serializes only its own fields (snowflakedb/gosnowflake#1817, snowflakedb/gosnowflake#1821).
@@ -16,6 +17,7 @@ Bug fixes:
 - Fixed gosnowflake writing a `gosnowflake-cgo` directory under the system temp dir at package import time even when the driver was never used (e.g. when imported only as a transitive dependency). Minicore now loads lazily when the driver is first referenced (`NewConnector`/`OpenWithConfig`) instead of in `init()` (snowflakedb/gosnowflake#1807).
 - Fixed `GET` from a LOCAL_FS stage downloading 0 files and returning `264011: not implemented`. Cloud downloads were unaffected (snowflakedb/gosnowflake#1810).
 - Fixed `NUMBER` columns with a non-zero scale losing precision: values needing more significant digits than a binary float's mantissa were silently rounded, so `NUMBER(20,10)` holding `1234567890.1234567890` returned `1234567890.1234567889`. The `WithHigherPrecision` path is unchanged and still returns a 64-bit `*big.Float` (snowflakedb/gosnowflake#1835).
+- Fixed proxy configuration for a literal IPv6 `ProxyHost`, which was concatenated into an unbracketed `host:port` and left the proxy URL unparseable (snowflakedb/gosnowflake#TBD).
 
 Internal changes:
 - Migrated from deprecated `github.com/aws/aws-sdk-go-v2/feature/s3/manager` (v1.16.15) to `github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager` (v0.3.5).
@@ -28,6 +30,9 @@ Internal changes:
   - `github.com/aws/aws-sdk-go-v2/service/s3`: v1.53.1 → v1.106.0
   - `github.com/aws/aws-sdk-go-v2/service/sts`: v1.28.6 → v1.45.0
   - `github.com/aws/smithy-go`: v1.22.5 → v1.27.4
+- Adopted Go 1.25 idioms now that the minimum supported version is 1.25: `sync.WaitGroup.Go` for driver-managed goroutines, and the `min`/`max` builtins in place of the hand-rolled `intMin`/`intMax`/`int64Max`/`durationMin`/`durationMax` helpers.
+- Enabled the `modernize`, `nosprintfhostport`, `perfsprint` and `usetesting` linters and the Go 1.25 `hostport`/`waitgroup` `go vet` analyzers; bumped golangci-lint to v2.13.
+- Fixed the `fakeResponseBody` test double reporting more bytes read than fit in the caller's buffer, which panicked the Go 1.27 `encoding/json` decoder.
 
 ## 2.1.0
 

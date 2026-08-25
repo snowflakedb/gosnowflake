@@ -9,6 +9,7 @@ import (
 	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 	"io"
 	"net/http"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -155,7 +156,7 @@ func TestRowsWithoutChunkDownloader(t *testing.T) {
 func downloadChunkTest(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
 	d := make([][]*string, 0)
 	for i := range rowsInChunk {
-		v1 := fmt.Sprintf("%v", idx*1000+i)
+		v1 := strconv.Itoa(idx*1000 + i)
 		v2 := fmt.Sprintf("testchunk%v", idx*1000+i)
 		d = append(d, []*string{&v1, &v2})
 	}
@@ -171,7 +172,7 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 	var i int
 	cc := make([][]*string, 0)
 	for i = 0; i < 100; i++ {
-		v1 := fmt.Sprintf("%v", i)
+		v1 := strconv.Itoa(i)
 		v2 := fmt.Sprintf("Test%v", i)
 		cc = append(cc, []*string{&v1, &v2})
 	}
@@ -239,7 +240,7 @@ func downloadChunkTestError(ctx context.Context, scd *snowflakeChunkDownloader, 
 	}
 	d := make([][]*string, 0)
 	for i := range rowsInChunk {
-		v1 := fmt.Sprintf("%v", idx*1000+i)
+		v1 := strconv.Itoa(idx*1000 + i)
 		v2 := fmt.Sprintf("testchunk%v", idx*1000+i)
 		d = append(d, []*string{&v1, &v2})
 	}
@@ -253,7 +254,7 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 	var i int
 	cc := make([][]*string, 0)
 	for i = 0; i < 100; i++ {
-		v1 := fmt.Sprintf("%v", i)
+		v1 := strconv.Itoa(i)
 		v2 := fmt.Sprintf("Test%v", i)
 		cc = append(cc, []*string{&v1, &v2})
 	}
@@ -322,7 +323,7 @@ func downloadChunkTestErrorFail(ctx context.Context, scd *snowflakeChunkDownload
 	}
 	d := make([][]*string, 0)
 	for i := range rowsInChunk {
-		v1 := fmt.Sprintf("%v", idx*1000+i)
+		v1 := strconv.Itoa(idx*1000 + i)
 		v2 := fmt.Sprintf("testchunk%v", idx*1000+i)
 		d = append(d, []*string{&v1, &v2})
 	}
@@ -338,7 +339,7 @@ func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
 	var i int
 	cc := make([][]*string, 0)
 	for i = 0; i < 100; i++ {
-		v1 := fmt.Sprintf("%v", i)
+		v1 := strconv.Itoa(i)
 		v2 := fmt.Sprintf("Test%v", i)
 		cc = append(cc, []*string{&v1, &v2})
 	}

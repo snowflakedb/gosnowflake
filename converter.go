@@ -440,7 +440,7 @@ func arrayToString(v driver.Value, tsmode types.SnowflakeType, params *syncParam
 		}
 		res := "["
 		for _, b := range barr {
-			res += fmt.Sprint(b) + ","
+			res += strconv.FormatUint(uint64(b), 10) + ","
 		}
 		res = res[0:len(res)-1] + "]"
 		return bindingValue{&res, jsonFormatStr, &schemaForBytes}, nil
@@ -912,8 +912,7 @@ func timeTypeValueToString(tm time.Time, tsmode types.SnowflakeType) (bindingVal
 		s := strconv.FormatInt(tm.Unix()*1000, 10)
 		return bindingValue{&s, "", nil}, nil
 	case types.TimeType:
-		s := fmt.Sprintf("%d",
-			(tm.Hour()*3600+tm.Minute()*60+tm.Second())*1e9+tm.Nanosecond())
+		s := strconv.Itoa((tm.Hour()*3600+tm.Minute()*60+tm.Second())*1e9 + tm.Nanosecond())
 		return bindingValue{&s, "", nil}, nil
 	case types.TimestampNtzType, types.TimestampLtzType, types.TimestampTzType:
 		s, err := convertTimeToTimeStamp(tm, tsmode)
@@ -2454,7 +2453,7 @@ func arrowIntToValue(srcColumnMeta query.FieldMetadata, higherPrecision bool, va
 			}
 			return val
 		}
-		return fmt.Sprintf("%d", val)
+		return strconv.FormatInt(val, 10)
 	}
 	if higherPrecision {
 		f := intToBigFloat(val, int64(srcColumnMeta.Scale))
@@ -2799,7 +2798,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (types.Snowflake
 			} else {
 				_, offset := x.Zone()
 				x = x.Add(time.Second * time.Duration(offset))
-				v = fmt.Sprintf("%d", x.Unix()*1000)
+				v = strconv.FormatInt(x.Unix()*1000, 10)
 			}
 			arr = append(arr, &v)
 		}
@@ -2910,7 +2909,7 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 					t = types.DateType
 					_, offset := x.Zone()
 					x = x.Add(time.Second * time.Duration(offset))
-					v := fmt.Sprintf("%d", x.Unix()*1000)
+					v := strconv.FormatInt(x.Unix()*1000, 10)
 					arr = append(arr, &v)
 				case TimeType:
 					t = types.TimeType
@@ -3000,14 +2999,14 @@ func getTimestampBindValue(x time.Time, stream bool, t types.SnowflakeType) (str
 }
 
 func convertTimeToTimeStamp(x time.Time, t types.SnowflakeType) (string, error) {
-	unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Unix()), 10)
+	unixTime, _ := new(big.Int).SetString(strconv.FormatInt(x.Unix(), 10), 10)
 	m, ok := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
 	if !ok {
 		return "", errors.New("failed to parse big int from string: invalid format or unsupported characters")
 	}
 
 	unixTime.Mul(unixTime, m)
-	tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Nanosecond()), 10)
+	tmNanos, _ := new(big.Int).SetString(strconv.Itoa(x.Nanosecond()), 10)
 	if t == types.TimestampTzType {
 		_, offset := x.Zone()
 		return fmt.Sprintf("%v %v", unixTime.Add(unixTime, tmNanos), offset/60+1440), nil

@@ -2,10 +2,10 @@ package gosnowflake
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -141,7 +141,7 @@ func TestEasyLoggingFailOnUnknownLevel(t *testing.T) {
 	err := openWithClientConfigFile(t, configFilePath)
 
 	assertNotNilF(t, err, "open config error")
-	assertStringContainsE(t, err.Error(), fmt.Sprint(ErrCodeClientConfigFailed), "error code")
+	assertStringContainsE(t, err.Error(), strconv.Itoa(ErrCodeClientConfigFailed), "error code")
 	assertStringContainsE(t, err.Error(), "parsing client config failed", "error message")
 }
 
@@ -152,7 +152,7 @@ func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
 	err := openWithClientConfigFile(t, "/not-existing-file.json")
 
 	assertNotNilF(t, err, "open config error")
-	assertStringContainsE(t, err.Error(), fmt.Sprint(ErrCodeClientConfigFailed), "error code")
+	assertStringContainsE(t, err.Error(), strconv.Itoa(ErrCodeClientConfigFailed), "error code")
 	assertStringContainsE(t, err.Error(), "parsing client config failed", "error message")
 }
 

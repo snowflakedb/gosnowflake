@@ -184,7 +184,7 @@ func TestOpenAndReadAllowlistJSON(t *testing.T) {
 			// create a temp allowlist file and then delete it
 			setup: func() (filePath string, cleanup func()) {
 				content := `[{"host":"myaccount.snowflakecomputing.com","port":443,"type":"SNOWFLAKE_DEPLOYMENT"},{"host":"ocsp.snowflakecomputing.com","port":80,"type":"OCSP_CACHE"}]`
-				tmpFile, err := os.CreateTemp("", "allowlist_*.json")
+				tmpFile, err := os.CreateTemp(t.TempDir(), "allowlist_*.json")
 				assertNilF(t, err, "Error during creating temp allowlist file.")
 				_, err = tmpFile.WriteString(content)
 				assertNilF(t, err, "Error during writing temp allowlist file.")
@@ -693,7 +693,7 @@ func TestPerformDiagnosis(t *testing.T) {
 			{"host":"www.snowflake.com","port":443,"type":"DUMMY_SNOWFLAKE_DEPLOYMENT"}
 		]`
 
-		tmpFile, err := os.CreateTemp("", "test_allowlist_*.json")
+		tmpFile, err := os.CreateTemp(t.TempDir(), "test_allowlist_*.json")
 		assertNilE(t, err, "failed to create temp allowlist file")
 		defer os.Remove(tmpFile.Name())
 
@@ -748,7 +748,7 @@ func TestPerformDiagnosis(t *testing.T) {
 			{"host":"www.snowflake.com","port":443,"type":"DUMMY_SNOWFLAKE_DEPLOYMENT"}
 		]`
 
-		tmpFile, err := os.CreateTemp("", "test_allowlist_*.json")
+		tmpFile, err := os.CreateTemp(t.TempDir(), "test_allowlist_*.json")
 		assertNilE(t, err, "failed to create temp allowlist file")
 		defer os.Remove(tmpFile.Name())
 

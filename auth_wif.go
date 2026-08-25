@@ -397,7 +397,7 @@ func (c *gcpIdentityAttestationCreator) createGcpIdentityViaImpersonation() (*wi
 	// map paths to full service account paths
 	var fullServiceAccountPaths []string
 	for _, path := range c.cfg.WorkloadIdentityImpersonationPath {
-		fullServiceAccountPaths = append(fullServiceAccountPaths, fmt.Sprintf("projects/-/serviceAccounts/%s", path))
+		fullServiceAccountPaths = append(fullServiceAccountPaths, "projects/-/serviceAccounts/"+path)
 	}
 	targetServiceAccount := fullServiceAccountPaths[len(fullServiceAccountPaths)-1]
 	delegates := fullServiceAccountPaths[:len(fullServiceAccountPaths)-1]
@@ -696,9 +696,9 @@ func extractTokenFromJSON(tokenJSON string) (string, error) {
 }
 
 func (a *azureIdentityAttestationCreator) azureFunctionsIdentityRequest(identityEndpoint, identityHeader, managedIdentityClientID string) (*http.Request, error) {
-	queryParams := fmt.Sprintf("api-version=2019-08-01&resource=%s", a.workloadIdentityEntraResource)
+	queryParams := "api-version=2019-08-01&resource=" + a.workloadIdentityEntraResource
 	if managedIdentityClientID != "" {
-		queryParams += fmt.Sprintf("&client_id=%s", managedIdentityClientID)
+		queryParams += "&client_id=" + managedIdentityClientID
 	}
 
 	url := fmt.Sprintf("%s?%s", identityEndpoint, queryParams)
@@ -713,7 +713,7 @@ func (a *azureIdentityAttestationCreator) azureFunctionsIdentityRequest(identity
 
 func (a *azureIdentityAttestationCreator) azureVMIdentityRequest() (*http.Request, error) {
 	urlWithoutQuery := a.azureMetadataServiceBaseURL + "/metadata/identity/oauth2/token?"
-	queryParams := fmt.Sprintf("api-version=2018-02-01&resource=%s", a.workloadIdentityEntraResource)
+	queryParams := "api-version=2018-02-01&resource=" + a.workloadIdentityEntraResource
 
 	url := urlWithoutQuery + queryParams
 	req, err := http.NewRequest("GET", url, nil)

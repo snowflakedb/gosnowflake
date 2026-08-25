@@ -87,7 +87,7 @@ func validateNotNil(actual any, descriptions ...string) string {
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected to be not nil but was not. %s", desc)
+	return "expected to be not nil but was not. " + desc
 }
 
 func validateEqual(actual any, expected any, descriptions ...string) string {

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/net/http/httpproxy"
@@ -71,9 +72,13 @@ func (tf *transportFactory) createProxy(transportConfig *transportConfig) func(*
 		return http.ProxyFromEnvironment
 	}
 
+	// JoinHostPort brackets literal IPv6 addresses, which a plain "host:port"
+	// concatenation would leave unparseable. Users who already bracketed the
+	// address themselves must not end up double-bracketed.
+	proxyHost := strings.Trim(tf.config.ProxyHost, "[]")
 	connectionProxy := &url.URL{
 		Scheme: tf.config.ProxyProtocol,
-		Host:   fmt.Sprintf("%s:%d", tf.config.ProxyHost, tf.config.ProxyPort),
+		Host:   net.JoinHostPort(proxyHost, strconv.Itoa(tf.config.ProxyPort)),
 	}
 	if tf.config.ProxyUser != "" && tf.config.ProxyPassword != "" {
 		connectionProxy.User = url.UserPassword(tf.config.ProxyUser, tf.config.ProxyPassword)

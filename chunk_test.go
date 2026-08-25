@@ -206,10 +206,7 @@ func TestEnableArrowBatches(t *testing.T) {
 		chunks := make(chan int, numBatches)
 
 		for w := 1; w <= maxWorkers; w++ {
-			wg.Add(1)
-			go func(wg *sync.WaitGroup, chunks <-chan int) {
-				defer wg.Done()
-
+			wg.Go(func() {
 				for i := range chunks {
 					batch := batches[i]
 					var recs *[]arrow.Record
@@ -234,7 +231,7 @@ func TestEnableArrowBatches(t *testing.T) {
 					cnt.metaVal += batch.RowCount
 					cnt.m.Unlock()
 				}
-			}(&wg, chunks)
+			})
 		}
 		for j := range numBatches {
 			chunks <- j
@@ -282,10 +279,7 @@ func TestWithArrowBatchesAsync(t *testing.T) {
 		chunks := make(chan int, numBatches)
 
 		for w := 1; w <= maxWorkers; w++ {
-			wg.Add(1)
-			go func(wg *sync.WaitGroup, chunks <-chan int) {
-				defer wg.Done()
-
+			wg.Go(func() {
 				for i := range chunks {
 					batch := batches[i]
 					var recs *[]arrow.Record
@@ -310,7 +304,7 @@ func TestWithArrowBatchesAsync(t *testing.T) {
 					cnt.metaVal += batch.RowCount
 					cnt.m.Unlock()
 				}
-			}(&wg, chunks)
+			})
 		}
 		for j := range numBatches {
 			chunks <- j

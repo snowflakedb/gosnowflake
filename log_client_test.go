@@ -76,27 +76,27 @@ func (l *customLogger) Fatalf(format string, args ...any) {
 }
 
 func (l *customLogger) Trace(msg string) {
-	l.formatMessage("TRACE", "%s", fmt.Sprint(msg))
+	l.formatMessage("TRACE", "%s", msg)
 }
 
 func (l *customLogger) Debug(msg string) {
-	l.formatMessage("DEBUG", "%s", fmt.Sprint(msg))
+	l.formatMessage("DEBUG", "%s", msg)
 }
 
 func (l *customLogger) Info(msg string) {
-	l.formatMessage("INFO", "%s", fmt.Sprint(msg))
+	l.formatMessage("INFO", "%s", msg)
 }
 
 func (l *customLogger) Warn(msg string) {
-	l.formatMessage("WARN", "%s", fmt.Sprint(msg))
+	l.formatMessage("WARN", "%s", msg)
 }
 
 func (l *customLogger) Error(msg string) {
-	l.formatMessage("ERROR", "%s", fmt.Sprint(msg))
+	l.formatMessage("ERROR", "%s", msg)
 }
 
 func (l *customLogger) Fatal(msg string) {
-	l.formatMessage("FATAL", "%s", fmt.Sprint(msg))
+	l.formatMessage("FATAL", "%s", msg)
 }
 
 func (l *customLogger) WithField(key string, value any) gosnowflake.LogEntry {
@@ -236,27 +236,27 @@ func (e *customLogEntry) Fatalf(format string, args ...any) {
 }
 
 func (e *customLogEntry) Trace(msg string) {
-	e.formatMessage("TRACE", "%s", fmt.Sprint(msg))
+	e.formatMessage("TRACE", "%s", msg)
 }
 
 func (e *customLogEntry) Debug(msg string) {
-	e.formatMessage("DEBUG", "%s", fmt.Sprint(msg))
+	e.formatMessage("DEBUG", "%s", msg)
 }
 
 func (e *customLogEntry) Info(msg string) {
-	e.formatMessage("INFO", "%s", fmt.Sprint(msg))
+	e.formatMessage("INFO", "%s", msg)
 }
 
 func (e *customLogEntry) Warn(msg string) {
-	e.formatMessage("WARN", "%s", fmt.Sprint(msg))
+	e.formatMessage("WARN", "%s", msg)
 }
 
 func (e *customLogEntry) Error(msg string) {
-	e.formatMessage("ERROR", "%s", fmt.Sprint(msg))
+	e.formatMessage("ERROR", "%s", msg)
 }
 
 func (e *customLogEntry) Fatal(msg string) {
-	e.formatMessage("FATAL", "%s", fmt.Sprint(msg))
+	e.formatMessage("FATAL", "%s", msg)
 }
 
 // Helper functions

@@ -3,7 +3,7 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -188,7 +188,7 @@ func TestLogKeysWithRegisterContextVariableToLog(t *testing.T) {
 
 	getRequestKeyFunc := func(ctx context.Context) string {
 		if requestContext, ok := ctx.Value(testRequestIDCtxKey{}).(int); ok {
-			return fmt.Sprint(requestContext)
+			return strconv.Itoa(requestContext)
 		}
 		return ""
 	}
@@ -205,7 +205,7 @@ func TestLogKeysWithRegisterContextVariableToLog(t *testing.T) {
 	if !strings.Contains(strbuf, string(SFSessionUserKey)) || !strings.Contains(strbuf, userContextValue) {
 		t.Fatalf("expected that SFSessionUserKey would be in logs if logger.WithContext and RegisterContextVariableToLog was used, but got: %v", strbuf)
 	}
-	if !strings.Contains(strbuf, logKey) || !strings.Contains(strbuf, fmt.Sprint(contextIntVal)) {
+	if !strings.Contains(strbuf, logKey) || !strings.Contains(strbuf, strconv.Itoa(contextIntVal)) {
 		t.Fatalf("expected that REQUEST_ID would be in logs if logger.WithContext and RegisterContextVariableToLog was used, but got: %v", strbuf)
 	}
 }

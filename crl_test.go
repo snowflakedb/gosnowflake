@@ -844,12 +844,10 @@ func TestParallelRequestToTheSameCrl(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for range 10 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 			assertNilE(t, err)
-		}()
+		})
 	}
 	wg.Wait()
 

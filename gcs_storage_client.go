@@ -308,7 +308,7 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 	fullDstFileName string,
 	maxConcurrency int64,
 	partSize int64) error {
-	partSize = int64Max(partSize, minimumDownloadPartSize)
+	partSize = max(partSize, minimumDownloadPartSize)
 	downloadURL := meta.presignedURL
 	var accessToken string
 	var err error
@@ -815,7 +815,7 @@ func (util *snowflakeGcsClient) generateFileURL(stageInfo *execResponseStageInfo
 	// TODO: SNOW-1789759 hardcoded region will be replaced in the future
 	isRegionalURLEnabled := (strings.ToLower(stageInfo.Region) == gcsRegionMeCentral2) || stageInfo.UseRegionalURL
 	if stageInfo.EndPoint != "" {
-		endPoint = fmt.Sprintf("https://%s", stageInfo.EndPoint)
+		endPoint = "https://" + stageInfo.EndPoint
 	} else if stageInfo.UseVirtualURL {
 		endPoint = fmt.Sprintf("https://%s.storage.googleapis.com", gcsLoc.bucketName)
 	} else if stageInfo.Region != "" && isRegionalURLEnabled {

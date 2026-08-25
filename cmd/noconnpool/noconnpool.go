@@ -46,10 +46,8 @@ func main() {
 
 	var wg sync.WaitGroup
 	n := 10
-	wg.Add(n)
 	for range n {
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			query := "select current_session()"
 			rows, err := db.Query(query) // no cancel is allowed
 			if err != nil {
@@ -68,7 +66,7 @@ func main() {
 				fmt.Printf("ERROR: %v\n", rows.Err())
 				return
 			}
-		}()
+		})
 	}
 	fmt.Println("Waiting to finish...")
 	wg.Wait()

@@ -269,7 +269,7 @@ func TestIsValidArnForWif(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.arn, func(t *testing.T) {
 			result := isValidArnForWif(tc.arn)
-			assertEqualE(t, result, tc.expected, fmt.Sprintf("ARN validation failed for: %s", tc.arn))
+			assertEqualE(t, result, tc.expected, "ARN validation failed for: "+tc.arn)
 		})
 	}
 }

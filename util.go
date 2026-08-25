@@ -9,6 +9,7 @@ import (
 	"maps"
 	"math/rand"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -160,56 +161,12 @@ func getOrGenerateRequestIDFromContext(ctx context.Context) UUID {
 	return NewUUID()
 }
 
-// integer min
-func intMin(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// integer max
-func intMax(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func int64Max(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
+// getMin returns the smallest element of arr, or -1 when arr is empty.
 func getMin(arr []int) int {
 	if len(arr) == 0 {
 		return -1
 	}
-	min := arr[0]
-	for _, v := range arr {
-		if v <= min {
-			min = v
-		}
-	}
-	return min
-}
-
-// time.Duration max
-func durationMax(d1, d2 time.Duration) time.Duration {
-	if d1-d2 > 0 {
-		return d1
-	}
-	return d2
-}
-
-// time.Duration min
-func durationMin(d1, d2 time.Duration) time.Duration {
-	if d1-d2 < 0 {
-		return d1
-	}
-	return d2
+	return slices.Min(arr)
 }
 
 // toNamedValues converts a slice of driver.Value to a slice of driver.NamedValue for Go 1.8 SQL package

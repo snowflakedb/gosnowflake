@@ -194,7 +194,7 @@ func TestParseConfigurationFails(t *testing.T) {
 					"log_path" : "/some-path/some-directory"
 				}
 			}`,
-			expectedErrorMessageToContain: "ClientConfigCommonProps.common.log_level",
+			expectedErrorMessageToContain: "common.log_level",
 		},
 		{
 			testName: "TestWithWrongTypeOfLogPath",
@@ -205,7 +205,7 @@ func TestParseConfigurationFails(t *testing.T) {
 					"log_path" : true
 				}
 			}`,
-			expectedErrorMessageToContain: "ClientConfigCommonProps.common.log_path",
+			expectedErrorMessageToContain: "common.log_path",
 		},
 		{
 			testName:                      "TestWithoutCommon",

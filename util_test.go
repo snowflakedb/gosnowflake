@@ -3,7 +3,6 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
-	"fmt"
 	"maps"
 	"math/rand"
 	"os"
@@ -13,12 +12,6 @@ import (
 	"testing"
 	"time"
 )
-
-type tcIntMinMax struct {
-	v1  int
-	v2  int
-	out int
-}
 
 type tcUUID struct {
 	uuid string
@@ -74,8 +67,7 @@ func TestSimpleTokenAccessorGetTokensSynchronization(t *testing.T) {
 	var wg sync.WaitGroup
 	failed := false
 	for range 1000 {
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			// set a random session and token
 			session := rand.Int63()
 			sessionStr := strconv.FormatInt(session, 10)
@@ -87,8 +79,7 @@ func TestSimpleTokenAccessorGetTokensSynchronization(t *testing.T) {
 			if "t"+sessionStr != token || "m"+sessionStr != masterToken {
 				failed = true
 			}
-			wg.Done()
-		}()
+		})
 	}
 	// wait for all competing goroutines to finish setting and getting tokens
 	wg.Wait()
@@ -117,11 +108,11 @@ func TestSafeGetTokens(t *testing.T) {
 	}
 
 	for _, test := range testcases {
-		t.Run(fmt.Sprintf("%v", test.name), func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			_, _, sessionID := safeGetTokens(test.sr)
 			assertEqualE(t, sessionID, test.expectedSessionID, "expected sessionId to be %v, was %v",
-				fmt.Sprintf("%d", test.expectedSessionID),
-				fmt.Sprintf("%d", sessionID))
+				strconv.FormatInt(test.expectedSessionID, 10),
+				strconv.FormatInt(sessionID, 10))
 		})
 	}
 }
@@ -145,79 +136,6 @@ func TestGenerateRequestID(t *testing.T) {
 	otherRequestID := getOrGenerateRequestIDFromContext(context.Background())
 	if firstRequestID == otherRequestID {
 		t.Errorf("request id should not be the same")
-	}
-}
-
-func TestIntMin(t *testing.T) {
-	testcases := []tcIntMinMax{
-		{1, 3, 1},
-		{5, 100, 5},
-		{321, 3, 3},
-		{123, 123, 123},
-	}
-	for _, test := range testcases {
-		t.Run(fmt.Sprintf("%v_%v_%v", test.v1, test.v2, test.out), func(t *testing.T) {
-			a := intMin(test.v1, test.v2)
-			if test.out != a {
-				t.Errorf("failed int min. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
-			}
-		})
-	}
-}
-func TestIntMax(t *testing.T) {
-	testcases := []tcIntMinMax{
-		{1, 3, 3},
-		{5, 100, 100},
-		{321, 3, 321},
-		{123, 123, 123},
-	}
-	for _, test := range testcases {
-		t.Run(fmt.Sprintf("%v_%v_%v", test.v1, test.v2, test.out), func(t *testing.T) {
-			a := intMax(test.v1, test.v2)
-			if test.out != a {
-				t.Errorf("failed int max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
-			}
-		})
-	}
-}
-
-type tcDurationMinMax struct {
-	v1  time.Duration
-	v2  time.Duration
-	out time.Duration
-}
-
-func TestDurationMin(t *testing.T) {
-	testcases := []tcDurationMinMax{
-		{1 * time.Second, 3 * time.Second, 1 * time.Second},
-		{5 * time.Second, 100 * time.Second, 5 * time.Second},
-		{321 * time.Second, 3 * time.Second, 3 * time.Second},
-		{123 * time.Second, 123 * time.Second, 123 * time.Second},
-	}
-	for _, test := range testcases {
-		t.Run(fmt.Sprintf("%v_%v_%v", test.v1, test.v2, test.out), func(t *testing.T) {
-			a := durationMin(test.v1, test.v2)
-			if test.out != a {
-				t.Errorf("failed duratoin max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
-			}
-		})
-	}
-}
-
-func TestDurationMax(t *testing.T) {
-	testcases := []tcDurationMinMax{
-		{1 * time.Second, 3 * time.Second, 3 * time.Second},
-		{5 * time.Second, 100 * time.Second, 100 * time.Second},
-		{321 * time.Second, 3 * time.Second, 321 * time.Second},
-		{123 * time.Second, 123 * time.Second, 123 * time.Second},
-	}
-	for _, test := range testcases {
-		t.Run(fmt.Sprintf("%v_%v_%v", test.v1, test.v2, test.out), func(t *testing.T) {
-			a := durationMax(test.v1, test.v2)
-			if test.out != a {
-				t.Errorf("failed duratoin max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
-			}
-		})
 	}
 }
 
@@ -288,7 +206,7 @@ func TestGetMin(t *testing.T) {
 		{[]int{}, -1},
 	}
 	for _, test := range testcases {
-		t.Run(fmt.Sprintf("%v", test.out), func(t *testing.T) {
+		t.Run(strconv.Itoa(test.out), func(t *testing.T) {
 			a := getMin(test.in)
 			if test.out != a {
 				t.Errorf("failed get min. in: %v, expected: %v, got: %v", test.in, test.out, a)

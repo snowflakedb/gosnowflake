@@ -95,20 +95,17 @@ func main() {
 
 	var waitGroup sync.WaitGroup
 	for workerID := range maxWorkers {
-		waitGroup.Add(1)
-		go func(waitGroup *sync.WaitGroup, batchIDs chan int, workerId int) {
-			defer waitGroup.Done()
-
-			for batchID := range batchIDs {
+		waitGroup.Go(func() {
+			for batchID := range batchIds {
 				records, err := batches[batchID].Fetch()
 				if err != nil {
 					log.Fatalf("Error while fetching batch %v: %v", batchID, err)
 				}
 				sampleRecordsPerBatch[batchID] = make([]sampleRecord, batches[batchID].GetRowCount())
 				totalRowID := 0
-				convertFromColumnsToRows(records, sampleRecordsPerBatch, batchID, workerId, totalRowID, batches[batchID])
+				convertFromColumnsToRows(records, sampleRecordsPerBatch, batchID, workerID, totalRowID, batches[batchID])
 			}
-		}(&waitGroup, batchIds, workerID)
+		})
 	}
 
 	for batchID := range batches {

@@ -57,7 +57,7 @@ func TestArrowBatchDataProvider(t *testing.T) {
 
 		// Verify column 0 has data (raw decimal value)
 		strVal := records[0].Column(0).ValueStr(0)
-		assertTrueF(t, len(strVal) > 0, fmt.Sprintf("column should have a value, got: %s", strVal))
+		assertTrueF(t, len(strVal) > 0, "column should have a value, got: "+strVal)
 	})
 }
 

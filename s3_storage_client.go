@@ -81,7 +81,7 @@ func getS3CustomEndpoint(info *execResponseStageInfo) *string {
 	var endPoint *string
 	isRegionalURLEnabled := info.UseRegionalURL || info.UseS3RegionalURL
 	if info.EndPoint != "" {
-		tmp := fmt.Sprintf("https://%s", info.EndPoint)
+		tmp := "https://" + info.EndPoint
 		endPoint = &tmp
 	} else if info.Region != "" && isRegionalURLEnabled {
 		domainSuffixForRegionalURL := "amazonaws.com"
@@ -209,7 +209,7 @@ func (util *snowflakeS3Client) uploadFile(
 	}
 	const minS3PartSize = 5 * 1024 * 1024 // AWS S3 minimum part size
 	var uploader s3UploadAPI
-	partSize := int64Max(multiPartThreshold, minS3PartSize)
+	partSize := max(multiPartThreshold, minS3PartSize)
 	uploader = transfermanager.New(client, func(o *transfermanager.Options) {
 		o.Concurrency = maxConcurrency
 		o.PartSizeBytes = partSize
@@ -317,7 +317,7 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 
 	const minS3PartSize = 5 * 1024 * 1024 // AWS S3 minimum part size
 	var downloader s3DownloadAPI
-	downloadPartSize := int64Max(partSize, minS3PartSize)
+	downloadPartSize := max(partSize, minS3PartSize)
 	downloader = transfermanager.New(client, func(o *transfermanager.Options) {
 		o.Concurrency = int(maxConcurrency)
 		o.PartSizeBytes = downloadPartSize

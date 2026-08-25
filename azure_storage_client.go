@@ -339,7 +339,7 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 			return blobClient.DownloadFile(
 				ctx, f, &azblob.DownloadFileOptions{
 					Concurrency: uint16(maxConcurrency),
-					BlockSize:   int64Max(partSize, blob.DefaultDownloadBlockSize),
+					BlockSize:   max(partSize, blob.DefaultDownloadBlockSize),
 				})
 		})
 		if err != nil {

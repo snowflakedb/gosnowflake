@@ -2,12 +2,12 @@
 # Test GoSnowflake driver in Rocky Linux 9 Docker
 # NOTES:
 #   - Go version MUST be specified as first argument
-#   - Usage: ./test_rockylinux9_docker.sh "1.24.2"
+#   - Usage: ./test_rockylinux9_docker.sh "1.25.14"
 
 set -o pipefail
 
 if [[ -z "${1}" ]]; then
-    echo "[ERROR] Go version is required as first argument (e.g., '1.24.2')"
+    echo "[ERROR] Go version is required as first argument (e.g., '1.25.14')"
     echo "Usage: $0 <go_version>"
     exit 1
 fi

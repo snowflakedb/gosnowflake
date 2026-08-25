@@ -106,7 +106,7 @@ func (rsu *remoteStorageUtil) uploadOneFile(ctx context.Context, meta *fileMetad
 			return nil
 		case needRetry:
 			if !meta.noSleepingTime {
-				sleepingTime := intMin(int(math.Exp2(float64(retry))), 16)
+				sleepingTime := min(int(math.Exp2(float64(retry))), 16)
 				logger.Debugf("Need to retry for uploading file: %v. Current retry: %v, Sleeping time: %v.", meta.realSrcFileName, retry, sleepingTime)
 				time.Sleep(time.Second * time.Duration(sleepingTime))
 			} else {
@@ -114,10 +114,10 @@ func (rsu *remoteStorageUtil) uploadOneFile(ctx context.Context, meta *fileMetad
 			}
 		case needRetryWithLowerConcurrency:
 			maxConcurrency = int(meta.parallel) - (retry * int(meta.parallel) / maxRetry)
-			maxConcurrency = intMax(defaultConcurrency, maxConcurrency)
+			maxConcurrency = max(defaultConcurrency, maxConcurrency)
 			meta.lastMaxConcurrency = maxConcurrency
 			if !meta.noSleepingTime {
-				sleepingTime := intMin(int(math.Exp2(float64(retry))), 16)
+				sleepingTime := min(int(math.Exp2(float64(retry))), 16)
 				logger.Debugf("Need to retry with lower concurrency for uploading file: %v. Current retry: %v, Sleeping time: %v.", meta.realSrcFileName, retry, sleepingTime)
 				time.Sleep(time.Second * time.Duration(sleepingTime))
 			} else {
