@@ -2236,10 +2236,15 @@ func TestParsePrivateKeyFromFile(t *testing.T) {
 }
 
 func createTmpFile(t *testing.T, fileName string, content []byte) string {
-	tempFile, _ := os.CreateTemp(t.TempDir(), fileName)
-	_, err := tempFile.Write(content)
+	tempFile, err := os.CreateTemp(t.TempDir(), fileName)
+	assertNilF(t, err)
+	_, err = tempFile.Write(content)
 	assertNilF(t, err)
 	absolutePath := tempFile.Name()
+	// The file must be closed before the test ends: t.TempDir()'s cleanup
+	// removes the directory, and Windows refuses to delete a file that is
+	// still open.
+	assertNilF(t, tempFile.Close())
 	return absolutePath
 }
 

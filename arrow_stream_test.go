@@ -177,7 +177,14 @@ func TestArrowStreamBatchGetStreamCancellationNormalizesGzipBlockedRead(t *testi
 
 	terminalErr := errors.New("read from closed body")
 	body := newBlockingReadCloser(gzipBytes([]byte("ok")), terminalErr)
-	body.firstChunkSize = len(body.payload) / 2
+	// Withhold exactly the 8-byte gzip trailer (CRC32 + ISIZE). The deflate
+	// stream itself is complete, so the reader can emit the whole payload and
+	// then blocks waiting for the trailer - which is what this test exercises.
+	// Splitting at a fraction of the compressed length instead would depend on
+	// how compress/flate frames small inputs, and that changed in Go 1.27
+	// (a stored block now, Huffman coding before).
+	const gzipTrailerLen = 8
+	body.firstChunkSize = len(body.payload) - gzipTrailerLen
 	batch := newTestArrowStreamBatch(static200OK(body))
 
 	stream, err := batch.GetStream(ctx)
