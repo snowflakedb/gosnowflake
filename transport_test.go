@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -266,5 +267,9 @@ func TestProxyTransportCreation(t *testing.T) {
 }
 
 func createTestNoRevocationTransport() http.RoundTripper {
-	return newTransportFactory(&Config{}, nil).createNoRevocationTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
+	transport, err := newTransportFactory(&Config{}, nil).createNoRevocationTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
+	if err != nil {
+		panic(fmt.Sprintf("failed to create test transport: %v", err))
+	}
+	return transport
 }

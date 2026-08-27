@@ -664,9 +664,16 @@ func (ov *ocspValidator) getRevocationStatus(ctx context.Context, subject, issue
 	headers[httpHeaderHost] = hostname
 	timeout := OcspResponderTimeout
 
+	transport, err := newTransportFactory(ov.cfg, nil).createNoRevocationTransport(defaultTransportConfigs.forTransportType(transportTypeOCSP))
+	if err != nil {
+		return &ocspStatus{
+			code: ocspFailedComposeRequest,
+			err:  fmt.Errorf("failed to create transport for OCSP request: %w", err),
+		}
+	}
 	ocspClient := &http.Client{
 		Timeout:   timeout,
-		Transport: newTransportFactory(ov.cfg, nil).createNoRevocationTransport(defaultTransportConfigs.forTransportType(transportTypeOCSP)),
+		Transport: transport,
 	}
 	ocspRes, ocspResBytes, ocspS := ov.retryOCSP(
 		ctx, ocspClient, http.NewRequest, u, headers, ocspReq, issuer, timeout)
@@ -798,9 +805,14 @@ func (ov *ocspValidator) downloadOCSPCacheServer() {
 
 	logger.Infof("downloading OCSP Cache from server %v", ocspCacheServerURL)
 	timeout := OcspCacheServerTimeout
+	transport, err := newTransportFactory(ov.cfg, nil).createNoRevocationTransport(defaultTransportConfigs.forTransportType(transportTypeOCSP))
+	if err != nil {
+		logger.Errorf("failed to create transport for OCSP cache download: %v", err)
+		return
+	}
 	ocspClient := &http.Client{
 		Timeout:   timeout,
-		Transport: newTransportFactory(ov.cfg, nil).createNoRevocationTransport(defaultTransportConfigs.forTransportType(transportTypeOCSP)),
+		Transport: transport,
 	}
 	ret, ocspStatus := checkOCSPCacheServer(context.Background(), ocspClient, http.NewRequest, u, timeout)
 	if ocspStatus.code != ocspSuccess {
