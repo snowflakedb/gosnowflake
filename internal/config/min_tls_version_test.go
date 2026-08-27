@@ -13,18 +13,6 @@ func TestGetMinTLSVersion(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name:     "TLS 1.0",
-			envValue: "1.0",
-			expected: tls.VersionTLS10,
-			wantErr:  false,
-		},
-		{
-			name:     "TLS 1.1",
-			envValue: "1.1",
-			expected: tls.VersionTLS11,
-			wantErr:  false,
-		},
-		{
 			name:     "TLS 1.2",
 			envValue: "1.2",
 			expected: tls.VersionTLS12,
@@ -37,10 +25,58 @@ func TestGetMinTLSVersion(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "TLSv1.2 format",
+			envValue: "TLSv1.2",
+			expected: tls.VersionTLS12,
+			wantErr:  false,
+		},
+		{
+			name:     "TLSv1.3 format",
+			envValue: "TLSv1.3",
+			expected: tls.VersionTLS13,
+			wantErr:  false,
+		},
+		{
+			name:     "TLSv1.2 lowercase",
+			envValue: "tlsv1.2",
+			expected: tls.VersionTLS12,
+			wantErr:  false,
+		},
+		{
+			name:     "TLSv1.3 mixed case",
+			envValue: "TlSv1.3",
+			expected: tls.VersionTLS13,
+			wantErr:  false,
+		},
+		{
+			name:     "1.2 with whitespace",
+			envValue: "  1.2  ",
+			expected: tls.VersionTLS12,
+			wantErr:  false,
+		},
+		{
+			name:     "TLSv1.3 with whitespace",
+			envValue: " TLSv1.3 ",
+			expected: tls.VersionTLS13,
+			wantErr:  false,
+		},
+		{
 			name:     "Empty env var",
 			envValue: "",
 			expected: 0,
 			wantErr:  false,
+		},
+		{
+			name:     "TLS 1.0 not supported",
+			envValue: "1.0",
+			expected: 0,
+			wantErr:  true,
+		},
+		{
+			name:     "TLS 1.1 not supported",
+			envValue: "1.1",
+			expected: 0,
+			wantErr:  true,
 		},
 		{
 			name:     "Invalid value",
@@ -99,10 +135,19 @@ func TestApplyMinTLSVersion(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name:     "Override existing MinVersion",
+			name:     "Raise from lower version",
 			envValue: "1.3",
 			inputTLS: &tls.Config{
-				MinVersion: tls.VersionTLS10,
+				MinVersion: tls.VersionTLS12,
+			},
+			wantMinVer: tls.VersionTLS13,
+			wantErr:    false,
+		},
+		{
+			name:     "Keep higher existing version (ceiling behavior)",
+			envValue: "1.2",
+			inputTLS: &tls.Config{
+				MinVersion: tls.VersionTLS13,
 			},
 			wantMinVer: tls.VersionTLS13,
 			wantErr:    false,
@@ -153,16 +198,6 @@ func TestGetTLSVersionName(t *testing.T) {
 		version  uint16
 		expected string
 	}{
-		{
-			name:     "TLS 1.0",
-			version:  tls.VersionTLS10,
-			expected: "1.0",
-		},
-		{
-			name:     "TLS 1.1",
-			version:  tls.VersionTLS11,
-			expected: "1.1",
-		},
 		{
 			name:     "TLS 1.2",
 			version:  tls.VersionTLS12,

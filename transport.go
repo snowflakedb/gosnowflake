@@ -182,6 +182,14 @@ func (tf *transportFactory) createTransport(transportConfig *transportConfig) (h
 	// if user configured a custom Transporter, prioritize that
 	if tf.config.Transporter != nil {
 		logger.Debug("createTransport: using Transporter configured by the user")
+		// If it's an *http.Transport, try to apply MinTLSVersion to its TLS config
+		if httpTransport, ok := tf.config.Transporter.(*http.Transport); ok {
+			var err error
+			httpTransport.TLSClientConfig, err = sfconfig.ApplyMinTLSVersion(httpTransport.TLSClientConfig)
+			if err != nil {
+				return nil, err
+			}
+		}
 		return tf.config.Transporter, nil
 	}
 
