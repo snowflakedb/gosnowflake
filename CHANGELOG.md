@@ -19,6 +19,7 @@ Bug fixes:
 - Fixed `GET` from a LOCAL_FS stage downloading 0 files and returning `264011: not implemented`. Cloud downloads were unaffected (snowflakedb/gosnowflake#1810).
 - Fixed `NUMBER` columns with a non-zero scale losing precision: values needing more significant digits than a binary float's mantissa were silently rounded, so `NUMBER(20,10)` holding `1234567890.1234567890` returned `1234567890.1234567889`. The `WithHigherPrecision` path is unchanged and still returns a 64-bit `*big.Float` (snowflakedb/gosnowflake#1835).
 - Fixed proxy configuration for a literal IPv6 `ProxyHost`, which was concatenated into an unbracketed `host:port` and left the proxy URL unparseable (snowflakedb/gosnowflake#TBD).
+- Fixed the `region` parameter rewriting an explicitly provided `host` (e.g. `host=myacct.snowflakecomputing.com` with `region=us-east-1` became `myacct.us-east-1.snowflakecomputing.com`); an explicit host now takes precedence (snowflakedb/gosnowflake#1841).
 
 Internal changes:
 - Migrated from deprecated `github.com/aws/aws-sdk-go-v2/feature/s3/manager` (v1.16.15) to `github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager` (v0.3.5).
