@@ -12,8 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
-	sferrors "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
 	"math/big"
 	"net/http"
@@ -25,6 +23,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
+	sferrors "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 
 	"golang.org/x/crypto/ocsp"
 )
@@ -128,6 +129,22 @@ const (
 	ocspMissedCache            ocspStatusCode = -14
 	ocspCacheExpired           ocspStatusCode = -15
 	ocspFailedDecodeResponse   ocspStatusCode = -16
+)
+
+// ocspChainResult is the aggregated revocation verdict for a single verified
+// certificate chain. A connection is accepted as soon
+// as one chain is fully unrevoked, and rejected only when every chain fails.
+type ocspChainResult int
+
+const (
+	// ocspChainUnrevoked means every non-root certificate in the chain was
+	// confirmed good.
+	ocspChainUnrevoked ocspChainResult = iota
+	// ocspChainRevoked means the chain contains a certificate confirmed revoked.
+	ocspChainRevoked
+	// ocspChainError means the chain could not be fully verified (a certificate
+	// had no OCSP responder, an unknown status, or the check failed).
+	ocspChainError
 )
 
 // copied from crypto/ocsp.go
@@ -621,15 +638,8 @@ func (ov *ocspValidator) getRevocationStatus(ctx context.Context, subject, issue
 	logger.WithContext(ctx).Infof("cache missed")
 	logger.WithContext(ctx).Infof("OCSP Server: %v", subject.OCSPServer)
 	testResponderURL := os.Getenv(ocspTestResponderURLEnv)
-	if (len(subject.OCSPServer) == 0 || isTestNoOCSPURL()) && testResponderURL == "" {
-		return &ocspStatus{
-			code: ocspNoServer,
-			err: &SnowflakeError{
-				Number:      ErrOCSPNoOCSPResponderURL,
-				Message:     sferrors.ErrMsgOCSPNoOCSPResponderURL,
-				MessageArgs: []any{subject.Subject},
-			},
-		}
+	if !hasOCSPResponder(subject) {
+		return noOCSPResponderStatus(subject)
 	}
 	ocspHost := testResponderURL
 	if ocspHost == "" && len(subject.OCSPServer) > 0 {
@@ -697,72 +707,164 @@ func isTestNoOCSPURL() bool {
 	return strings.EqualFold(os.Getenv(ocspTestNoOCSPURLEnv), "true")
 }
 
+// hasOCSPResponder reports whether the certificate can be checked via OCSP, i.e.
+// it advertises at least one OCSP responder URL (or the test responder override
+// is set). A certificate without a responder URL can never be verified online
+// and is never present in the OCSP cache server.
+func hasOCSPResponder(subject *x509.Certificate) bool {
+	if os.Getenv(ocspTestResponderURLEnv) != "" {
+		return true
+	}
+	if isTestNoOCSPURL() {
+		return false
+	}
+	return len(subject.OCSPServer) > 0
+}
+
+func noOCSPResponderStatus(subject *x509.Certificate) *ocspStatus {
+	return &ocspStatus{
+		code: ocspNoServer,
+		err: &SnowflakeError{
+			Number:      ErrOCSPNoOCSPResponderURL,
+			Message:     sferrors.ErrMsgOCSPNoOCSPResponderURL,
+			MessageArgs: []any{subject.Subject},
+		},
+	}
+}
+
 func isValidOCSPStatus(status ocspStatusCode) bool {
 	return status == ocspStatusGood || status == ocspStatusRevoked || status == ocspStatusUnknown
 }
 
-// verifyPeerCertificate verifies all of certificate revocation status
+// verifyPeerCertificate verifies the certificate revocation status of the peer.
+//
+// The TLS stack may present several verified chains; they are alternative valid
+// trust paths that share the leaf but may differ in their intermediates. A single
+// fully-unrevoked chain is enough to accept the connection, so we only reject when
+// no chain passes. This matches the CRL validator (see verifyPeerCertificates).
 func (ov *ocspValidator) verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certificate) (err error) {
-	for _, chain := range verifiedChains {
+	// Persist any cache changes on every return path (including panics).
+	defer ov.flushOCSPCache()
+
+	if len(verifiedChains) == 0 {
+		return nil
+	}
+
+	// Only reach out to the OCSP cache server if at least one certificate that can
+	// be checked online is not already validated by the local cache.
+	if ov.shouldDownloadCacheServer(verifiedChains) {
+		ov.downloadOCSPCacheServer()
+	}
+
+	var revoked, firstError *ocspStatus
+	allRevoked := true
+	for i, chain := range verifiedChains {
 		results := ov.getAllRevocationStatus(ctx, chain)
-		if r := ov.canEarlyExitForOCSP(results, chain); r != nil {
-			return r.err
+		verdict, status := ov.evaluateChain(results, chain)
+		switch verdict {
+		case ocspChainUnrevoked:
+			logger.WithContext(ctx).Debugf("verified chain %d has no revoked certificates", i)
+			return nil
+		case ocspChainRevoked:
+			if revoked == nil {
+				revoked = status
+			}
+		default: // ocspChainError
+			allRevoked = false
+			if firstError == nil {
+				firstError = status
+			}
 		}
 	}
 
+	// A certificate that is revoked in every verified chain is a hard failure in
+	// both fail-open and fail-closed modes.
+	if allRevoked && revoked != nil {
+		return revoked.err
+	}
+	// No chain could be fully verified. In fail-closed mode this rejects the
+	// connection; in fail-open mode we assume the certificates are not revoked.
+	if ov.mode == OCSPFailOpenFalse {
+		if revoked != nil {
+			return revoked.err
+		}
+		if firstError != nil && firstError.err != nil {
+			return firstError.err
+		}
+		return errors.New("OCSP revocation check could not verify any certificate chain")
+	}
+	logger.WithContext(ctx).Debug("no verified chain could be fully checked with OCSP. Assuming certificates are not revoked (fail-open).")
+	return nil
+}
+
+// evaluateChain aggregates the per-certificate revocation results of a single
+// chain into one verdict. A chain is unrevoked only when every non-root
+// certificate is confirmed good; a single revoked certificate makes the whole
+// chain revoked (revoked dominates errors); anything else is an error.
+func (ov *ocspValidator) evaluateChain(results []*ocspStatus, verifiedChain []*x509.Certificate) (ocspChainResult, *ocspStatus) {
+	var revoked, firstError *ocspStatus
+	allGood := len(results) == len(verifiedChain)-1 // root certificate is not checked
+	for _, r := range results {
+		switch {
+		case r == nil:
+			allGood = false
+		case r.code == ocspStatusGood:
+			// certificate confirmed good
+		case r.code == ocspStatusRevoked:
+			allGood = false
+			if revoked == nil {
+				revoked = r
+			}
+		default:
+			allGood = false
+			if firstError == nil {
+				firstError = r
+			}
+		}
+	}
+	switch {
+	case allGood:
+		return ocspChainUnrevoked, nil
+	case revoked != nil:
+		return ocspChainRevoked, revoked
+	default:
+		return ocspChainError, firstError
+	}
+}
+
+// shouldDownloadCacheServer reports whether refreshing the local cache from the
+// OCSP cache server could help. It does only when some certificate that can be
+// checked online (has an OCSP responder URL) is not already validated by the
+// local cache. Certificates without a responder URL are never in the cache
+// server, so they never justify a download.
+func (ov *ocspValidator) shouldDownloadCacheServer(verifiedChains [][]*x509.Certificate) bool {
+	if !ocspCacheServerEnabled {
+		return false
+	}
+	for _, chain := range verifiedChains {
+		n := len(chain) - 1
+		for j := range n {
+			subject := chain[j]
+			if !hasOCSPResponder(subject) {
+				continue
+			}
+			status, _, _ := ov.validateWithCache(subject, chain[j+1])
+			if !isValidOCSPStatus(status.code) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// flushOCSPCache persists the in-memory OCSP response cache to disk if it changed.
+func (ov *ocspValidator) flushOCSPCache() {
 	ocspResponseCacheLock.Lock()
+	defer ocspResponseCacheLock.Unlock()
 	if cacheUpdated {
 		ov.writeOCSPCacheFile()
 	}
 	cacheUpdated = false
-	ocspResponseCacheLock.Unlock()
-	return nil
-}
-
-func (ov *ocspValidator) canEarlyExitForOCSP(results []*ocspStatus, verifiedChain []*x509.Certificate) *ocspStatus {
-	var msg strings.Builder
-	if ov.mode == OCSPFailOpenFalse {
-		// Fail closed. any error is returned to stop connection
-		for _, r := range results {
-			if r.err != nil {
-				return r
-			}
-		}
-	} else {
-		// Fail open and all results are valid.
-		allValid := len(results) == len(verifiedChain)-1 // root certificate is not checked
-		for _, r := range results {
-			if !isValidOCSPStatus(r.code) {
-				allValid = false
-				break
-			}
-		}
-		for _, r := range results {
-			if allValid && r.code == ocspStatusRevoked {
-				return r
-			}
-			if r != nil && r.code != ocspStatusGood && r.err != nil {
-				msg.WriteString("\n" + r.err.Error())
-			}
-		}
-	}
-	if len(msg.String()) > 0 {
-		logger.Debugf("OCSP responder didn't respond correctly. Assuming certificate is not revoked. Detail: %v", msg.String()[1:])
-	}
-	return nil
-}
-
-func (ov *ocspValidator) validateWithCacheForAllCertificates(verifiedChains []*x509.Certificate) bool {
-	n := len(verifiedChains) - 1
-	for j := range n {
-		subject := verifiedChains[j]
-		issuer := verifiedChains[j+1]
-		status, _, _ := ov.validateWithCache(subject, issuer)
-		if !isValidOCSPStatus(status.code) {
-			return false
-		}
-	}
-	return true
 }
 
 func (ov *ocspValidator) validateWithCache(subject, issuer *x509.Certificate) (*ocspStatus, []byte, *certIDKey) {
@@ -837,11 +939,17 @@ func (ov *ocspValidator) downloadOCSPCacheServer() {
 }
 
 func (ov *ocspValidator) getAllRevocationStatus(ctx context.Context, verifiedChains []*x509.Certificate) []*ocspStatus {
-	cached := ov.validateWithCacheForAllCertificates(verifiedChains)
-	if !cached {
-		ov.downloadOCSPCacheServer()
-	}
 	n := len(verifiedChains) - 1
+	// In fail-closed mode every certificate must be verifiable. If any certificate
+	// lacks an OCSP responder URL the chain can never be fully verified, so fail
+	// fast without contacting any responder for the other certificates.
+	if ov.mode == OCSPFailOpenFalse {
+		for j := range n {
+			if !hasOCSPResponder(verifiedChains[j]) {
+				return []*ocspStatus{noOCSPResponderStatus(verifiedChains[j])}
+			}
+		}
+	}
 	results := make([]*ocspStatus, n)
 	for j := range n {
 		results[j] = ov.getRevocationStatus(ctx, verifiedChains[j], verifiedChains[j+1])
