@@ -572,8 +572,12 @@ func FillMissingConfigParameters(cfg *Config) error {
 	}
 
 	cfg.Region = strings.Trim(cfg.Region, " ")
-	if cfg.Region != "" {
-		// region is specified but not included in Host
+	if cfg.Region != "" && !hostProvidedByUser(cfg) {
+		// Region is specified but not included in Host. This only patches up a
+		// Host the driver itself synthesized from Account: transformAccountToHost
+		// builds Host before parseDSNParams reads the region parameter, so the
+		// region would otherwise be dropped. It must not run when the user gave
+		// Host explicitly — Host takes precedence over Region.
 		domain, i := extractDomainFromHost(cfg.Host)
 		if i >= 1 {
 			hostPrefix := cfg.Host[0:i]
@@ -694,6 +698,13 @@ func extractRegionFromAccount(account string) (region string, posDot int) {
 
 func hostIncludesTopLevelDomain(host string) bool {
 	return strings.Contains(strings.ToLower(host), topLevelDomainPrefix)
+}
+
+// hostProvidedByUser reports whether Host came from the user rather than from
+// driver-side synthesis out of Account and Region. Callers must run after
+// inferInputShapeIfMissing, which guarantees a non-nil shape.
+func hostProvidedByUser(cfg *Config) bool {
+	return cfg.inputShape != nil && cfg.inputShape.HostProvided
 }
 
 func buildHostFromAccountAndRegion(account, region string) string {

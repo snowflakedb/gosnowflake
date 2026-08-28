@@ -439,6 +439,44 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
+			// An explicitly provided host wins over region: the region is not
+			// spliced into the host even though the host does not carry it.
+			dsn: "u:p@a.snowflakecomputing.com/db/pa?region=eu-faraway",
+			config: &Config{
+				Account: "a", User: "u", Password: "p", Region: "eu-faraway",
+				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "pa",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: BoolTrue,
+				ClientTimeout:             time.Duration(DefaultClientTimeout),
+				JWTClientTimeout:          time.Duration(DefaultJWTClientTimeout),
+				ExternalBrowserTimeout:    time.Duration(DefaultExternalBrowserTimeout),
+				CloudStorageTimeout:       defaultCloudStorageTimeout,
+				IncludeRetryReason:        BoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			// A full non-Snowflake host (e.g. a TS region) is preserved verbatim
+			// when the authority carries an explicit port and account is given.
+			dsn: "user:pass@myaccount.us-isob-east-1.sc2s.sgov.gov:443/db/pa?account=myaccount",
+			config: &Config{
+				Account: "myaccount", User: "user", Password: "pass",
+				Protocol: "https", Host: "myaccount.us-isob-east-1.sc2s.sgov.gov", Port: 443,
+				Database: "db", Schema: "pa",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: BoolTrue,
+				ClientTimeout:             time.Duration(DefaultClientTimeout),
+				JWTClientTimeout:          time.Duration(DefaultJWTClientTimeout),
+				ExternalBrowserTimeout:    time.Duration(DefaultExternalBrowserTimeout),
+				CloudStorageTimeout:       defaultCloudStorageTimeout,
+				IncludeRetryReason:        BoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
 			dsn: "u:p@a.eu-faraway.snowflakecomputing.mil/db/pa?account=a&region=eu-faraway",
 			config: &Config{
 				Account: "a", User: "u", Password: "p", Region: "eu-faraway",
@@ -2497,6 +2535,63 @@ func TestFillMissingConfigParametersNonSnowflakeHostRequiresAccount(t *testing.T
 	sfErr, ok := err.(*sferrors.SnowflakeError)
 	assertTrueF(t, ok, "expected SnowflakeError")
 	assertEqualE(t, sfErr.Number, sferrors.ErrCodeEmptyAccountCode, "error number")
+}
+
+// An explicitly provided Host takes precedence over Region: the region must not
+// be spliced into a host the user supplied, even when the host does not carry it.
+func TestFillMissingConfigParametersKeepsExplicitHostOverRegion(t *testing.T) {
+	cfg := &Config{
+		User:          "u",
+		Password:      "p",
+		Host:          "myacct.snowflakecomputing.com",
+		Region:        "us-east-1",
+		Authenticator: AuthTypeSnowflake,
+	}
+	assertNilE(t, FillMissingConfigParameters(cfg), "FillMissingConfigParameters")
+	assertEqualE(t, cfg.Host, "myacct.snowflakecomputing.com", "Host")
+	assertEqualE(t, cfg.Region, "us-east-1", "Region")
+}
+
+// A Host synthesized by the driver from Account still gets the region spliced in,
+// because parseDSNParams reads the region parameter only after
+// transformAccountToHost has already built Host.
+func TestFillMissingConfigParametersInjectsRegionIntoSynthesizedHost(t *testing.T) {
+	cfg := &Config{
+		User:          "u",
+		Password:      "p",
+		Account:       "myacct",
+		Region:        "us-east-1",
+		Authenticator: AuthTypeSnowflake,
+	}
+	assertNilE(t, FillMissingConfigParameters(cfg), "FillMissingConfigParameters")
+	assertEqualE(t, cfg.Host, "myacct.us-east-1.snowflakecomputing.com", "Host")
+}
+
+// A full non-Snowflake host (e.g. a TS region) is preserved verbatim and does not
+// need an explicit port when Account is supplied alongside it.
+func TestFillMissingConfigParametersPreservesNonSnowflakeHostWithAccount(t *testing.T) {
+	cfg := &Config{
+		User:          "u",
+		Password:      "p",
+		Host:          "myaccount.us-isob-east-1.sc2s.sgov.gov",
+		Account:       "myaccount",
+		Authenticator: AuthTypeSnowflake,
+	}
+	assertNilE(t, FillMissingConfigParameters(cfg), "FillMissingConfigParameters")
+	assertEqualE(t, cfg.Host, "myaccount.us-isob-east-1.sc2s.sgov.gov", "Host")
+	assertEqualE(t, cfg.Account, "myaccount", "Account")
+	assertEqualE(t, cfg.Port, 443, "Port")
+}
+
+// The same host given in a DSN keeps its port and is not rewritten into an
+// account-derived Snowflake host.
+func TestParseDSNPreservesNonSnowflakeHostWithPort(t *testing.T) {
+	cfg, err := ParseDSN("user:pass@myaccount.us-isob-east-1.sc2s.sgov.gov:443/db?account=myaccount")
+	assertNilF(t, err, "ParseDSN")
+	assertEqualE(t, cfg.Host, "myaccount.us-isob-east-1.sc2s.sgov.gov", "Host")
+	assertEqualE(t, cfg.Account, "myaccount", "Account")
+	assertEqualE(t, cfg.Port, 443, "Port")
+	assertEqualE(t, cfg.Region, "", "Region")
 }
 
 func TestFillMissingConfigParametersRejectsHostWithHTTPSScheme(t *testing.T) {
