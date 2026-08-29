@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -13,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -30,6 +32,8 @@ You can close this window now and go back where you started from.
 
 	bufSize = 8192
 )
+
+var ErrBrowserOpen = errors.New("browser open error")
 
 // Builds a response to show to the user after successfully
 // getting a response from Snowflake.
@@ -95,9 +99,34 @@ func openBrowser(browserURL string) error {
 	err = browser.OpenURL(browserURL)
 	if err != nil {
 		logger.Errorf("failed to open a browser. err: %v", err)
-		return err
+		return fmt.Errorf("%w: %v", ErrBrowserOpen, err)
 	}
 	return nil
+}
+
+func promptForRedirectedURL(browserURL string) (string, error) {
+	fmt.Println(browserURL)
+	fmt.Println("We were unable to open a browser window for you, please open the url above manually then paste the URL you are redirected to into the terminal.")
+
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return "", fmt.Errorf("error reading input: %w", err)
+	}
+
+	return strings.TrimSpace(input), nil
+}
+
+func extractTokenFromURL(rawURL string) ([]byte, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing input url: %w", err)
+	}
+	token := u.Query().Get("token")
+	if token == "" {
+		return nil, fmt.Errorf("error getting token from input url")
+	}
+	return []byte(token), nil
 }
 
 // Gets the IDP Url and Proof Key from Snowflake.
@@ -266,6 +295,19 @@ func doAuthenticateByExternalBrowser(ctx context.Context, sr *snowflakeRestful, 
 	}
 
 	if err = defaultSamlResponseProvider().run(loginURL); err != nil {
+		if errors.Is(err, ErrBrowserOpen) {
+			logger.WithContext(ctx).Infof(
+				"error while opening browser: %v. Falling back to headless SAML response provider",
+				err,
+			)
+			headlessProvider := &headlessSamlResponseProvider{}
+			if err = headlessProvider.run(loginURL); err != nil {
+				logger.Errorf("error while attempting headless auth. err: %v", err)
+				return authenticateByExternalBrowserResult{nil, nil, err}
+			}
+			return authenticateByExternalBrowserResult{headlessProvider.token, []byte(proofKey), nil}
+		}
+
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 
@@ -350,6 +392,19 @@ type externalBrowserSamlResponseProvider struct {
 
 func (e externalBrowserSamlResponseProvider) run(url string) error {
 	return openBrowser(url)
+}
+
+type headlessSamlResponseProvider struct {
+	token []byte
+}
+
+func (h *headlessSamlResponseProvider) run(url string) error {
+	redirectedURL, err := promptForRedirectedURL(url)
+	if err != nil {
+		return err
+	}
+	h.token, err = extractTokenFromURL(redirectedURL)
+	return err
 }
 
 var defaultSamlResponseProvider = func() samlResponseProvider {
