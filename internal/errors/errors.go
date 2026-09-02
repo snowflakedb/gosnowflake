@@ -94,6 +94,9 @@ const (
 	ErrCodeHostWithScheme = 260021
 	// ErrCodeWifNonSnowflakeHost is an error code for the case where WORKLOAD_IDENTITY is configured with a non-Snowflake host
 	ErrCodeWifNonSnowflakeHost = 260022
+	// ErrCodeInvalidAccountIdentifier is an error code for the case where the account or region
+	// configuration value cannot be used as a hostname component
+	ErrCodeInvalidAccountIdentifier = 260023
 
 	/* network */
 
@@ -282,6 +285,7 @@ const (
 	ErrMsgMissingTLSConfig                   = "TLS config not found: %v"
 	ErrMsgHostWithScheme                     = "host includes a URL scheme (e.g. \"https://\"). Specify the hostname only, without a scheme prefix. Use \"myorg-myaccount.snowflakecomputing.com\" instead of \"https://myorg-myaccount.snowflakecomputing.com\". Got: %v"
 	ErrMsgWifNonSnowflakeHost                = "WORKLOAD_IDENTITY requires a recognized Snowflake host (*.snowflakecomputing.com, .cn or .mil). Got: %v"
+	ErrMsgInvalidAccountIdentifier           = "invalid %v: %q is not usable as a hostname component. It must be a dot-separated list of non-empty labels containing only letters, digits, '_' and '-', for example \"myorg-myaccount\" or \"myaccount.us-east-1\""
 )
 
 // ErrEmptyAccount is returned if a DSN doesn't include account parameter.
@@ -289,6 +293,20 @@ func ErrEmptyAccount() *SnowflakeError {
 	return &SnowflakeError{
 		Number:  ErrCodeEmptyAccountCode,
 		Message: "account is empty",
+	}
+}
+
+// ErrInvalidAccountIdentifier is returned when the account or region configuration value
+// cannot be used as a hostname component, i.e. it is not a dot-separated list of non-empty
+// labels built from letters, digits, '_' and '-'. field is "account" or "region".
+//
+// This is intentionally a distinct code from ErrCodeEmptyAccountCode: an empty account keeps
+// returning ErrEmptyAccount so callers that switch on the error number see no change.
+func ErrInvalidAccountIdentifier(field, value string) *SnowflakeError {
+	return &SnowflakeError{
+		Number:      ErrCodeInvalidAccountIdentifier,
+		Message:     ErrMsgInvalidAccountIdentifier,
+		MessageArgs: []any{field, value},
 	}
 }
 

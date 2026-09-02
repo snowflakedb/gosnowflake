@@ -180,12 +180,12 @@ func newOcspValidator(cfg *Config) *ocspValidator {
 	if cacheServerURL, ok = os.LookupEnv(cacheServerURLEnv); ok {
 		logger.Debugf("OCSP Cache Server already set by user for %v: %v", cfg.Host, cacheServerURL)
 	} else if isPrivateLink {
-		cacheServerURL = fmt.Sprintf("http://ocsp.%v/%v", cfg.Host, cacheFileBaseName)
+		cacheServerURL = ocspCacheServerURLForHost(cfg.Host)
 		logger.Debugf("Using PrivateLink host (%v), setting up OCSP cache server to %v", cfg.Host, cacheServerURL)
-		retryURL = fmt.Sprintf("http://ocsp.%v/retry/", cfg.Host) + "%v/%v"
+		retryURL = ocspRetryURLTemplateForHost(cfg.Host)
 		logger.Debugf("Using PrivateLink retry proxy %v", retryURL)
 	} else if !strings.HasSuffix(cfg.Host, sfconfig.DefaultDomain) {
-		cacheServerURL = fmt.Sprintf("http://ocsp.%v/%v", cfg.Host, cacheFileBaseName)
+		cacheServerURL = ocspCacheServerURLForHost(cfg.Host)
 		logger.Debugf("Using not global host (%v), setting up OCSP cache server to %v", cfg.Host, cacheServerURL)
 	} else {
 		cacheServerURL = fmt.Sprintf("%v/%v", defaultCacheServerHost, cacheFileBaseName)
@@ -199,6 +199,55 @@ func newOcspValidator(cfg *Config) *ocspValidator {
 		retryURL:       strings.ToLower(retryURL),
 		cfg:            cfg,
 	}
+}
+
+// ocspOCSPHostPrefix is the label prepended to the account host to reach the OCSP
+// cache server / retry proxy that fronts a PrivateLink or non-global deployment.
+const ocspOCSPHostPrefix = "ocsp."
+
+// ocspCacheServerURLForHost builds the OCSP response cache server URL for a
+// Snowflake host.
+//
+// It assembles a *url.URL instead of formatting the host into a URL string. cfg.Host
+// is derived from the user-supplied account identifier by string concatenation
+// (internal/config/dsn.go), so a URL-significant character in it would otherwise
+// land verbatim in the authority position here and move the request to a different
+// host: url.URL.String percent-escapes '/', '?', '#' and '@' inside Host, so the
+// authority stays the host we intended. This request carries no credentials and is
+// plain HTTP over a signature-validated payload, so the exposure is low; the point
+// is that it no longer depends on cfg.Host being well-formed.
+func ocspCacheServerURLForHost(host string) string {
+	u := &url.URL{
+		Scheme: "http",
+		Host:   ocspOCSPHostPrefix + host,
+		Path:   "/" + cacheFileBaseName,
+	}
+	return u.String()
+}
+
+// ocspRetryURLTemplateForHost builds the PrivateLink OCSP retry proxy URL
+// *template*.
+//
+// The returned string deliberately keeps two unfilled "%v" placeholders: it is
+// stored in ocspValidator.retryURL and consumed later by
+// fmt.Sprintf(retryURL, fullOCSPURL(u), base64(ocspReq)) in retryOCSP. They are
+// appended after url.URL.String() rather than being part of Path, because URL
+// escaping would rewrite '%' as "%25" and silently break OCSP retry.
+//
+// Because the result is a fmt format string, every *literal* '%' in the prefix has
+// to be doubled — otherwise fmt would consume it as a verb and mangle the
+// authority. Percent signs only appear here when the host needed escaping (a host
+// containing '/', '?', '#' or a literal '%'), which is also the case the old
+// fmt.Sprintf("http://ocsp.%v/retry/", cfg.Host) formulation corrupted. Hosts made
+// of ordinary DNS characters are unaffected: the template is byte-identical to
+// what it was before.
+func ocspRetryURLTemplateForHost(host string) string {
+	u := &url.URL{
+		Scheme: "http",
+		Host:   ocspOCSPHostPrefix + host,
+		Path:   "/retry/",
+	}
+	return strings.ReplaceAll(u.String(), "%", "%%") + "%v/%v"
 }
 
 // copied from crypto/ocsp

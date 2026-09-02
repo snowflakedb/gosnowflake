@@ -530,6 +530,23 @@ func FillMissingConfigParameters(cfg *Config) error {
 	// to FillMissingConfigParameters directly (e.g. via database/sql
 	// Connector or driver.OpenWithConfig).
 	inferInputShapeIfMissing(cfg)
+
+	// Single choke point for the account/region hostname-component invariant.
+	// It must stay here — above applyAccountFromHostIfMissing and above every
+	// cfg.Host assignment this function makes — for two reasons:
+	//   1. cfg.Account is still the value the *user* supplied. Once
+	//      applyAccountFromHostIfMissing has run, Account may instead be the
+	//      first DNS label of an operator-supplied Host, and rejecting that
+	//      synthesized value would break working explicit-host connections.
+	//   2. It precedes the derivations that concatenate Account and Region into
+	//      a hostname (below, and in DSN/transformAccountToHost via the error
+	//      this returns), so no invalid identifier can reach the network.
+	// An empty account is not this function's business: the existing
+	// ErrEmptyAccount check below still owns that case and keeps its code.
+	if err := validateAccountAndRegion(cfg); err != nil {
+		return err
+	}
+
 	applyAccountFromHostIfMissing(cfg)
 
 	if cfg.Host != "" {
