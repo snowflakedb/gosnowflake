@@ -641,8 +641,16 @@ func TestIsPrivateLink(t *testing.T) {
 		{"testaccount.some-region.privatelink.snowflakecomputing.mil", true},
 		{"testaccount.us-east-1.privatelink.snowflakecOMPUTING.com", true},
 		{"snowhouse.snowflakecomputing.xyz", false},
-		{"snowhouse.privatelink.snowflakecomputing.xyz", true},
-		{"snowhouse.PRIVATELINK.snowflakecomputing.xyz", true},
+		{"snowhouse.privatelink.snowflakecomputing.xyz", false},
+		{"snowhouse.PRIVATELINK.snowflakecomputing.xyz", false},
+		{"testacct.privatelink.snowflakecomputing.mil", true},
+		{"notprivatelink.snowflakecomputing.com", false},
+		// suffix must be anchored at a label boundary
+		{"acct.privatelink.snowflakecomputing.com.attacker.example", false},
+		// LDH gate: '@' in host must be rejected
+		{"acct.privatelink.snowflakecomputing.com@attacker.example", false},
+		// underscore in label is permitted
+		{"my_acct.privatelink.snowflakecomputing.com", true},
 	} {
 		t.Run(tc.host, func(t *testing.T) {
 			assertEqualE(t, checkIsPrivateLink(tc.host), tc.isPrivatelink)

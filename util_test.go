@@ -225,6 +225,7 @@ func TestValidURL(t *testing.T) {
 		{"https://ssoTestURL.okta.com", true},
 		{"https://ssoTestURL.okta.com:8080", true},
 		{"https://ssoTestURL.okta.com/testpathvalue", true},
+		{"https://my_account.snowflakecomputing.com", true},
 		{"-a calculator", false},
 		{"This is a random test", false},
 		{"file://TestForFile", false},

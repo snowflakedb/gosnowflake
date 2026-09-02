@@ -120,58 +120,56 @@ func TestOCSPRetryURLKeepsItsPlaceholders(t *testing.T) {
 		"retry URL lost its proxy prefix: "+filled)
 }
 
-// TestOCSPURLsKeepUnexpectedHostInAuthority is the reason the two helpers assemble a
-// *url.URL instead of formatting a string. cfg.Host is built by concatenating the
-// user-supplied account identifier with a domain (internal/config/dsn.go), so a
-// URL-significant character in the account used to survive into the authority
-// position of these OCSP URLs. url.URL.String percent-escapes it, so the request
-// still goes to the ocsp.<host> authority we intended instead of being re-pointed
-// or truncated.
-func TestOCSPURLsKeepUnexpectedHostInAuthority(t *testing.T) {
+// TestOCSPURLsNonLdhHostFallsToDefault verifies that a host whose account label
+// contains a URL-significant character ('#', '?', '/', '%') is no longer classified
+// as a PrivateLink host and therefore does not derive an OCSP cache URL from the
+// raw host string. The LDH character allowlist in checkIsPrivateLink rejects these
+// hosts, so they fall through to the global default cache server.
+//
+// The non-global (.cn) branch is not PrivateLink but still derives a host-specific
+// URL: it bypasses the PrivateLink gate and therefore reaches ocspCacheServerURLForHost
+// directly. That helper uses url.URL to percent-encode any non-LDH chars so they
+// cannot redirect the request — the safety property of the url.URL approach still
+// applies for that branch.
+func TestOCSPURLsNonLdhHostFallsToDefault(t *testing.T) {
 	withoutOCSPCacheServerEnv(t)
+	defaultCacheURL := fmt.Sprintf("%v/%v", defaultCacheServerHost, cacheFileBaseName)
 	for _, tc := range []struct {
 		name         string
 		host         string
 		wantCacheURL string
 		wantRetryURL string
-		// wantFilledRetryURL is wantRetryURL after retryOCSP fills it in. It is
-		// what actually goes on the wire, so the literal percent signs the
-		// template doubles must collapse back to a single one here.
-		wantFilledRetryURL string
 	}{
 		{
-			name:               "slash_privatelink",
-			host:               "acct/other.example.com.us-east-1.privatelink.snowflakecomputing.com",
-			wantCacheURL:       "http://ocsp.acct%2fother.example.com.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json",
-			wantRetryURL:       "http://ocsp.acct%%2fother.example.com.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v",
-			wantFilledRetryURL: "http://ocsp.acct%2fother.example.com.us-east-1.privatelink.snowflakecomputing.com/retry/RESPONDER/REQUEST",
+			// Non-LDH char '/' in the account label → LDH gate rejects →
+			// ends with DefaultDomain (.com) → global default cache server.
+			name:         "slash_privatelink_rejected_by_ldh_gate",
+			host:         "acct/other.example.com.us-east-1.privatelink.snowflakecomputing.com",
+			wantCacheURL: defaultCacheURL,
+			wantRetryURL: "",
 		},
 		{
-			name:               "question_mark_privatelink",
-			host:               "acct?x.us-east-1.privatelink.snowflakecomputing.com",
-			wantCacheURL:       "http://ocsp.acct%3fx.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json",
-			wantRetryURL:       "http://ocsp.acct%%3fx.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v",
-			wantFilledRetryURL: "http://ocsp.acct%3fx.us-east-1.privatelink.snowflakecomputing.com/retry/RESPONDER/REQUEST",
+			name:         "question_mark_privatelink_rejected_by_ldh_gate",
+			host:         "acct?x.us-east-1.privatelink.snowflakecomputing.com",
+			wantCacheURL: defaultCacheURL,
+			wantRetryURL: "",
 		},
 		{
-			name:               "hash_privatelink",
-			host:               "acct#x.us-east-1.privatelink.snowflakecomputing.com",
-			wantCacheURL:       "http://ocsp.acct%23x.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json",
-			wantRetryURL:       "http://ocsp.acct%%23x.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v",
-			wantFilledRetryURL: "http://ocsp.acct%23x.us-east-1.privatelink.snowflakecomputing.com/retry/RESPONDER/REQUEST",
+			name:         "hash_privatelink_rejected_by_ldh_gate",
+			host:         "acct#x.us-east-1.privatelink.snowflakecomputing.com",
+			wantCacheURL: defaultCacheURL,
+			wantRetryURL: "",
 		},
 		{
-			// A host that already contains a literal '%' broke the old
-			// fmt.Sprintf-based template too; it now round-trips as "%25".
-			name:               "literal_percent_privatelink",
-			host:               "acct%2fx.us-east-1.privatelink.snowflakecomputing.com",
-			wantCacheURL:       "http://ocsp.acct%252fx.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json",
-			wantRetryURL:       "http://ocsp.acct%%252fx.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v",
-			wantFilledRetryURL: "http://ocsp.acct%252fx.us-east-1.privatelink.snowflakecomputing.com/retry/RESPONDER/REQUEST",
+			name:         "literal_percent_privatelink_rejected_by_ldh_gate",
+			host:         "acct%2fx.us-east-1.privatelink.snowflakecomputing.com",
+			wantCacheURL: defaultCacheURL,
+			wantRetryURL: "",
 		},
 		{
-			// Non-global (.cn-style) branch, which shares the cache-server helper
-			// but sets up no retry proxy.
+			// Non-global (.cn) branch: not PrivateLink, does not end with
+			// DefaultDomain, so reaches ocspCacheServerURLForHost directly.
+			// url.URL percent-encodes the '/' so the authority is not altered.
 			name:         "slash_non_default_domain",
 			host:         "acct/other.example.com.cn-region.snowflakecomputing.cn",
 			wantCacheURL: "http://ocsp.acct%2fother.example.com.cn-region.snowflakecomputing.cn/ocsp_response_cache.json",
@@ -182,16 +180,8 @@ func TestOCSPURLsKeepUnexpectedHostInAuthority(t *testing.T) {
 			ov := newOcspValidator(&Config{Host: tc.host})
 			assertEqualE(t, ov.cacheServerURL, tc.wantCacheURL)
 			assertEqualE(t, ov.retryURL, tc.wantRetryURL)
-			// The cache URL must have exactly one path separator after the
-			// "http://" scheme delimiter, i.e. the payload did not open a new
-			// path segment or a new authority.
 			assertEqualE(t, strings.Count(ov.cacheServerURL, "/"), 3)
 			assertTrueE(t, strings.HasSuffix(ov.cacheServerURL, "/"+cacheFileBaseName), ov.cacheServerURL)
-			if tc.wantRetryURL != "" {
-				filled := fmt.Sprintf(ov.retryURL, "RESPONDER", "REQUEST")
-				assertEqualE(t, filled, tc.wantFilledRetryURL)
-				assertTrueE(t, !strings.Contains(filled, "%!"), "fmt error verb in "+filled)
-			}
 		})
 	}
 }

@@ -353,4 +353,14 @@ func TestDisableSamlURLCheck(t *testing.T) {
 	driverErr, ok := err.(*SnowflakeError)
 	assertTrueF(t, ok, "should be a SnowflakeError")
 	assertEqualE(t, driverErr.Number, ErrCodeSSOURLNotMatch)
+
+	// SNOW-3649735: the post-back URL check must default to ENABLED. The
+	// tristate zero value (BoolNotSet) is what a default-configured client
+	// uses, and it must behave like ConfigBoolFalse ("not disabled"), not
+	// silently skip the check.
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, configBoolNotSet)
+	assertNotNilF(t, err, "post-back URL check must run by default (BoolNotSet)")
+	driverErr, ok = err.(*SnowflakeError)
+	assertTrueF(t, ok, "should be a SnowflakeError")
+	assertEqualE(t, driverErr.Number, ErrCodeSSOURLNotMatch)
 }

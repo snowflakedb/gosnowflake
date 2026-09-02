@@ -2813,3 +2813,76 @@ func TestSFOCSPDisableChecksEnvVar(t *testing.T) {
 		assertTrueE(t, strings.Contains(buf.String(), "fail-closed"), "log should mention fail-closed mode")
 	})
 }
+
+func TestNormalizeHost(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"acct.snowflakecomputing.com", "acct.snowflakecomputing.com"},
+		{"ACCT.SnowflakeComputing.COM", "acct.snowflakecomputing.com"},
+		{"acct.snowflakecomputing.com.", "acct.snowflakecomputing.com"},
+		{"acct.snowflakecomputing.com:443", "acct.snowflakecomputing.com"},
+		{"acct.snowflakecomputing.com.:443", "acct.snowflakecomputing.com"},
+		{"  acct.snowflakecomputing.com  ", "acct.snowflakecomputing.com"},
+		// ASCII-only lowercase: Kelvin sign U+212A must not fold to 'k'
+		{"K.snowflakecomputing.com", "K.snowflakecomputing.com"},
+		{"", ""},
+	} {
+		t.Run(tc.in, func(t *testing.T) {
+			assertEqualE(t, NormalizeHost(tc.in), tc.want)
+		})
+	}
+}
+
+func TestIsLdhHost(t *testing.T) {
+	for _, tc := range []struct {
+		host string
+		want bool
+	}{
+		{"acct.snowflakecomputing.com", true},
+		{"my-acct.us-east-1.snowflakecomputing.com", true},
+		{"my_acct.privatelink.snowflakecomputing.com", true},
+		{"acct123.snowflakecomputing.com", true},
+		// must reject non-LDH characters
+		{"acct.snowflakecomputing.com@attacker.example", false},
+		{"acct.snowflakecomputing.com?q=1", false},
+		{"acct.snowflakecomputing.com#frag", false},
+		// empty labels
+		{"acct..snowflakecomputing.com", false},
+		{".snowflakecomputing.com", false},
+		{"", false},
+		// non-ASCII
+		{"K.snowflakecomputing.com", false},
+	} {
+		t.Run(tc.host, func(t *testing.T) {
+			assertEqualE(t, IsLdhHost(tc.host), tc.want)
+		})
+	}
+}
+
+func TestIsSnowflakeHost(t *testing.T) {
+	acceptCases := []string{
+		"acct.snowflakecomputing.com",
+		"acct.us-east-1.privatelink.snowflakecomputing.com",
+		"acct.snowflakecomputing.cn",
+		"acct.snowflakecomputing.mil",
+		"snowflakecomputing.com", // apex
+		"snowflakecomputing.cn",  // apex
+		"snowflakecomputing.mil", // apex
+	}
+	for _, host := range acceptCases {
+		t.Run("accept/"+host, func(t *testing.T) {
+			assertTrueE(t, IsSnowflakeHost(host), "expected host to be accepted: "+host)
+		})
+	}
+	rejectCases := []string{
+		"acct.snowflakecomputing.com.attacker.example",
+		"evilsnowflakecomputing.com",
+		"acct.snowflakecomputing.xyz",
+		"attacker.example",
+		"",
+	}
+	for _, host := range rejectCases {
+		t.Run("reject/"+host, func(t *testing.T) {
+			assertFalseE(t, IsSnowflakeHost(host), "expected host to be rejected: "+host)
+		})
+	}
+}

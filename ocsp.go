@@ -515,6 +515,7 @@ func (ov *ocspValidator) retryOCSP(
 	ocspHost *url.URL,
 	headers map[string]string,
 	reqBody []byte,
+	subject *x509.Certificate,
 	issuer *x509.Certificate,
 	totalTimeout time.Duration) (
 	ocspRes *ocsp.Response,
@@ -552,18 +553,26 @@ func (ov *ocspValidator) retryOCSP(
 			err:  err,
 		}
 	}
-	ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
+	// ParseResponseForCert verifies the responder signature against issuer
+	// and binds the response to subject's serial number, so a Good/Revoked
+	// verdict cannot be lifted from a different certificate signed by the
+	// same CA.
+	ocspRes, err = ocsp.ParseResponseForCert(ocspResBytes, subject, issuer)
 	if err != nil {
 		_, ok1 := err.(asn1.StructuralError)
 		_, ok2 := err.(asn1.SyntaxError)
 		if ok1 || ok2 {
 			logger.WithContext(ctx).Warnf("error when parsing ocsp response: %v", err)
 			logger.WithContext(ctx).Warnf("performing GET fallback request to OCSP")
-			return ov.fallbackRetryOCSPToGETRequest(ctx, client, req, ocspHost, headers, issuer, totalTimeout)
+			return ov.fallbackRetryOCSPToGETRequest(ctx, client, req, ocspHost, headers, subject, issuer, totalTimeout)
 		}
-		logger.Warnf("Unknown response status from OCSP responder: %v", err)
+		// The response was received but did not verify against the issuer or
+		// did not correspond to the certificate being checked. Report it as a
+		// definitive validation failure so it is handled consistently rather
+		// than as an inconclusive status (SNOW-3649697).
+		logger.Warnf("OCSP response did not validate: %v", err)
 		return nil, nil, &ocspStatus{
-			code: ocspStatusUnknown,
+			code: ocspFailedParseResponse,
 			err:  err,
 		}
 	}
@@ -582,6 +591,7 @@ func (ov *ocspValidator) fallbackRetryOCSPToGETRequest(
 	req requestFunc,
 	ocspHost *url.URL,
 	headers map[string]string,
+	subject *x509.Certificate,
 	issuer *x509.Certificate,
 	totalTimeout time.Duration) (
 	ocspRes *ocsp.Response,
@@ -618,7 +628,7 @@ func (ov *ocspValidator) fallbackRetryOCSPToGETRequest(
 			err:  err,
 		}
 	}
-	ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
+	ocspRes, err = ocsp.ParseResponseForCert(ocspResBytes, subject, issuer)
 	if err != nil {
 		return ocspRes, ocspResBytes, &ocspStatus{
 			code: ocspFailedParseResponse,
@@ -725,7 +735,7 @@ func (ov *ocspValidator) getRevocationStatus(ctx context.Context, subject, issue
 		Transport: transport,
 	}
 	ocspRes, ocspResBytes, ocspS := ov.retryOCSP(
-		ctx, ocspClient, http.NewRequest, u, headers, ocspReq, issuer, timeout)
+		ctx, ocspClient, http.NewRequest, u, headers, ocspReq, subject, issuer, timeout)
 	if ocspS.code != ocspSuccess {
 		return ocspS
 	}
@@ -778,16 +788,15 @@ func (ov *ocspValidator) canEarlyExitForOCSP(results []*ocspStatus, verifiedChai
 			}
 		}
 	} else {
-		// Fail open and all results are valid.
-		allValid := len(results) == len(verifiedChain)-1 // root certificate is not checked
+		// Fail open tolerates the inability to obtain an answer, but a
+		// definitive negative result must still close the connection even when
+		// another chain element could not be checked. That covers a confirmed
+		// Revoked verdict, and a response that was received but did not verify
+		// against the certificate being checked. Only genuinely inconclusive
+		// results (responder unreachable, unknown status) are tolerated
+		// (SNOW-3649733, SNOW-3649697).
 		for _, r := range results {
-			if !isValidOCSPStatus(r.code) {
-				allValid = false
-				break
-			}
-		}
-		for _, r := range results {
-			if allValid && r.code == ocspStatusRevoked {
+			if r != nil && (r.code == ocspStatusRevoked || r.code == ocspFailedParseResponse) {
 				return r
 			}
 			if r != nil && r.code != ocspStatusGood && r.err != nil {
@@ -872,6 +881,8 @@ func (ov *ocspValidator) downloadOCSPCacheServer() {
 	for k, cacheValue := range *ret {
 		cacheKey, err := decodeCertIDKey(k)
 		if err != nil {
+			// Skip corrupt/undecodable certID keys rather than panicking
+			// (SNOW-3649896 / master hardening).
 			logger.Debugf("OCSP cache server returned a corrupt or unrecognised cache key, skipping entry: %v", err)
 			continue
 		}
@@ -970,6 +981,8 @@ func initOCSPCache() {
 		certValue := &certCacheValue{ts, ocspRespBase64}
 		cacheKey, err := decodeCertIDKey(k)
 		if err != nil {
+			// Skip corrupt/undecodable certID keys rather than panicking
+			// (SNOW-3649896 / master hardening).
 			logger.Debugf("OCSP cache file contains a corrupt or unrecognised cache key, skipping entry: %v", err)
 			continue
 		}
@@ -984,6 +997,14 @@ func initOCSPCache() {
 }
 
 func extractTsAndOcspRespBase64(value []any) (bool, float64, string) {
+	// The cache payload is JSON-decoded from an external source (the OCSP cache
+	// server response or the on-disk cache file). Guard against a short or
+	// malformed entry (e.g. `[]` or `[1]`) that would otherwise panic with
+	// index-out-of-range inside the TLS verify callback (SNOW-3649896).
+	if len(value) < 2 {
+		logger.Warnf("malformed OCSP cache entry: expected 2 elements, got %v", len(value))
+		return false, -1, ""
+	}
 	ts, ok := value[0].(float64)
 	if !ok {
 		logger.Warnf("cannot cast %v as float64", value[0])
@@ -1020,38 +1041,67 @@ func extractOCSPCacheResponseValue(certIDKey *certIDKey, certCacheValue *certCac
 	ocspParsedRespCacheLock.Lock()
 	defer ocspParsedRespCacheLock.Unlock()
 
+	// A cached OCSP response is only trusted as a Good/Revoked verdict once
+	// (a) its signature has been verified against the issuer and (b) it has
+	// been confirmed to correspond to the certificate being validated. Both
+	// require the subject and issuer certificates, which are only available on
+	// the handshake path (checkOCSPResponseCache) — not when the cache is
+	// loaded from disk or fetched from the OCSP cache server, where this
+	// function is called with nil subject and issuer purely to filter
+	// expired/unparseable entries.
+	//
+	// The parsed-response memo cache (ocspParsedRespCache) is keyed only by
+	// {responseBytes, certID}, with no issuer component, so a memoised verdict
+	// must always come from a fully verified parse. We therefore only consult
+	// and populate the memo for verified (subject+issuer) parses; the
+	// nil-issuer load path never uses it. subject.SerialNumber is required
+	// because ParseResponseForCert dereferences it to bind the response to the
+	// certificate (SNOW-3649697).
+	verified := subject != nil && subject.SerialNumber != nil && issuer != nil
+
 	var cacheKey parsedOcspRespKey
 	if certIDKey != nil {
 		cacheKey = parsedOcspRespKey{certCacheValue.ocspRespBase64, encodeCertIDKey(certIDKey)}
 	} else {
 		cacheKey = parsedOcspRespKey{certCacheValue.ocspRespBase64, ""}
 	}
-	status, ok := ocspParsedRespCache[cacheKey]
-	if !ok {
-		logger.Tracef("OCSP status not found in cache; certIdKey: %v", certIDKey)
-		var err error
-		var b []byte
-		b, err = base64.StdEncoding.DecodeString(certCacheValue.ocspRespBase64)
-		if err != nil {
-			return &ocspStatus{
-				code: ocspFailedDecodeResponse,
-				err:  fmt.Errorf("failed to decode OCSP Response value in a cache. subject: %v, err: %v", subjectName, err),
-			}
+	if verified {
+		if status, ok := ocspParsedRespCache[cacheKey]; ok {
+			logger.Tracef("OCSP status found in cache: %v; certIdKey: %v", status, certIDKey)
+			return status
 		}
-		// check the revocation status here
-		ocspResponse, err := ocsp.ParseResponse(b, issuer)
+	}
 
-		if err != nil {
-			logger.Warnf("the second cache element is not a valid OCSP Response. Ignored. subject: %v\n", subjectName)
-			return &ocspStatus{
-				code: ocspFailedParseResponse,
-				err:  fmt.Errorf("failed to parse OCSP Respose. subject: %v, err: %v", subjectName, err),
-			}
+	logger.Tracef("OCSP status not found in cache; certIdKey: %v", certIDKey)
+	b, err := base64.StdEncoding.DecodeString(certCacheValue.ocspRespBase64)
+	if err != nil {
+		return &ocspStatus{
+			code: ocspFailedDecodeResponse,
+			err:  fmt.Errorf("failed to decode OCSP Response value in a cache. subject: %v, err: %v", subjectName, err),
 		}
-		status = validateOCSP(ocspResponse)
+	}
+	// check the revocation status here. When the certificates are available
+	// ParseResponseForCert verifies the CA signature (issuer) AND binds the
+	// response to the certificate being checked (subject's serial number),
+	// preventing substitution of a legitimately-signed response issued for a
+	// different certificate by the same CA.
+	var ocspResponse *ocsp.Response
+	if verified {
+		ocspResponse, err = ocsp.ParseResponseForCert(b, subject, issuer)
+	} else {
+		ocspResponse, err = ocsp.ParseResponse(b, issuer)
+	}
+	if err != nil {
+		logger.Warnf("the second cache element is not a valid OCSP Response. Ignored. subject: %v\n", subjectName)
+		return &ocspStatus{
+			code: ocspFailedParseResponse,
+			err:  fmt.Errorf("failed to parse OCSP Respose. subject: %v, err: %v", subjectName, err),
+		}
+	}
+	status := validateOCSP(ocspResponse)
+	if verified {
 		ocspParsedRespCache[cacheKey] = status
 	}
-	logger.Tracef("OCSP status found in cache: %v; certIdKey: %v", status, certIDKey)
 	return status
 }
 

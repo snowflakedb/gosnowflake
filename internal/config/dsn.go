@@ -757,13 +757,77 @@ var wifAllowedHostSuffixes = []string{
 // still carries the dot immediately before the colon, and stripping the dot
 // first would leave it attached to the label and unmatched.
 func normalizeWifHostSuffix(s string) string {
+	return NormalizeHost(s)
+}
+
+// NormalizeHost normalizes a host string for allow-list matching and URL
+// construction. It trims whitespace, lowercases ASCII A–Z only (to avoid
+// Unicode case-folding surprises such as the Kelvin sign U+212A folding to
+// 'k'), strips everything from the first ':' onward (port), then strips
+// exactly one trailing '.'. Non-ASCII characters are left unchanged so that
+// IsLdhHost can reject them.
+//
+// The port must be stripped before the trailing dot: a host in FQDN form
+// with an explicit port (e.g. "acct.snowflakecomputing.com.:443") carries
+// the dot immediately before the colon, so removing the colon-and-tail
+// first leaves the trailing dot to be stripped in the next step.
+func NormalizeHost(s string) string {
 	s = strings.TrimSpace(s)
-	s = strings.ToLower(s)
+	s = strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' {
+			return r + 32
+		}
+		return r
+	}, s)
 	if idx := strings.IndexByte(s, ':'); idx >= 0 {
 		s = s[:idx]
 	}
 	s = strings.TrimSuffix(s, ".")
 	return s
+}
+
+// IsLdhHost returns true if the already-normalized host contains only
+// LDH characters ([a-z0-9_-] per label, separated by '.'). Each label must
+// be non-empty.
+//
+// This is an allow-list, not a block-list. Enumerating forbidden characters
+// does not work: URL parsers variously terminate the authority at a space,
+// semicolon, quote, percent-escape, or a full-width look-alike of '.', '#',
+// or '?'. A host whose trailing labels are a recognized Snowflake domain can
+// still begin with an unrelated name, so a parser stopping early resolves
+// that unrelated name instead.
+func IsLdhHost(normalized string) bool {
+	if normalized == "" {
+		return false
+	}
+	labelLen := 0
+	for _, c := range normalized {
+		switch {
+		case c == '.':
+			if labelLen == 0 {
+				return false
+			}
+			labelLen = 0
+		case (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_':
+			labelLen++
+		default:
+			return false
+		}
+	}
+	return labelLen > 0
+}
+
+// IsSnowflakeHost returns true if the already-normalized host ends at a
+// recognized Snowflake domain suffix, anchored at a label boundary. Unlike
+// isSnowflakeHostForWorkloadIdentity it does not consult the
+// SNOWFLAKE_WIF_ALLOWED_HOST_SUFFIXES escape hatch.
+func IsSnowflakeHost(normalized string) bool {
+	for _, s := range wifAllowedHostSuffixes {
+		if normalized == s || strings.HasSuffix(normalized, "."+s) {
+			return true
+		}
+	}
+	return false
 }
 
 // extraWifAllowedHostSuffixesFromEnv parses the additive escape-hatch
@@ -777,7 +841,7 @@ func extraWifAllowedHostSuffixesFromEnv() []string {
 	}
 	var extra []string
 	for _, part := range strings.Split(raw, ",") {
-		s := normalizeWifHostSuffix(part)
+		s := NormalizeHost(part)
 		if s != "" {
 			extra = append(extra, s)
 		}
@@ -795,12 +859,14 @@ func extraWifAllowedHostSuffixesFromEnv() []string {
 // here is anchored to a label boundary at the end of the host, so only the
 // listed suffixes and their subdomains are recognized.
 func isSnowflakeHostForWorkloadIdentity(host string) bool {
-	h := normalizeWifHostSuffix(host)
+	h := NormalizeHost(host)
 	if h == "" {
 		return false
 	}
-	candidates := append(append([]string{}, wifAllowedHostSuffixes...), extraWifAllowedHostSuffixesFromEnv()...)
-	for _, s := range candidates {
+	if IsSnowflakeHost(h) {
+		return true
+	}
+	for _, s := range extraWifAllowedHostSuffixesFromEnv() {
 		if h == s || strings.HasSuffix(h, "."+s) {
 			return true
 		}

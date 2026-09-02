@@ -148,7 +148,17 @@ func authenticateBySAML(
 	if err != nil {
 		return nil, err
 	}
-	if disableSamlURLCheck == ConfigBoolFalse {
+	// Step 5 is the only client-side defense against an SP-confusion attack
+	// (see the function doc above). It must run by default and may only be
+	// skipped when the user has *explicitly* opted out via
+	// disableSamlURLCheck=true. DisableSamlURLCheck is a tristate whose zero
+	// value is BoolNotSet (the default when the option is absent from the
+	// DSN/TOML), and it is never normalized to BoolFalse in
+	// FillMissingConfigParameters. Comparing against ConfigBoolFalse would
+	// therefore silently disable the check for every default-configured
+	// client, contradicting the documented default of false. Compare against
+	// ConfigBoolTrue instead so BoolNotSet keeps the check enabled.
+	if disableSamlURLCheck != ConfigBoolTrue {
 		logger.WithContext(ctx).Info("step 5: validate post_back_url matches Snowflake URL")
 		tgtURL, err := postBackURL(bd)
 		if err != nil {
