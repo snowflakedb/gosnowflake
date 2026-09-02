@@ -92,6 +92,8 @@ const (
 	ErrCodeEmptyToken = 260020
 	// ErrCodeHostWithScheme is an error code for the case where the host includes a URL scheme (e.g. "https://")
 	ErrCodeHostWithScheme = 260021
+	// ErrCodeWifNonSnowflakeHost is an error code for the case where WORKLOAD_IDENTITY is configured with a non-Snowflake host
+	ErrCodeWifNonSnowflakeHost = 260022
 
 	/* network */
 
@@ -279,6 +281,7 @@ const (
 	ErrMsgNonArrowResponseInArrowBatches     = "arrow batches enabled, but the response is not Arrow based"
 	ErrMsgMissingTLSConfig                   = "TLS config not found: %v"
 	ErrMsgHostWithScheme                     = "host includes a URL scheme (e.g. \"https://\"). Specify the hostname only, without a scheme prefix. Use \"myorg-myaccount.snowflakecomputing.com\" instead of \"https://myorg-myaccount.snowflakecomputing.com\". Got: %v"
+	ErrMsgWifNonSnowflakeHost                = "WORKLOAD_IDENTITY requires a recognized Snowflake host (*.snowflakecomputing.com, .cn or .mil). Got: %v"
 )
 
 // ErrEmptyAccount is returned if a DSN doesn't include account parameter.
@@ -334,6 +337,15 @@ func ErrHostWithScheme(host string) *SnowflakeError {
 	return &SnowflakeError{
 		Number:      ErrCodeHostWithScheme,
 		Message:     ErrMsgHostWithScheme,
+		MessageArgs: []any{host},
+	}
+}
+
+// ErrWifNonSnowflakeHost is returned if WORKLOAD_IDENTITY is configured with a host that does not belong to Snowflake.
+func ErrWifNonSnowflakeHost(host string) *SnowflakeError {
+	return &SnowflakeError{
+		Number:      ErrCodeWifNonSnowflakeHost,
+		Message:     ErrMsgWifNonSnowflakeHost,
 		MessageArgs: []any{host},
 	}
 }

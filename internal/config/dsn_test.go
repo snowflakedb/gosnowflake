@@ -2626,6 +2626,139 @@ func TestFillMissingConfigParametersRejectsHostWithHTTPScheme(t *testing.T) {
 	assertEqualE(t, sfErr.Number, sferrors.ErrCodeHostWithScheme, "error number")
 }
 
+func TestFillMissingConfigParametersRejectsWifWithNonSnowflakeHost(t *testing.T) {
+	rejectHosts := []string{
+		"attacker.example.com",
+		"evil.snowflakecomputing.attacker.example",     // matches the substring check but not the label-anchored check
+		"acct.snowflakecomputing.com.attacker.example", // extra labels after the suffix
+		"acct.snowflakecomputing.zip",                  // TLD not in the allowlist
+	}
+	for _, host := range rejectHosts {
+		t.Run(host, func(t *testing.T) {
+			cfg := &Config{
+				User:          "u",
+				Host:          host,
+				Port:          443,
+				Account:       "myorg-myaccount",
+				Authenticator: AuthTypeWorkloadIdentityFederation,
+			}
+			err := FillMissingConfigParameters(cfg)
+			assertNotNilF(t, err, "expected error when WIF is used with a non-Snowflake host")
+			sfErr, ok := err.(*sferrors.SnowflakeError)
+			assertTrueF(t, ok, "expected SnowflakeError")
+			assertEqualE(t, sfErr.Number, sferrors.ErrCodeWifNonSnowflakeHost, "error number")
+		})
+	}
+}
+
+func TestFillMissingConfigParametersAllowsWifWithSnowflakeHost(t *testing.T) {
+	acceptHosts := []string{
+		"myorg-myaccount.snowflakecomputing.com",
+		"myorg-myaccount.snowflakecomputing.mil",
+	}
+	for _, host := range acceptHosts {
+		t.Run(host, func(t *testing.T) {
+			cfg := &Config{
+				User:          "u",
+				Host:          host,
+				Port:          443,
+				Account:       "myorg-myaccount",
+				Authenticator: AuthTypeWorkloadIdentityFederation,
+			}
+			err := FillMissingConfigParameters(cfg)
+			assertNilF(t, err, "WIF with a valid Snowflake host must not be rejected")
+		})
+	}
+}
+
+func TestIsSnowflakeHostForWorkloadIdentity(t *testing.T) {
+	acceptCases := []string{
+		"myorg-acct.snowflakecomputing.com",
+		"myorg-acct.privatelink.snowflakecomputing.com",
+		"acct.us-east-1.snowflakecomputing.com",
+		"acct.snowflakecomputing.cn",
+		"acct.snowflakecomputing.mil",
+		"acct.some-region.privatelink.snowflakecomputing.mil",
+		"snowflakecomputing.com",           // apex
+		"ACCT.SnowflakeComputing.COM",      // case-insensitive
+		"acct.snowflakecomputing.com.",     // trailing dot / FQDN form
+		"acct.snowflakecomputing.com.:443", // trailing dot AND port together (vector 23)
+	}
+	for _, host := range acceptCases {
+		t.Run("accept/"+host, func(t *testing.T) {
+			assertTrueE(t, isSnowflakeHostForWorkloadIdentity(host), "expected host to be accepted: "+host)
+		})
+	}
+
+	rejectCases := []string{
+		"evilsnowflakecomputing.com",                   // no label boundary
+		"acct.snowflakecomputing.com.attacker.example", // extra labels after the suffix
+		"evil.snowflakecomputing.attacker.example",     // matches the substring check but not the label-anchored check
+		"acct.snowflakecomputing.zip",                  // TLD not in the allowlist
+		"attacker.example",
+		"snowflakecomputing.com.evil.io",
+		"",
+		"127.0.0.1",
+		"xsnowflakecomputing.mil",
+		"acct.snowflakecomputing.co", // near-miss TLD
+	}
+	for _, host := range rejectCases {
+		t.Run("reject/"+host, func(t *testing.T) {
+			assertFalseE(t, isSnowflakeHostForWorkloadIdentity(host), "expected host to be rejected: "+host)
+		})
+	}
+}
+
+func TestIsSnowflakeHostForWorkloadIdentityEnvEscapeHatch(t *testing.T) {
+	assertFalseE(t, isSnowflakeHostForWorkloadIdentity("wiremock.local"),
+		"wiremock.local must be rejected when the escape hatch env var is unset")
+
+	t.Setenv(wifAllowedHostSuffixesEnvVar, "wiremock.local")
+	assertTrueE(t, isSnowflakeHostForWorkloadIdentity("wiremock.local"),
+		"wiremock.local must be accepted once SNOWFLAKE_WIF_ALLOWED_HOST_SUFFIXES lists it")
+	assertFalseE(t, isSnowflakeHostForWorkloadIdentity("attacker.example"),
+		"the escape hatch must be additive only, not disable the check for other hosts")
+}
+
+// TestFillMissingConfigParametersWifRejectionPrecedesAttestationFetch documents
+// and enforces (at the internal/config layer) that the WIF host guard fails
+// closed with an error before any caller could proceed to mint/fetch an
+// ambient cloud credential. The top-level gosnowflake package only calls
+// createWifAttestationProvider(...).getAttestation(...) (auth.go) after
+// FillMissingConfigParameters has succeeded during connection setup - on the
+// sync and async paths alike - so a non-nil error here is sufficient to
+// guarantee the attestation creator is never reached for a rejected host.
+// A full call-spy across the createWifAttestationProvider boundary would
+// require a test in the top-level gosnowflake package (see auth_wif_test.go's
+// mockWifAttestationCreator for that package's existing mocking idiom); it is
+// out of scope for this internal/config change since the host guard itself
+// lives here and does not call into the attestation provider.
+func TestFillMissingConfigParametersWifRejectionPrecedesAttestationFetch(t *testing.T) {
+	attestationFetched := false
+	fetchAttestation := func() { attestationFetched = true }
+
+	cfg := &Config{
+		User:          "u",
+		Host:          "evil.snowflakecomputing.attacker.example",
+		Port:          443,
+		Account:       "myorg-myaccount",
+		Authenticator: AuthTypeWorkloadIdentityFederation,
+	}
+
+	err := FillMissingConfigParameters(cfg)
+	assertNotNilF(t, err, "expected error when WIF is used with a non-Snowflake host")
+	sfErr, ok := err.(*sferrors.SnowflakeError)
+	assertTrueF(t, ok, "expected SnowflakeError")
+	assertEqualE(t, sfErr.Number, sferrors.ErrCodeWifNonSnowflakeHost, "error number")
+
+	// Mirrors the real caller: only fetch the attestation if config validation
+	// succeeded.
+	if err == nil {
+		fetchAttestation()
+	}
+	assertFalseE(t, attestationFetched, "ambient credential attestation must never be fetched for a rejected WIF host")
+}
+
 // helper function to generate PKCS8 encoded base64 string of a private key
 func generatePKCS8StringSupress(key *rsa.PrivateKey) string {
 	// Error would only be thrown when the private key type is not supported

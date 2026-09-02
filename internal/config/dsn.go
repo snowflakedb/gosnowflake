@@ -598,6 +598,13 @@ func FillMissingConfigParameters(cfg *Config) error {
 			}
 		}
 	}
+	// Verify the host is a recognized Snowflake endpoint before fetching cloud credentials.
+	// Deliberately uses isSnowflakeHostForWorkloadIdentity (a label-boundary suffix match), not
+	// hostIncludesTopLevelDomain (a bare substring test used elsewhere for account/port inference),
+	// which has different, looser correctness requirements.
+	if cfg.Authenticator == AuthTypeWorkloadIdentityFederation && !isSnowflakeHostForWorkloadIdentity(cfg.Host) {
+		return sferrors.ErrWifNonSnowflakeHost(cfg.Host)
+	}
 	if cfg.LoginTimeout == 0 {
 		cfg.LoginTimeout = DefaultLoginTimeout
 	}
@@ -705,6 +712,83 @@ func hostIncludesTopLevelDomain(host string) bool {
 // inferInputShapeIfMissing, which guarantees a non-nil shape.
 func hostProvidedByUser(cfg *Config) bool {
 	return cfg.inputShape != nil && cfg.inputShape.HostProvided
+}
+
+// wifAllowedHostSuffixesEnvVar is the ONLY escape hatch for the
+// isSnowflakeHostForWorkloadIdentity allowlist. Read only from the process
+// environment - never from the DSN, connection parameters or configuration
+// files - so connection configuration cannot influence the allowlist.
+// Entries are additive: they extend the recognized-host list and cannot
+// disable it.
+const wifAllowedHostSuffixesEnvVar = "SNOWFLAKE_WIF_ALLOWED_HOST_SUFFIXES"
+
+// wifAllowedHostSuffixes are the Snowflake-owned domain suffixes that the
+// WORKLOAD_IDENTITY authenticator is permitted to send ambient cloud
+// credentials to. Apex (no subdomain) is accepted for parity with the other
+// drivers' equivalent check.
+var wifAllowedHostSuffixes = []string{
+	"snowflakecomputing.com",
+	"snowflakecomputing.cn",
+	"snowflakecomputing.mil",
+}
+
+// normalizeWifHostSuffix trims whitespace, lower-cases, strips a trailing
+// ":<port>" (everything from the first colon onward), and then strips
+// exactly one trailing dot from an ASCII host/suffix string used by the WIF
+// host check. The port must be stripped before the trailing dot: a host in
+// FQDN form with an explicit port (e.g. "acct.snowflakecomputing.com.:443")
+// still carries the dot immediately before the colon, and stripping the dot
+// first would leave it attached to the label and unmatched.
+func normalizeWifHostSuffix(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.ToLower(s)
+	if idx := strings.IndexByte(s, ':'); idx >= 0 {
+		s = s[:idx]
+	}
+	s = strings.TrimSuffix(s, ".")
+	return s
+}
+
+// extraWifAllowedHostSuffixesFromEnv parses the additive escape-hatch
+// suffixes from SNOWFLAKE_WIF_ALLOWED_HOST_SUFFIXES (comma-separated), normalizing
+// each entry and dropping empty ones. It never disables the check - it can
+// only widen the allowlist.
+func extraWifAllowedHostSuffixesFromEnv() []string {
+	raw := os.Getenv(wifAllowedHostSuffixesEnvVar)
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var extra []string
+	for _, part := range strings.Split(raw, ",") {
+		s := normalizeWifHostSuffix(part)
+		if s != "" {
+			extra = append(extra, s)
+		}
+	}
+	if len(extra) > 0 {
+		logger.Infof("WORKLOAD_IDENTITY host allowlist extended via %v with additional suffixes: %v", wifAllowedHostSuffixesEnvVar, extra)
+	}
+	return extra
+}
+
+// isSnowflakeHostForWorkloadIdentity is a suffix-anchored allowlist that
+// restricts Workload Identity attestation to recognized Snowflake hosts
+// before any cloud credential is fetched. Unlike hostIncludesTopLevelDomain
+// (a substring test used elsewhere for account/port inference), matching
+// here is anchored to a label boundary at the end of the host, so only the
+// listed suffixes and their subdomains are recognized.
+func isSnowflakeHostForWorkloadIdentity(host string) bool {
+	h := normalizeWifHostSuffix(host)
+	if h == "" {
+		return false
+	}
+	candidates := append(append([]string{}, wifAllowedHostSuffixes...), extraWifAllowedHostSuffixesFromEnv()...)
+	for _, s := range candidates {
+		if h == s || strings.HasSuffix(h, "."+s) {
+			return true
+		}
+	}
+	return false
 }
 
 func buildHostFromAccountAndRegion(account, region string) string {

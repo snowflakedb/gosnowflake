@@ -947,3 +947,116 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 		})
 	}
 }
+
+// TestAzureEntraResourceQueryEncoding is a regression test for SNOW-3649876.
+// WorkloadIdentityEntraResource (and the managed identity client id) must be
+// percent-encoded when building the Azure IMDS / App Service identity query
+// string, so a value containing "&" or "=" stays confined to its own parameter
+// instead of adding or replacing others such as client_id.
+func TestAzureEntraResourceQueryEncoding(t *testing.T) {
+	const resourceWithSeparators = "api://fd3f753b-eed3-462c-b6a7-a4b5bb650aad&client_id=other-uami-guid"
+	const legitResource = "api://fd3f753b-eed3-462c-b6a7-a4b5bb650aad"
+
+	t.Run("VM path keeps the value in one parameter", func(t *testing.T) {
+		creator := &azureIdentityAttestationCreator{
+			azureMetadataServiceBaseURL:   defaultAzureMetadataServiceBase,
+			workloadIdentityEntraResource: resourceWithSeparators,
+		}
+		req, err := creator.azureVMIdentityRequest()
+		assertNilF(t, err)
+		q := req.URL.Query()
+		// The embedded client_id must NOT appear as its own query parameter.
+		assertEqualE(t, "", q.Get("client_id"))
+		// The whole value must round-trip as the single resource value.
+		assertEqualE(t, resourceWithSeparators, q.Get("resource"))
+		assertEqualE(t, "2018-02-01", q.Get("api-version"))
+	})
+
+	t.Run("Functions path keeps the value in one parameter", func(t *testing.T) {
+		creator := &azureIdentityAttestationCreator{
+			workloadIdentityEntraResource: resourceWithSeparators,
+		}
+		req, err := creator.azureFunctionsIdentityRequest("http://127.0.0.1:41812/msi/token", "secret-header", "")
+		assertNilF(t, err)
+		q := req.URL.Query()
+		assertEqualE(t, "", q.Get("client_id"))
+		assertEqualE(t, resourceWithSeparators, q.Get("resource"))
+		assertEqualE(t, "2019-08-01", q.Get("api-version"))
+	})
+
+	t.Run("legitimate resource round-trips", func(t *testing.T) {
+		creator := &azureIdentityAttestationCreator{
+			azureMetadataServiceBaseURL:   defaultAzureMetadataServiceBase,
+			workloadIdentityEntraResource: legitResource,
+		}
+		req, err := creator.azureVMIdentityRequest()
+		assertNilF(t, err)
+		q := req.URL.Query()
+		assertEqualE(t, legitResource, q.Get("resource"))
+		assertEqualE(t, "2018-02-01", q.Get("api-version"))
+		assertEqualE(t, "", q.Get("client_id"))
+	})
+}
+
+// TestValidateLocalMetadataEndpoint is a unit test for the host validation
+// added for SNOW-3649837: only loopback / link-local identity endpoints are
+// permitted, so IDENTITY_ENDPOINT cannot direct the request, or the
+// IDENTITY_HEADER value, to a remote host.
+func TestValidateLocalMetadataEndpoint(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+		wantErr  bool
+	}{
+		{"loopback ipv4", "http://127.0.0.1:41812/msi/token", false},
+		{"loopback ipv4 non-localhost octet", "http://127.5.6.7/msi/token", false},
+		{"localhost hostname", "http://localhost:41812/msi/token", false},
+		{"loopback ipv6", "http://[::1]:41812/msi/token", false},
+		{"link-local ipv4 (IMDS)", "http://169.254.169.254/metadata/identity", false},
+		{"https loopback", "https://127.0.0.1/msi", false},
+		{"remote https host", "https://alice.example/msi", true},
+		{"public ip", "http://8.8.8.8/msi", true},
+		{"private routable ip", "http://10.0.0.5/msi", true},
+		{"non-http scheme", "file:///etc/passwd", true},
+		{"empty endpoint", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateLocalMetadataEndpoint(tt.endpoint)
+			if tt.wantErr {
+				assertNotNilE(t, err)
+			} else {
+				assertNilE(t, err)
+			}
+		})
+	}
+}
+
+// TestAzureFunctionsIdentityRequestEndpointValidation is the behavioral
+// regression test for SNOW-3649837: a non-loopback IDENTITY_ENDPOINT must be
+// rejected before the request is built, so the platform-managed IDENTITY_HEADER
+// secret is never attached or sent; a loopback endpoint is accepted and the
+// secret is attached as expected.
+func TestAzureFunctionsIdentityRequestEndpointValidation(t *testing.T) {
+	const secret = "platform-managed-identity-header-secret" // pragma: allowlist secret
+
+	t.Run("non-loopback endpoint rejected and secret not sent", func(t *testing.T) {
+		creator := &azureIdentityAttestationCreator{
+			workloadIdentityEntraResource: determineEntraResource(nil),
+		}
+		req, err := creator.azureFunctionsIdentityRequest("https://attacker.example/msi", secret, "")
+		// No request must be constructed, hence the secret cannot leave the process.
+		assertNotNilE(t, err)
+		assertNilF(t, req)
+	})
+
+	t.Run("loopback endpoint accepted and secret attached", func(t *testing.T) {
+		creator := &azureIdentityAttestationCreator{
+			workloadIdentityEntraResource: determineEntraResource(nil),
+		}
+		req, err := creator.azureFunctionsIdentityRequest("http://127.0.0.1:41812/msi/token", secret, "")
+		assertNilF(t, err)
+		assertNotNilF(t, req)
+		assertEqualE(t, secret, req.Header.Get("X-IDENTITY-HEADER"))
+	})
+}
