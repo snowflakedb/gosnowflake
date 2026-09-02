@@ -412,7 +412,7 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 	if len(scd.ChunkHeader) > 0 {
 		logger.WithContext(ctx).Debug("chunk header is provided.")
 		for k, v := range scd.ChunkHeader {
-			logger.WithContext(ctx).Debugf("adding header: %v, value: %v", k, v)
+			logger.WithContext(ctx).Debugf("adding header: %v", k)
 
 			headers[k] = v
 		}

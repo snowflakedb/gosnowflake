@@ -329,7 +329,7 @@ func postRestfulQueryHelper(
 		return nil, err
 	}
 	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("Header names: %v", headerNames(resp.Header))
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToPostQuery,
 		SQLState:    SQLStateConnectionFailure,
@@ -383,7 +383,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 		return err
 	}
 	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("Header names: %v", headerNames(resp.Header))
 	return &SnowflakeError{
 		Number:      ErrFailedToCloseSession,
 		SQLState:    SQLStateConnectionFailure,
@@ -450,7 +450,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 		return err
 	}
 	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("Header names: %v", headerNames(resp.Header))
 	return &SnowflakeError{
 		Number:      ErrFailedToRenewSession,
 		SQLState:    SQLStateConnectionFailure,
@@ -539,7 +539,7 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID UUID, time
 		return err
 	}
 	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("Header names: %v", headerNames(resp.Header))
 	return &SnowflakeError{
 		Number:      ErrFailedToCancelQuery,
 		SQLState:    SQLStateConnectionFailure,

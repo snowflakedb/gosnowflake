@@ -25,6 +25,12 @@ Bug fixes:
 - Fixed proxy configuration for a literal IPv6 `ProxyHost`, which was concatenated into an unbracketed `host:port` and left the proxy URL unparseable (snowflakedb/gosnowflake#TBD).
 - Fixed the `region` parameter rewriting an explicitly provided `host` (e.g. `host=myacct.snowflakecomputing.com` with `region=us-east-1` became `myacct.us-east-1.snowflakecomputing.com`); an explicit host now takes precedence (snowflakedb/gosnowflake#1841).
 - Improved OCSP response validation to correctly distinguish between transient network failures and definitive certificate status results; definitive results are now always reflected accurately regardless of the `ocspFailOpen` setting (SNOW-3649697).
+- Extended secret masking in debug logs to cover the S3 SSE-C customer-key header and the `X-Amz-Credential` / `X-Amz-Security-Token` URL query parameters (SNOW-3649835).
+- The TOML connection-config loader now logs setting names only, not their values, when reporting a parsing error (SNOW-3649818).
+- Corrected the SAS-token masking pattern so signed-URL query parameters are fully masked in logs (SNOW-3649773).
+- HTTP response headers are now logged as header names only, without their values, at every site that previously logged the whole header collection (`restful.go`, `auth.go`, `authokta.go`, `heartbeat.go`). Header values carry session tokens, storage credentials and the SSE-C customer key, and formatting an `http.Header` with `%v` produced a shape the header-specific masking patterns did not match, so the values are omitted rather than masked (SNOW-3649835).
+- The chunk-header debug line now logs the header name only, not its value (SNOW-3649835).
+- Corrected the connection-token masking pattern to admit `:` in the token value, so a Snowflake session token (`ver:1-hint:...`) is masked; previously the match ended at the first colon and fell below the pattern's minimum length, so the pattern never matched the format it targets (SNOW-3649773).
 
 Internal changes:
 - Migrated from deprecated `github.com/aws/aws-sdk-go-v2/feature/s3/manager` (v1.16.15) to `github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager` (v0.3.5).

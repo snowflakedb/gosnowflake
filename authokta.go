@@ -310,7 +310,7 @@ func postAuthOKTA(
 		return nil, err
 	}
 	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v", resp.StatusCode, fullURL)
-	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("Header names: %v", headerNames(resp.Header))
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuthOKTA,
 		SQLState:    SQLStateConnectionRejected,
@@ -351,7 +351,7 @@ func getSSO(
 		return b, nil
 	}
 	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v ", resp.StatusCode, fullURL)
-	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("Header names: %v", headerNames(resp.Header))
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToGetSSO,
 		SQLState:    SQLStateConnectionRejected,
