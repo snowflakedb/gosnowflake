@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
 type mockWifAttestationCreator struct {
@@ -316,6 +317,74 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 			expectedProvider: "AWS",
 			expectedStsHost:  "sts.cn-north-1.amazonaws.com.cn",
 		},
+		{
+			name:   "Explicit STS host overrides the regional default",
+			config: Config{WorkloadIdentityHost: "sts.custom.example.com"},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds:  mockCreds,
+				region: "us-custom-1",
+			},
+			expectedProvider: "AWS",
+			expectedStsHost:  "sts.custom.example.com",
+		},
+		{
+			name:   "Explicit STS host is not partition-mapped for CN regions",
+			config: Config{WorkloadIdentityHost: "sts.example.gov"},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds:  mockCreds,
+				region: "cn-north-1",
+			},
+			expectedProvider: "AWS",
+			expectedStsHost:  "sts.example.gov",
+		},
+		{
+			name:   "Explicit STS host given as a full URL",
+			config: Config{WorkloadIdentityHost: "https://sts.custom.example.com/"},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds:  mockCreds,
+				region: "us-custom-1",
+			},
+			expectedProvider: "AWS",
+			expectedStsHost:  "sts.custom.example.com",
+		},
+		{
+			name:   "Explicit STS host with a port",
+			config: Config{WorkloadIdentityHost: "sts.custom.example.com:8443"},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds:  mockCreds,
+				region: "us-custom-1",
+			},
+			expectedProvider: "AWS",
+			expectedStsHost:  "sts.custom.example.com:8443",
+		},
+		{
+			name: "Explicit STS host is applied with role chaining too",
+			config: Config{
+				WorkloadIdentityHost:              "sts.custom.example.com",
+				WorkloadIdentityImpersonationPath: []string{"arn:aws-iso-b:iam::123456789012:role/ts-role"},
+			},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds: mockCreds,
+				chainingCreds: aws.Credentials{
+					AccessKeyID:     "tsRoleAccessKey",
+					SecretAccessKey: "tsRoleSecretKey",
+					SessionToken:    "tsRoleSessionToken",
+				},
+				region:          "us-custom-1",
+				useRoleChaining: true,
+			},
+			expectedProvider: "AWS",
+			expectedStsHost:  "sts.custom.example.com",
+		},
+		{
+			name:   "Malformed explicit STS host is rejected",
+			config: Config{WorkloadIdentityHost: "ftp://sts.custom.example.com"},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds:  mockCreds,
+				region: "us-custom-1",
+			},
+			expectedError: fmt.Errorf(`workloadIdentityHost "ftp://sts.custom.example.com" must use https or http, got scheme "ftp"`),
+		},
 	}
 
 	for _, test := range tests {
@@ -349,6 +418,259 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAwsStsEndpointFor(t *testing.T) {
+	tests := []struct {
+		name              string
+		wifHost           string
+		region            string
+		expectedAuthority string
+		expectedBaseURL   string
+		expectedOverride  bool
+		expectedError     string
+	}{
+		{
+			name:              "regional default",
+			region:            "us-west-2",
+			expectedAuthority: "sts.us-west-2.amazonaws.com",
+			expectedBaseURL:   "https://sts.us-west-2.amazonaws.com",
+		},
+		{
+			name:              "regional default in CN partition",
+			region:            "cn-north-1",
+			expectedAuthority: "sts.cn-north-1.amazonaws.com.cn",
+			expectedBaseURL:   "https://sts.cn-north-1.amazonaws.com.cn",
+		},
+		{
+			name:              "bare host",
+			wifHost:           "sts.custom.example.com",
+			region:            "us-custom-1",
+			expectedAuthority: "sts.custom.example.com",
+			expectedBaseURL:   "https://sts.custom.example.com",
+			expectedOverride:  true,
+		},
+		{
+			name:              "bare host with port",
+			wifHost:           "sts.custom.example.com:8443",
+			region:            "us-custom-1",
+			expectedAuthority: "sts.custom.example.com:8443",
+			expectedBaseURL:   "https://sts.custom.example.com:8443",
+			expectedOverride:  true,
+		},
+		{
+			name:              "full URL",
+			wifHost:           "https://sts.custom.example.com",
+			region:            "us-custom-1",
+			expectedAuthority: "sts.custom.example.com",
+			expectedBaseURL:   "https://sts.custom.example.com",
+			expectedOverride:  true,
+		},
+		{
+			name:              "full URL with trailing slashes",
+			wifHost:           "https://sts.custom.example.com///",
+			region:            "us-custom-1",
+			expectedAuthority: "sts.custom.example.com",
+			expectedBaseURL:   "https://sts.custom.example.com",
+			expectedOverride:  true,
+		},
+		{
+			name:              "full URL with a path",
+			wifHost:           "https://gateway.example.gov/sts/",
+			region:            "us-custom-1",
+			expectedAuthority: "gateway.example.gov",
+			expectedBaseURL:   "https://gateway.example.gov/sts",
+			expectedOverride:  true,
+		},
+		{
+			name:              "http is honoured for local endpoints",
+			wifHost:           "http://localhost:9090",
+			region:            "us-west-2",
+			expectedAuthority: "localhost:9090",
+			expectedBaseURL:   "http://localhost:9090",
+			expectedOverride:  true,
+		},
+		{
+			name:              "surrounding whitespace is trimmed",
+			wifHost:           "  sts.custom.example.com  ",
+			region:            "us-custom-1",
+			expectedAuthority: "sts.custom.example.com",
+			expectedBaseURL:   "https://sts.custom.example.com",
+			expectedOverride:  true,
+		},
+		{
+			name:          "unsupported scheme",
+			wifHost:       "ftp://sts.custom.example.com",
+			region:        "us-west-2",
+			expectedError: `workloadIdentityHost "ftp://sts.custom.example.com" must use https or http, got scheme "ftp"`,
+		},
+		{
+			name:          "query string",
+			wifHost:       "https://sts.custom.example.com?Action=Foo",
+			region:        "us-west-2",
+			expectedError: `workloadIdentityHost "https://sts.custom.example.com?Action=Foo" must not contain user info, a query or a fragment`,
+		},
+		{
+			name:          "no hostname",
+			wifHost:       "https:///sts",
+			region:        "us-west-2",
+			expectedError: `workloadIdentityHost "https:///sts" does not contain a hostname`,
+		},
+		{
+			name:          "fragment",
+			wifHost:       "https://sts.custom.example.com#frag",
+			region:        "us-west-2",
+			expectedError: `workloadIdentityHost "https://sts.custom.example.com#frag" must not contain user info, a query or a fragment`,
+		},
+		{
+			name:          "user info",
+			wifHost:       "https://user:pass@sts.custom.example.com", // pragma: allowlist secret
+			region:        "us-west-2",
+			expectedError: `workloadIdentityHost "https://user:pass@sts.custom.example.com" must not contain user info, a query or a fragment`, // pragma: allowlist secret
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			endpoint, err := awsStsEndpointFor(&Config{WorkloadIdentityHost: test.wifHost}, test.region)
+			if test.expectedError != "" {
+				assertNotNilF(t, err)
+				assertEqualE(t, err.Error(), test.expectedError)
+				return
+			}
+			assertNilF(t, err)
+			assertEqualE(t, endpoint.authority, test.expectedAuthority)
+			assertEqualE(t, endpoint.baseURL, test.expectedBaseURL)
+			assertEqualE(t, endpoint.overridden, test.expectedOverride)
+		})
+	}
+
+	t.Run("nil config falls back to the regional default", func(t *testing.T) {
+		endpoint, err := awsStsEndpointFor(nil, "us-west-2")
+		assertNilF(t, err)
+		assertEqualE(t, endpoint.authority, "sts.us-west-2.amazonaws.com")
+		assertEqualE(t, endpoint.overridden, false)
+	})
+}
+
+func TestWithStsBaseEndpoint(t *testing.T) {
+	t.Run("leaves SDK endpoint resolution alone by default", func(t *testing.T) {
+		endpoint, err := awsStsEndpointFor(&Config{}, "us-west-2")
+		assertNilF(t, err)
+		opts := sts.Options{}
+		withStsBaseEndpoint(endpoint)(&opts)
+		assertNilE(t, opts.BaseEndpoint)
+	})
+
+	t.Run("pins the client to an explicit host", func(t *testing.T) {
+		endpoint, err := awsStsEndpointFor(&Config{WorkloadIdentityHost: "sts.custom.example.com"}, "us-custom-1")
+		assertNilF(t, err)
+		opts := sts.Options{}
+		withStsBaseEndpoint(endpoint)(&opts)
+		assertNotNilF(t, opts.BaseEndpoint)
+		// The SDK parses BaseEndpoint with url.Parse and drops a hostless value on
+		// the floor, so the scheme has to be there.
+		assertEqualE(t, *opts.BaseEndpoint, "https://sts.custom.example.com")
+	})
+}
+
+// resolveStsEndpoint drives the SDK's own endpoint resolver over the options a
+// client ends up with, so these tests assert the endpoint actually reached rather
+// than just the fields we set.
+func resolveStsEndpoint(t *testing.T, opts sts.Options) (string, error) {
+	t.Helper()
+	params := sts.EndpointParameters{Region: aws.String(opts.Region), Endpoint: opts.BaseEndpoint}
+	if opts.EndpointOptions.UseFIPSEndpoint == aws.FIPSEndpointStateEnabled {
+		params.UseFIPS = aws.Bool(true)
+	}
+	if opts.EndpointOptions.UseDualStackEndpoint == aws.DualStackEndpointStateEnabled {
+		params.UseDualStack = aws.Bool(true)
+	}
+	ep, err := sts.NewDefaultEndpointResolverV2().ResolveEndpoint(context.Background(), params.WithDefaults())
+	if err != nil {
+		return "", err
+	}
+	return ep.URI.String(), nil
+}
+
+func TestStsBaseEndpointWithFipsAndDualstack(t *testing.T) {
+	overridden, err := awsStsEndpointFor(&Config{WorkloadIdentityHost: "sts.custom.example.com"}, "us-custom-2")
+	assertNilF(t, err)
+	regional, err := awsStsEndpointFor(&Config{}, "us-custom-2")
+	assertNilF(t, err)
+
+	tests := []struct {
+		name             string
+		endpoint         awsStsEndpoint
+		fips             aws.FIPSEndpointState
+		dualstack        aws.DualStackEndpointState
+		expectedEndpoint string
+	}{
+		{
+			name:             "no override leaves SDK resolution alone",
+			endpoint:         regional,
+			expectedEndpoint: "https://sts.us-custom-2.amazonaws.com",
+		},
+		{
+			name:             "no override keeps honouring FIPS",
+			endpoint:         regional,
+			fips:             aws.FIPSEndpointStateEnabled,
+			expectedEndpoint: "https://sts.us-custom-2.amazonaws.com",
+		},
+		{
+			name:             "override without FIPS or dualstack",
+			endpoint:         overridden,
+			expectedEndpoint: "https://sts.custom.example.com",
+		},
+		{
+			// Without clearing the preference the ruleset fails with
+			// "FIPS and custom endpoint are not supported".
+			name:             "override wins over FIPS",
+			endpoint:         overridden,
+			fips:             aws.FIPSEndpointStateEnabled,
+			expectedEndpoint: "https://sts.custom.example.com",
+		},
+		{
+			name:             "override wins over dualstack",
+			endpoint:         overridden,
+			dualstack:        aws.DualStackEndpointStateEnabled,
+			expectedEndpoint: "https://sts.custom.example.com",
+		},
+		{
+			name:             "override wins over both at once",
+			endpoint:         overridden,
+			fips:             aws.FIPSEndpointStateEnabled,
+			dualstack:        aws.DualStackEndpointStateEnabled,
+			expectedEndpoint: "https://sts.custom.example.com",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			opts := sts.Options{
+				Region: "us-custom-2",
+				EndpointOptions: sts.EndpointResolverOptions{
+					UseFIPSEndpoint:      test.fips,
+					UseDualStackEndpoint: test.dualstack,
+				},
+			}
+			withStsBaseEndpoint(test.endpoint)(&opts)
+
+			resolved, err := resolveStsEndpoint(t, opts)
+			assertNilF(t, err)
+			assertEqualE(t, resolved, test.expectedEndpoint)
+		})
+	}
+
+	t.Run("regional default never touches the FIPS preference", func(t *testing.T) {
+		opts := sts.Options{
+			Region:          "us-custom-2",
+			EndpointOptions: sts.EndpointResolverOptions{UseFIPSEndpoint: aws.FIPSEndpointStateEnabled},
+		}
+		withStsBaseEndpoint(regional)(&opts)
+		assertEqualE(t, opts.EndpointOptions.UseFIPSEndpoint, aws.FIPSEndpointStateEnabled)
+		assertNilE(t, opts.BaseEndpoint)
+	})
 }
 
 type mockAwsAttestationMetadataProvider struct {

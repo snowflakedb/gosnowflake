@@ -235,6 +235,11 @@ Alternatively, use OpenWithConfig() function to create a database handle with th
 
     When workloadIdentityProvider=GCP or AWS, workloadIdentityImpersonationPath can be optionally set to customize impersonation path. This is a comma separated list. For GCP the last parameter is a target service account and the rest are chained delegation. For AWS this is the list of role ARNs to assume.
 
+    When workloadIdentityProvider=AWS, workloadIdentityHost can be optionally set to the STS host to call, for partitions whose endpoints do not follow the commercial naming scheme.
+    The value is used as given, so no driver release is needed to reach a new region. It defaults to the regional endpoint sts.<region>.amazonaws.com (sts.<region>.amazonaws.com.cn for cn-* regions).
+    A bare host is the expected form; a scheme is optional and defaults to https, and an optional port and path are honoured.
+    Because AWS refuses to resolve a custom endpoint together with FIPS or dualstack endpoints, setting workloadIdentityHost takes precedence over AWS_USE_FIPS_ENDPOINT and AWS_USE_DUALSTACK_ENDPOINT for STS calls: the configured host is used and a warning is logged. Those settings only select an endpoint, which workloadIdentityHost already names, so point it at your partition's FIPS STS host if you need one.
+
     For more details, refer to the usage guide: https://docs.snowflake.com/en/user-guide/workload-identity-federation
 
 # Connection Config

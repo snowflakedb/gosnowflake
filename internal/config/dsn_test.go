@@ -1734,6 +1734,19 @@ func TestDSN(t *testing.T) {
 		},
 		{
 			cfg: &Config{
+				Account:                  "ac",
+				User:                     "u",
+				Password:                 "p",
+				Database:                 "db",
+				Authenticator:            AuthTypeWorkloadIdentityFederation,
+				Host:                     "ac.snowflakecomputing.com",
+				WorkloadIdentityProvider: "aws",
+				WorkloadIdentityHost:     "sts.custom.example.com",
+			},
+			dsn: "u:p@ac.snowflakecomputing.com:443?account=ac&authenticator=workload_identity&database=db&ocspFailOpen=true&validateDefaultParameters=true&workloadIdentityHost=sts.custom.example.com&workloadIdentityProvider=aws",
+		},
+		{
+			cfg: &Config{
 				User:                           "u",
 				Password:                       "p",
 				Account:                        "a",

@@ -166,10 +166,15 @@ func (s *defaultAwsAttestationMetadataProvider) awsCredentialsViaRoleChaining() 
 
 func (s *defaultAwsAttestationMetadataProvider) assumeRole(creds aws.Credentials, roleArn string) (aws.Credentials, error) {
 	logger.Debugf("assuming role %v", roleArn)
+	region := s.awsRegion()
+	endpoint, err := awsStsEndpointFor(s.cfg, region)
+	if err != nil {
+		return aws.Credentials{}, err
+	}
 	awsCfg := s.awsCfg
 	awsCfg.Credentials = credentials.StaticCredentialsProvider{Value: creds}
-	awsCfg.Region = s.awsRegion()
-	stsClient := sts.NewFromConfig(awsCfg)
+	awsCfg.Region = region
+	stsClient := sts.NewFromConfig(awsCfg, withStsBaseEndpoint(endpoint))
 
 	role, err := stsClient.AssumeRole(s.ctx, &sts.AssumeRoleInput{
 		RoleArn:         aws.String(roleArn),
@@ -193,10 +198,14 @@ func (s *defaultAwsAttestationMetadataProvider) awsRegion() string {
 }
 
 func (s *defaultAwsAttestationMetadataProvider) awsWebIdentityToken(creds aws.Credentials, region string) (string, error) {
+	endpoint, err := awsStsEndpointFor(s.cfg, region)
+	if err != nil {
+		return "", err
+	}
 	awsCfg := s.awsCfg
 	awsCfg.Credentials = credentials.StaticCredentialsProvider{Value: creds}
 	awsCfg.Region = region
-	stsClient := sts.NewFromConfig(awsCfg)
+	stsClient := sts.NewFromConfig(awsCfg, withStsBaseEndpoint(endpoint))
 
 	resp, err := stsClient.GetWebIdentityToken(s.ctx, &sts.GetWebIdentityTokenInput{
 		Audience:         []string{snowflakeAudience},
@@ -253,8 +262,12 @@ func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 // createCallerIdentityAttestation produces the attestation as a base64-encoded,
 // SigV4-signed STS GetCallerIdentity request envelope.
 func (c *awsIdentityAttestationCreator) createCallerIdentityAttestation(creds aws.Credentials, region string) (*wifAttestation, error) {
-	stsHostname := stsHostname(region)
-	req, err := c.createStsRequest(stsHostname)
+	endpoint, err := awsStsEndpointFor(c.cfg, region)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := c.createStsRequest(endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +306,101 @@ func (c *awsIdentityAttestationCreator) createOutboundIdentityAttestation(attest
 	}, nil
 }
 
-func stsHostname(region string) string {
+// awsStsEndpoint says where the AWS WIF flows should send their STS calls.
+type awsStsEndpoint struct {
+	// authority is host[:port], sent as the Host header of the hand-built
+	// GetCallerIdentity request, which SigV4 signs.
+	authority string
+	// baseURL is scheme://host[:port][/path], the form the AWS SDK's BaseEndpoint
+	// option requires.
+	baseURL string
+	// overridden reports whether WorkloadIdentityHost supplied the endpoint. When
+	// it did not, the SDK-based flows must keep resolving the endpoint themselves
+	// so that partition, FIPS and dualstack handling stays intact.
+	overridden bool
+}
+
+// awsStsEndpointFor resolves the STS endpoint for region, letting
+// WorkloadIdentityHost override it. The override is used as given, with no
+// partition suffix mapping, so reaching a new region needs no driver release.
+func awsStsEndpointFor(cfg *Config, region string) (awsStsEndpoint, error) {
+	if cfg == nil || cfg.WorkloadIdentityHost == "" {
+		authority := defaultStsHostname(region)
+		return awsStsEndpoint{authority: authority, baseURL: "https://" + authority}, nil
+	}
+	endpoint, err := parseWorkloadIdentityHost(cfg.WorkloadIdentityHost)
+	if err != nil {
+		logger.Debugf("invalid workloadIdentityHost: %v", err)
+		return awsStsEndpoint{}, err
+	}
+	logger.Debugf("using explicit STS host for AWS WIF: %v", endpoint.authority)
+	return endpoint, nil
+}
+
+// parseWorkloadIdentityHost normalizes a user-supplied WorkloadIdentityHost into
+// the shapes the AWS flows need. The value is used as given - no partition suffix
+// is mapped and no region is interpolated - but the scheme is optional and
+// defaults to https, and trailing slashes are dropped. A bare host[:port] is the
+// expected form; a full URL is accepted so a value copied from elsewhere works.
+func parseWorkloadIdentityHost(host string) (awsStsEndpoint, error) {
+	trimmed := strings.TrimSpace(host)
+	if trimmed == "" {
+		return awsStsEndpoint{}, errors.New("workloadIdentityHost cannot be empty")
+	}
+	// Without a scheme, url.Parse puts a bare hostname in Path and reads the port
+	// of a bare host:port as the scheme, so supply the default up front.
+	if !strings.Contains(trimmed, "://") {
+		trimmed = "https://" + trimmed
+	}
+	u, err := url.Parse(trimmed)
+	if err != nil {
+		return awsStsEndpoint{}, fmt.Errorf("workloadIdentityHost %q is not a valid host or URL: %w", host, err)
+	}
+	if u.Scheme != "https" && u.Scheme != "http" {
+		return awsStsEndpoint{}, fmt.Errorf("workloadIdentityHost %q must use https or http, got scheme %q", host, u.Scheme)
+	}
+	if u.Host == "" {
+		return awsStsEndpoint{}, fmt.Errorf("workloadIdentityHost %q does not contain a hostname", host)
+	}
+	if u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return awsStsEndpoint{}, fmt.Errorf("workloadIdentityHost %q must not contain user info, a query or a fragment", host)
+	}
+	return awsStsEndpoint{
+		authority:  u.Host,
+		baseURL:    u.Scheme + "://" + u.Host + strings.TrimRight(u.Path, "/"),
+		overridden: true,
+	}, nil
+}
+
+// withStsBaseEndpoint pins an STS client to endpoint. It is a no-op unless
+// WorkloadIdentityHost was set, leaving the SDK's own endpoint resolution alone
+// in the default case.
+//
+// An explicit host also clears the FIPS and dualstack endpoint preferences. The
+// AWS endpoint ruleset refuses a custom endpoint combined with either, and both
+// flags only ever *selected* an endpoint - which WorkloadIdentityHost has now
+// named outright, so there is nothing left for them to decide. Leaving them set
+// would make WorkloadIdentityHost unusable wherever AWS_USE_FIPS_ENDPOINT is set
+// org-wide, which includes the partitions it exists to reach, and would do so
+// even when the configured host is that partition's FIPS endpoint.
+func withStsBaseEndpoint(endpoint awsStsEndpoint) func(*sts.Options) {
+	return func(o *sts.Options) {
+		if !endpoint.overridden {
+			return
+		}
+		o.BaseEndpoint = aws.String(endpoint.baseURL)
+		if o.EndpointOptions.UseFIPSEndpoint == aws.FIPSEndpointStateEnabled {
+			logger.Warnf("workloadIdentityHost is set, so STS endpoint selection ignores the FIPS preference; STS calls go to %v", endpoint.authority)
+			o.EndpointOptions.UseFIPSEndpoint = aws.FIPSEndpointStateUnset
+		}
+		if o.EndpointOptions.UseDualStackEndpoint == aws.DualStackEndpointStateEnabled {
+			logger.Warnf("workloadIdentityHost is set, so STS endpoint selection ignores the dualstack preference; STS calls go to %v", endpoint.authority)
+			o.EndpointOptions.UseDualStackEndpoint = aws.DualStackEndpointStateUnset
+		}
+	}
+}
+
+func defaultStsHostname(region string) string {
 	var domain string
 	if strings.HasPrefix(region, "cn-") {
 		domain = "amazonaws.com.cn"
@@ -303,15 +410,15 @@ func stsHostname(region string) string {
 	return fmt.Sprintf("sts.%s.%s", region, domain)
 }
 
-func (c *awsIdentityAttestationCreator) createStsRequest(hostname string) (*http.Request, error) {
-	url := fmt.Sprintf("https://%s?Action=GetCallerIdentity&Version=2011-06-15", hostname)
+func (c *awsIdentityAttestationCreator) createStsRequest(endpoint awsStsEndpoint) (*http.Request, error) {
+	url := endpoint.baseURL + "?Action=GetCallerIdentity&Version=2011-06-15"
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Set("Host", hostname)
-	req.Header.Set("X-Snowflake-Audience", "snowflakecomputing.com")
+	req.Header.Set("Host", endpoint.authority)
+	req.Header.Set("X-Snowflake-Audience", snowflakeAudience)
 	return req, nil
 }
 
