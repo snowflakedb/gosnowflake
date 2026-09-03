@@ -235,6 +235,8 @@ Alternatively, use OpenWithConfig() function to create a database handle with th
 
     When workloadIdentityProvider=GCP or AWS, workloadIdentityImpersonationPath can be optionally set to customize impersonation path. This is a comma separated list. For GCP the last parameter is a target service account and the rest are chained delegation. For AWS this is the list of role ARNs to assume.
 
+    When workloadIdentityProvider=AWS, workloadIdentityHost can be optionally set to override the STS hostname. Accepts either a bare host (e.g., sts.custom.example.com) or a full URL (e.g., https://sts.custom.example.com). Defaults to the regional endpoint sts.<region>.amazonaws.com (or sts.<region>.amazonaws.com.cn for China regions). When set, FIPS and dualstack endpoint preferences are cleared to allow the custom host.
+
     For more details, refer to the usage guide: https://docs.snowflake.com/en/user-guide/workload-identity-federation
 
 # Connection Config
