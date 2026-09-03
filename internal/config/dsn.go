@@ -749,17 +749,6 @@ var wifAllowedHostSuffixes = []string{
 	"snowflakecomputing.mil",
 }
 
-// normalizeWifHostSuffix trims whitespace, lower-cases, strips a trailing
-// ":<port>" (everything from the first colon onward), and then strips
-// exactly one trailing dot from an ASCII host/suffix string used by the WIF
-// host check. The port must be stripped before the trailing dot: a host in
-// FQDN form with an explicit port (e.g. "acct.snowflakecomputing.com.:443")
-// still carries the dot immediately before the colon, and stripping the dot
-// first would leave it attached to the label and unmatched.
-func normalizeWifHostSuffix(s string) string {
-	return NormalizeHost(s)
-}
-
 // NormalizeHost normalizes a host string for allow-list matching and URL
 // construction. It trims whitespace, lowercases ASCII A–Z only (to avoid
 // Unicode case-folding surprises such as the Kelvin sign U+212A folding to
