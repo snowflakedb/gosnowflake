@@ -395,13 +395,16 @@ func populateChunkDownloader(
 	}
 }
 
-/**
- * We can only tell if private link is enabled for certain hosts when the hostname contains the subdomain
- * 'privatelink.snowflakecomputing.' but we don't have a good way of telling if a private link connection is
- * expected for internal stages for example.
- */
+// checkIsPrivateLink reports whether host is a recognized PrivateLink endpoint.
+// It normalizes first, then gates on an LDH character allowlist and a
+// recognized Snowflake domain suffix before checking for the ".privatelink."
+// label — a bare substring check on the raw host would accept hosts whose
+// trailing labels are not a Snowflake apex.
 func checkIsPrivateLink(host string) bool {
-	return strings.Contains(strings.ToLower(host), ".privatelink.snowflakecomputing.")
+	normalized := sfconfig.NormalizeHost(host)
+	return sfconfig.IsLdhHost(normalized) &&
+		sfconfig.IsSnowflakeHost(normalized) &&
+		strings.Contains(normalized, ".privatelink.")
 }
 
 func isStatementContext(ctx context.Context) bool {

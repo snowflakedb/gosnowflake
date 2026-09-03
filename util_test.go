@@ -3,11 +3,14 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"maps"
 	"math/rand"
+	"net/http"
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -225,6 +228,7 @@ func TestValidURL(t *testing.T) {
 		{"https://ssoTestURL.okta.com", true},
 		{"https://ssoTestURL.okta.com:8080", true},
 		{"https://ssoTestURL.okta.com/testpathvalue", true},
+		{"https://my_account.snowflakecomputing.com", true},
 		{"-a calculator", false},
 		{"This is a random test", false},
 		{"file://TestForFile", false},
@@ -474,4 +478,40 @@ func TestSyncParamsAll(t *testing.T) {
 		}()
 		wg.Wait()
 	})
+}
+
+// TestHeaderNames pins that header logging carries names only. Header values hold
+// session tokens, storage credentials and the SSE-C customer key; the log masking is
+// pattern-based and does not match the shape %v produces for an http.Header, so the
+// values are omitted rather than masked. If this test is ever changed to expect
+// values, that reasoning has to be revisited first.
+func TestHeaderNames(t *testing.T) {
+	const secret = "ver:1-hint:9823-ETMsDgAAAZ1kQ2hp" // pragma: allowlist secret
+	h := http.Header{
+		"X-Snowflake-Session": []string{"AbCdEf1234567890XyZ"},
+		"Authorization":       []string{`Snowflake Token="` + secret + `"`},
+		"Content-Type":        []string{"application/json"},
+	}
+
+	got := headerNames(h)
+
+	// Sorted, so log output does not vary with Go's map iteration order.
+	want := []string{"Authorization", "Content-Type", "X-Snowflake-Session"}
+	assertEqualE(t, len(got), len(want))
+	for i := range want {
+		assertEqualE(t, got[i], want[i])
+	}
+
+	// No value, in whole or in part, may appear in the rendered result.
+	rendered := fmt.Sprintf("Header names: %v", got)
+	for _, forbidden := range []string{secret, "ver:1-hint", "AbCdEf1234567890XyZ", "application/json"} {
+		if strings.Contains(rendered, forbidden) {
+			t.Errorf("header value %q leaked into %q", forbidden, rendered)
+		}
+	}
+}
+
+func TestHeaderNamesEmptyAndNil(t *testing.T) {
+	assertEqualE(t, len(headerNames(nil)), 0)
+	assertEqualE(t, len(headerNames(http.Header{})), 0)
 }

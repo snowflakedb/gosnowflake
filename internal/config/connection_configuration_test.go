@@ -694,3 +694,32 @@ func assertEqual[T comparable](t *testing.T, got, want T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
+
+// TestCheckParsingErrorDoesNotLogSecretValue checks that checkParsingError logs the
+// setting name only and not its value (SNOW-3649818).
+func TestCheckParsingErrorDoesNotLogSecretValue(t *testing.T) {
+	const secretValue = "B0bsRealSnowflakePwd_8123!" // pragma: allowlist secret
+
+	originalGlobalLogger := sflogger.GetLogger()
+	newLogger := sflogger.CreateDefaultLogger()
+	sflogger.SetLogger(newLogger)
+	buf := &bytes.Buffer{}
+	sflogger.GetLogger().SetOutput(buf)
+	defer func() {
+		sflogger.SetLogger(originalGlobalLogger)
+	}()
+
+	// Success path (err == nil): the WARN branch that fires for every parsed key.
+	checkParsingError(nil, "password", secretValue)
+	// Error path (err != nil): the ERROR branch.
+	checkParsingError(fmt.Errorf("boom"), "token", secretValue)
+
+	out := buf.String()
+	if strings.Contains(out, secretValue) {
+		t.Errorf("secret value leaked to logs by checkParsingError.\nLog output: %v", out)
+	}
+	// The key name is not sensitive and should still be logged for diagnostics.
+	if !strings.Contains(out, "Parsed key: password") || !strings.Contains(out, "Parsed key: token") {
+		t.Errorf("expected the key name to still be logged, got: %v", out)
+	}
+}

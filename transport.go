@@ -223,6 +223,16 @@ func (tf *transportFactory) createTransport(transportConfig *transportConfig) (h
 	// Handle no revocation checking path
 	if tf.config.DisableOCSPChecks {
 		logger.Debug("createTransport: skipping OCSP validation")
+		// A user-registered TLS config (e.g. certificate pinning via
+		// RegisterTLSConfig + tlsConfigName) must still be applied even when
+		// revocation checking is disabled, so that disabling OCSP does not also
+		// drop the registered configuration and fall back to Go's default
+		// verification (SNOW-3649867). Transporter precedence is handled above,
+		// so here config is non-nil and Transporter is nil. GetTLSConfig returns
+		// a clone, so it is safe to use directly.
+		if tlsConfig, ok := sfconfig.GetTLSConfig(tf.config.TLSConfigName); ok && tlsConfig != nil {
+			return tf.createBaseTransport(transportConfig, tlsConfig)
+		}
 		return tf.createNoRevocationTransport(transportConfig)
 	}
 

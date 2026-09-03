@@ -10,6 +10,19 @@ New features:
 - Added support for Go 1.27, dropped support for Go 1.24 (snowflakedb/gosnowflake#1837).
 - Added `SNOWFLAKE_MIN_TLS_VERSION` environment variable to enforce a minimum TLS version for all connections (snowflakedb/gosnowflake#1840).
 
+Security fixes:
+- Restricted the WORKLOAD_IDENTITY authenticator to recognized Snowflake hosts (*.snowflakecomputing.com/.cn/.mil), normalizing the host before a suffix-anchored match. The `SNOWFLAKE_WIF_ALLOWED_HOST_SUFFIXES` environment variable additively extends the recognized-host list (SNOW-3649730).
+- Azure workload-identity IMDS requests now URL-encode the `workloadIdentityEntraResource` and client-id query parameters, so their values are confined to their own parameter and cannot alter the rest of the query string (SNOW-3649876).
+- The Azure `IDENTITY_ENDPOINT` is now required to be a loopback or link-local address before the `IDENTITY_HEADER` value is attached to the request (SNOW-3649837).
+- Account-identifier and region values in DSN parameters are now validated as well-formed URL-authority components before they are incorporated into driver-constructed URLs, and OCSP cache-server and retry URLs are built via `net/url` rather than direct string formatting, so neither can embed URL-significant characters that would alter the resulting URL authority (SNOW-3711332).
+- Improved OCSP response validation to correctly distinguish between transient network failures and definitive certificate status results; definitive results are now always reflected accurately regardless of the `ocspFailOpen` setting (SNOW-3649697).
+- Extended secret masking in debug logs to cover the S3 SSE-C customer-key header and the `X-Amz-Credential` / `X-Amz-Security-Token` URL query parameters (SNOW-3649835).
+- HTTP response headers are now logged as header names only, without their values, at every site that previously logged the whole header collection (`restful.go`, `auth.go`, `authokta.go`, `heartbeat.go`). Header values carry session tokens, storage credentials and the SSE-C customer key, and formatting an `http.Header` with `%v` produced a shape the header-specific masking patterns did not match, so the values are omitted rather than masked (SNOW-3649835).
+- The chunk-header debug line now logs the header name only, not its value (SNOW-3649835).
+- The TOML connection-config loader now logs setting names only, not their values, when reporting a parsing error (SNOW-3649818).
+- Corrected the SAS-token masking pattern so signed-URL query parameters are fully masked in logs (SNOW-3649773).
+- Corrected the connection-token masking pattern to admit `:` in the token value, so a Snowflake session token (`ver:1-hint:...`) is masked; previously the match ended at the first colon and fell below the pattern's minimum length, so the pattern never matched the format it targets (SNOW-3649773).
+
 Bug fixes:
 - Fixed token cache key collisions for multi-account (shared IdP) and multi-role scenarios by switching to a versioned, SHA256-hashed canonical-JSON key with the token type in the key prefix, applied uniformly across keyring (macOS/Windows) and file (Linux) backends; also replaced the bag-of-fields spec struct with typed token-spec types (`hostUserTokenSpec` for MFA/ID flows, `oauthTokenSpec` for OAuth flows) so each spec validates and serializes only its own fields (snowflakedb/gosnowflake#1817, snowflakedb/gosnowflake#1821).
 - Fixed nil pointer dereference panic when a corrupt or malformed OCSP cache key is encountered, either from the remote OCSP cache server or the local cache file (snowflakedb/gosnowflake#1819).

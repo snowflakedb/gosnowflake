@@ -10,7 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -696,13 +698,27 @@ func extractTokenFromJSON(tokenJSON string) (string, error) {
 }
 
 func (a *azureIdentityAttestationCreator) azureFunctionsIdentityRequest(identityEndpoint, identityHeader, managedIdentityClientID string) (*http.Request, error) {
-	queryParams := "api-version=2019-08-01&resource=" + a.workloadIdentityEntraResource
-	if managedIdentityClientID != "" {
-		queryParams += "&client_id=" + managedIdentityClientID
+	// IDENTITY_ENDPOINT comes from the process environment. Azure's contract
+	// places it on a loopback / link-local address (App Service, Functions and
+	// Arc all expose MSI on localhost). Verify that before the IDENTITY_HEADER
+	// value is attached and the request is issued.
+	if err := validateLocalMetadataEndpoint(identityEndpoint); err != nil {
+		return nil, err
 	}
 
-	url := fmt.Sprintf("%s?%s", identityEndpoint, queryParams)
-	req, err := http.NewRequest("GET", url, nil)
+	// Build the query with url.Values so the Entra resource and the
+	// managed-identity client id are percent-encoded. With raw interpolation a
+	// value such as "api://app&client_id=<other>" would add or replace other
+	// IMDS query parameters instead of staying confined to its own.
+	values := url.Values{}
+	values.Set("api-version", "2019-08-01")
+	values.Set("resource", a.workloadIdentityEntraResource)
+	if managedIdentityClientID != "" {
+		values.Set("client_id", managedIdentityClientID)
+	}
+
+	requestURL := fmt.Sprintf("%s?%s", identityEndpoint, values.Encode())
+	req, err := http.NewRequest("GET", requestURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -711,12 +727,48 @@ func (a *azureIdentityAttestationCreator) azureFunctionsIdentityRequest(identity
 	return req, nil
 }
 
-func (a *azureIdentityAttestationCreator) azureVMIdentityRequest() (*http.Request, error) {
-	urlWithoutQuery := a.azureMetadataServiceBaseURL + "/metadata/identity/oauth2/token?"
-	queryParams := "api-version=2018-02-01&resource=" + a.workloadIdentityEntraResource
+// validateLocalMetadataEndpoint requires the identity endpoint URL to address
+// the local metadata service (loopback or link-local) before any platform value
+// is attached to a request sent to it. Remote hosts are rejected.
+func validateLocalMetadataEndpoint(endpoint string) error {
+	parsed, err := url.Parse(endpoint)
+	if err != nil {
+		return fmt.Errorf("invalid identity endpoint URL: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("identity endpoint must use http or https scheme, got %q", parsed.Scheme)
+	}
+	host := parsed.Hostname()
+	if !isLoopbackOrLinkLocalHost(host) {
+		return fmt.Errorf("identity endpoint host %q is not a permitted local metadata address", host)
+	}
+	return nil
+}
 
-	url := urlWithoutQuery + queryParams
-	req, err := http.NewRequest("GET", url, nil)
+// isLoopbackOrLinkLocalHost reports whether host is the loopback hostname or a
+// loopback / link-local IP literal: localhost, 127.0.0.0/8, ::1,
+// 169.254.0.0/16 and fe80::/10.
+func isLoopbackOrLinkLocalHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsLinkLocalUnicast()
+}
+
+func (a *azureIdentityAttestationCreator) azureVMIdentityRequest() (*http.Request, error) {
+	// Percent-encode the query so the Entra resource cannot inject additional
+	// IMDS parameters (e.g. client_id/object_id/mi_res_id) that would select a
+	// different managed identity attached to the same VM.
+	values := url.Values{}
+	values.Set("api-version", "2018-02-01")
+	values.Set("resource", a.workloadIdentityEntraResource)
+
+	requestURL := a.azureMetadataServiceBaseURL + "/metadata/identity/oauth2/token?" + values.Encode()
+	req, err := http.NewRequest("GET", requestURL, nil)
 	if err != nil {
 		return nil, err
 	}

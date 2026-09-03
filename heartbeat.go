@@ -122,7 +122,7 @@ func (hc *heartbeat) heartbeatMain() error {
 		return err
 	}
 	logger.WithContext(ctx).Debugf("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	logger.WithContext(ctx).Debugf("Header: %v", resp.Header)
+	logger.WithContext(ctx).Debugf("Header names: %v", headerNames(resp.Header))
 	return &SnowflakeError{
 		Number:   ErrFailedToHeartbeat,
 		SQLState: SQLStateConnectionFailure,

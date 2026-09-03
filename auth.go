@@ -227,7 +227,7 @@ func postAuth(
 		return nil, err
 	}
 	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("Header names: %v", headerNames(resp.Header))
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuth,
 		SQLState:    SQLStateConnectionRejected,
