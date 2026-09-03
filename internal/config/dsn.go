@@ -829,7 +829,7 @@ func extraWifAllowedHostSuffixesFromEnv() []string {
 		return nil
 	}
 	var extra []string
-	for _, part := range strings.Split(raw, ",") {
+	for part := range strings.SplitSeq(raw, ",") {
 		s := NormalizeHost(part)
 		if s != "" {
 			extra = append(extra, s)

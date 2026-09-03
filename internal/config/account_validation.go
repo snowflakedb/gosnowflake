@@ -37,7 +37,7 @@ func isValidAccountIdentifier(value string) bool {
 	if value == "" {
 		return false
 	}
-	for _, label := range strings.Split(value, ".") {
+	for label := range strings.SplitSeq(value, ".") {
 		if label == "" {
 			return false
 		}
