@@ -478,7 +478,7 @@ func TestParseToml(t *testing.T) {
 				"schema", "role", "region", "protocol", "passcode", "application", "token",
 				"tracing", "tmpDirPath", "tmp_dir_path", "clientConfigFile", "client_config_file", "oauth_authorization_url", "oauth_client_id",
 				"oauth_client_secret", "oauth_token_request_url", "oauth_redirect_uri", "oauth_scope",
-				"workload_identity_provider", "workload_identity_entra_resource", "proxyHost", "noProxy", "proxyUser", "proxyPassword", "proxyProtocol"},
+				"workload_identity_provider", "workload_identity_entra_resource", "workload_identity_host", "workloadIdentityHost", "proxyHost", "noProxy", "proxyUser", "proxyPassword", "proxyProtocol"},
 			values: []any{"value"},
 		},
 		{

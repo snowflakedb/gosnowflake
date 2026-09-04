@@ -5,6 +5,7 @@
 ## 2.2.0
 
 New features:
+- Added `WorkloadIdentityHost` config option (DSN field `workloadIdentityHost`) that overrides the STS host used by the AWS WIF flows, so non-commercial partitions can be reached without a driver release. The value is used as given and defaults to the regional `sts.<region>.amazonaws.com` (snowflakedb/gosnowflake#TBD).
 - Added `WorkloadIdentityAwsUseOutboundToken` config option (DSN field `workloadIdentityAwsUseOutboundToken`) that produces the AWS WIF attestation as an STS `GetWebIdentityToken` JWT instead of the default signed `GetCallerIdentity` request envelope (snowflakedb/gosnowflake#1824).
 - Added `CleanupTimeout` config option (DSN field `cleanupTimeout`, in seconds) that bounds post-cancellation cleanup (snowflakedb/gosnowflake#1816).
 - Increased CRL disk cache removal delay to 7 days (snowflakedb/gosnowflake#1820).
