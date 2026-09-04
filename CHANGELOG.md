@@ -1,5 +1,5 @@
 # Changelog
-..
+
 ## Upcoming release
 
 ## 2.2.0
