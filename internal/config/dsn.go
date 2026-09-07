@@ -143,6 +143,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.WorkloadIdentityAwsUseOutboundToken != BoolNotSet {
 		params.Add("workloadIdentityAwsUseOutboundToken", strconv.FormatBool(cfg.WorkloadIdentityAwsUseOutboundToken != BoolFalse))
 	}
+	if cfg.WorkloadIdentityHost != "" {
+		params.Add("workloadIdentityHost", cfg.WorkloadIdentityHost)
+	}
 	if cfg.Authenticator != AuthTypeSnowflake {
 		if cfg.Authenticator == AuthTypeOkta {
 			params.Add("authenticator", strings.ToLower(cfg.OktaURL.String()))
@@ -1159,6 +1162,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			} else {
 				cfg.WorkloadIdentityAwsUseOutboundToken = BoolFalse
 			}
+		case "workloadIdentityHost":
+			cfg.WorkloadIdentityHost = value
 		case "privateKey":
 			var decodeErr error
 			block, decodeErr := base64.URLEncoding.DecodeString(value)

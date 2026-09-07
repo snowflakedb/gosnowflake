@@ -948,6 +948,48 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 	}
 }
 
+func TestAwsStsEndpointFor(t *testing.T) {
+	testcases := []struct {
+		name              string
+		wifHost           string
+		region            string
+		expectedAuthority string
+		expectedBaseURL   string
+		expectedOverride  bool
+		expectedError     string
+	}{
+		{name: "regional default us-east-1", wifHost: "", region: "us-east-1", expectedAuthority: "sts.us-east-1.amazonaws.com", expectedBaseURL: "https://sts.us-east-1.amazonaws.com", expectedOverride: false},
+		{name: "regional default cn-north-1", wifHost: "", region: "cn-north-1", expectedAuthority: "sts.cn-north-1.amazonaws.com.cn", expectedBaseURL: "https://sts.cn-north-1.amazonaws.com.cn", expectedOverride: false},
+		{name: "bare host", wifHost: "sts.custom.example.com", region: "us-custom-1", expectedAuthority: "sts.custom.example.com", expectedBaseURL: "https://sts.custom.example.com", expectedOverride: true},
+		{name: "host with port", wifHost: "sts.custom.example.com:8443", region: "us-custom-1", expectedAuthority: "sts.custom.example.com:8443", expectedBaseURL: "https://sts.custom.example.com:8443", expectedOverride: true},
+		{name: "full URL", wifHost: "https://sts.custom.example.com", region: "us-custom-1", expectedAuthority: "sts.custom.example.com", expectedBaseURL: "https://sts.custom.example.com", expectedOverride: true},
+		{name: "trailing slashes", wifHost: "https://sts.custom.example.com///", region: "us-custom-1", expectedAuthority: "sts.custom.example.com", expectedBaseURL: "https://sts.custom.example.com", expectedOverride: true},
+		{name: "http scheme", wifHost: "http://sts.custom.example.com", region: "us-custom-1", expectedAuthority: "sts.custom.example.com", expectedBaseURL: "http://sts.custom.example.com", expectedOverride: true},
+		{name: "whitespace", wifHost: "  sts.custom.example.com  ", region: "us-custom-1", expectedAuthority: "sts.custom.example.com", expectedBaseURL: "https://sts.custom.example.com", expectedOverride: true},
+		{name: "invalid scheme", wifHost: "ftp://sts.custom.example.com", region: "us-custom-1", expectedError: `workloadIdentityHost "ftp://sts.custom.example.com" must use https or http, got scheme "ftp"`},
+		{name: "with query", wifHost: "https://sts.custom.example.com?Action=Foo", region: "us-custom-1", expectedError: `workloadIdentityHost "https://sts.custom.example.com?Action=Foo" must not contain user info, a query or a fragment`},
+		{name: "no hostname", wifHost: "https:///sts", region: "us-custom-2", expectedError: `workloadIdentityHost "https:///sts" does not contain a hostname`},
+		{name: "fragment", wifHost: "https://sts.custom.example.com#frag", region: "us-custom-2", expectedError: `workloadIdentityHost "https://sts.custom.example.com#frag" must not contain user info, a query or a fragment`},
+		{name: "user info", wifHost: "https://user:pass@sts.custom.example.com", region: "us-custom-2", expectedError: `workloadIdentityHost "https://user:pass@sts.custom.example.com" must not contain user info, a query or a fragment`}, // pragma: allowlist secret
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &Config{WorkloadIdentityHost: tc.wifHost}
+			endpoint, err := awsStsEndpointFor(cfg, tc.region)
+			if tc.expectedError != "" {
+				assertNotNilE(t, err)
+				assertEqualE(t, err.Error(), tc.expectedError)
+			} else {
+				assertNilE(t, err)
+				assertEqualE(t, endpoint.authority, tc.expectedAuthority)
+				assertEqualE(t, endpoint.baseURL, tc.expectedBaseURL)
+				assertEqualE(t, endpoint.overridden, tc.expectedOverride)
+			}
+		})
+	}
+}
+
 // TestAzureEntraResourceQueryEncoding is a regression test for SNOW-3649876.
 // WorkloadIdentityEntraResource (and the managed identity client id) must be
 // percent-encoded when building the Azure IMDS / App Service identity query
