@@ -7,12 +7,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 )
 
 type mockWifAttestationCreator struct {
@@ -948,6 +951,48 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 	}
 }
 
+func TestAwsStsEndpointFor(t *testing.T) {
+	testcases := []struct {
+		name              string
+		wifHost           string
+		region            string
+		expectedAuthority string
+		expectedBaseURL   string
+		expectedOverride  bool
+		expectedError     string
+	}{
+		{name: "regional default us-east-1", wifHost: "", region: "us-east-1", expectedAuthority: "sts.us-east-1.amazonaws.com", expectedBaseURL: "https://sts.us-east-1.amazonaws.com", expectedOverride: false},
+		{name: "regional default cn-north-1", wifHost: "", region: "cn-north-1", expectedAuthority: "sts.cn-north-1.amazonaws.com.cn", expectedBaseURL: "https://sts.cn-north-1.amazonaws.com.cn", expectedOverride: false},
+		{name: "bare host", wifHost: "sts.custom.example.com", region: "us-custom-1", expectedAuthority: "sts.custom.example.com", expectedBaseURL: "https://sts.custom.example.com", expectedOverride: true},
+		{name: "host with port", wifHost: "sts.custom.example.com:8443", region: "us-custom-1", expectedAuthority: "sts.custom.example.com:8443", expectedBaseURL: "https://sts.custom.example.com:8443", expectedOverride: true},
+		{name: "full URL", wifHost: "https://sts.custom.example.com", region: "us-custom-1", expectedAuthority: "sts.custom.example.com", expectedBaseURL: "https://sts.custom.example.com", expectedOverride: true},
+		{name: "trailing slashes", wifHost: "https://sts.custom.example.com///", region: "us-custom-1", expectedAuthority: "sts.custom.example.com", expectedBaseURL: "https://sts.custom.example.com", expectedOverride: true},
+		{name: "http scheme", wifHost: "http://sts.custom.example.com", region: "us-custom-1", expectedAuthority: "sts.custom.example.com", expectedBaseURL: "http://sts.custom.example.com", expectedOverride: true},
+		{name: "whitespace", wifHost: "  sts.custom.example.com  ", region: "us-custom-1", expectedAuthority: "sts.custom.example.com", expectedBaseURL: "https://sts.custom.example.com", expectedOverride: true},
+		{name: "invalid scheme", wifHost: "ftp://sts.custom.example.com", region: "us-custom-1", expectedError: `workloadIdentityHost "ftp://sts.custom.example.com" must use https or http, got scheme "ftp"`},
+		{name: "with query", wifHost: "https://sts.custom.example.com?Action=Foo", region: "us-custom-1", expectedError: `workloadIdentityHost "https://sts.custom.example.com?Action=Foo" must not contain user info, a query or a fragment`},
+		{name: "no hostname", wifHost: "https:///sts", region: "us-custom-2", expectedError: `workloadIdentityHost "https:///sts" does not contain a hostname`},
+		{name: "fragment", wifHost: "https://sts.custom.example.com#frag", region: "us-custom-2", expectedError: `workloadIdentityHost "https://sts.custom.example.com#frag" must not contain user info, a query or a fragment`},
+		{name: "user info", wifHost: "https://user:pass@sts.custom.example.com", region: "us-custom-2", expectedError: `workloadIdentityHost "https://user:pass@sts.custom.example.com" must not contain user info, a query or a fragment`}, // pragma: allowlist secret
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &Config{WorkloadIdentityHost: tc.wifHost}
+			endpoint, err := awsStsEndpointFor(cfg, tc.region)
+			if tc.expectedError != "" {
+				assertNotNilE(t, err)
+				assertEqualE(t, err.Error(), tc.expectedError)
+			} else {
+				assertNilE(t, err)
+				assertEqualE(t, endpoint.authority, tc.expectedAuthority)
+				assertEqualE(t, endpoint.baseURL, tc.expectedBaseURL)
+				assertEqualE(t, endpoint.overridden, tc.expectedOverride)
+			}
+		})
+	}
+}
+
 // TestAzureEntraResourceQueryEncoding is a regression test for SNOW-3649876.
 // WorkloadIdentityEntraResource (and the managed identity client id) must be
 // percent-encoded when building the Azure IMDS / App Service identity query
@@ -1058,5 +1103,120 @@ func TestAzureFunctionsIdentityRequestEndpointValidation(t *testing.T) {
 		assertNilF(t, err)
 		assertNotNilF(t, req)
 		assertEqualE(t, secret, req.Header.Get("X-IDENTITY-HEADER"))
+	})
+}
+
+// TestWorkloadIdentityHostRoutesOutboundStsCalls drives the real assumeRole and
+// awsWebIdentityToken against a local server. These are the only AWS WIF paths
+// that open a socket to STS from the driver, so they are the paths that hard-fail
+// in a partition where the regional default does not resolve. The mock metadata
+// provider used by the other AWS tests replaces both methods wholesale, so
+// nothing else in the suite would catch withStsBaseEndpoint being dropped here.
+func TestWorkloadIdentityHostRoutesOutboundStsCalls(t *testing.T) {
+	const assumeRoleResponse = `<AssumeRoleResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/">
+  <AssumeRoleResult>
+    <Credentials>
+      <AccessKeyId>CHAINED_KEY</AccessKeyId>
+      <SecretAccessKey>CHAINED_SECRET</SecretAccessKey>
+      <SessionToken>CHAINED_TOKEN</SessionToken>
+      <Expiration>2035-01-01T00:00:00Z</Expiration>
+    </Credentials>
+  </AssumeRoleResult>
+</AssumeRoleResponse>`
+
+	const webIdentityResponse = `<GetWebIdentityTokenResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/">
+  <GetWebIdentityTokenResult>
+    <WebIdentityToken>header.payload.signature</WebIdentityToken>
+  </GetWebIdentityTokenResult>
+</GetWebIdentityTokenResponse>`
+
+	// newStsStub returns a server that records the Action it was asked for, so the
+	// assertions prove the call actually landed here rather than at the regional default.
+	newStsStub := func(t *testing.T, body string) (*httptest.Server, *[]string) {
+		t.Helper()
+		var actions []string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if err := r.ParseForm(); err == nil {
+				actions = append(actions, r.Form.Get("Action"))
+			}
+			w.Header().Set("Content-Type", "text/xml")
+			_, _ = w.Write([]byte(body))
+		}))
+		t.Cleanup(srv.Close)
+		return srv, &actions
+	}
+
+	baseCreds := aws.Credentials{AccessKeyID: "k", SecretAccessKey: "s", SessionToken: "t"}
+
+	t.Run("role chaining reaches the configured host", func(t *testing.T) {
+		srv, actions := newStsStub(t, assumeRoleResponse)
+		provider := &defaultAwsAttestationMetadataProvider{
+			ctx:    context.Background(),
+			cfg:    &Config{WorkloadIdentityHost: srv.URL},
+			awsCfg: aws.Config{Region: "us-custom-1"},
+		}
+
+		creds, err := provider.assumeRole(baseCreds, "arn:aws:iam::123456789012:role/target")
+		assertNilF(t, err)
+		assertEqualE(t, creds.AccessKeyID, "CHAINED_KEY")
+		assertEqualE(t, creds.SessionToken, "CHAINED_TOKEN")
+		assertEqualE(t, len(*actions), 1)
+		assertEqualE(t, (*actions)[0], "AssumeRole")
+	})
+
+	t.Run("every hop of a multi-role path reaches the configured host", func(t *testing.T) {
+		srv, actions := newStsStub(t, assumeRoleResponse)
+		provider := &defaultAwsAttestationMetadataProvider{
+			ctx: context.Background(),
+			cfg: &Config{
+				WorkloadIdentityHost: srv.URL,
+				WorkloadIdentityImpersonationPath: []string{
+					"arn:aws:iam::111111111111:role/first",
+					"arn:aws:iam::222222222222:role/second",
+				},
+			},
+			awsCfg: aws.Config{
+				Region:      "us-custom-1",
+				Credentials: credentials.StaticCredentialsProvider{Value: baseCreds},
+			},
+		}
+
+		creds, err := provider.awsCredentialsViaRoleChaining()
+		assertNilF(t, err)
+		assertEqualE(t, creds.AccessKeyID, "CHAINED_KEY")
+		// One AssumeRole per role in the path - a hop that ignored the override
+		// would have gone to the regional endpoint and never shown up here.
+		assertEqualE(t, len(*actions), 2)
+	})
+
+	t.Run("outbound token reaches the configured host", func(t *testing.T) {
+		srv, actions := newStsStub(t, webIdentityResponse)
+		provider := &defaultAwsAttestationMetadataProvider{
+			ctx:    context.Background(),
+			cfg:    &Config{WorkloadIdentityHost: srv.URL},
+			awsCfg: aws.Config{Region: "us-custom-1"},
+		}
+
+		token, err := provider.awsWebIdentityToken(baseCreds, "us-custom-1")
+		assertNilF(t, err)
+		assertEqualE(t, token, "header.payload.signature")
+		assertEqualE(t, len(*actions), 1)
+		assertEqualE(t, (*actions)[0], "GetWebIdentityToken")
+	})
+
+	t.Run("a malformed host fails before any request is made", func(t *testing.T) {
+		_, actions := newStsStub(t, assumeRoleResponse)
+		provider := &defaultAwsAttestationMetadataProvider{
+			ctx:    context.Background(),
+			cfg:    &Config{WorkloadIdentityHost: "ftp://sts.custom.example.com"},
+			awsCfg: aws.Config{Region: "us-custom-1"},
+		}
+
+		_, err := provider.assumeRole(baseCreds, "arn:aws:iam::123456789012:role/target")
+		assertNotNilF(t, err)
+		assertStringContainsE(t, err.Error(), "must use https or http")
+		// The stub stays silent - validation rejects the host before the SDK is built,
+		// so role chaining never falls back to the regional endpoint.
+		assertEqualE(t, len(*actions), 0)
 	})
 }

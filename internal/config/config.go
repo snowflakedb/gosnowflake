@@ -104,6 +104,7 @@ type Config struct {
 	WorkloadIdentityEntraResource       string   // The resource to use for WIF authentication on Azure environment
 	WorkloadIdentityImpersonationPath   []string // The components to use for WIF impersonation.
 	WorkloadIdentityAwsUseOutboundToken Bool     // For AWS WIF, obtain the attestation as an STS GetWebIdentityToken JWT instead of a signed GetCallerIdentity request envelope
+	WorkloadIdentityHost                string   // For AWS WIF, the STS host to call instead of the regional default.
 
 	CertRevocationCheckMode           CertRevocationCheckMode // revocation check mode for CRLs
 	CrlAllowCertificatesWithoutCrlURL Bool                    // Allow certificates (not short-lived) without CRL DP included to be treated as correct ones
@@ -195,6 +196,13 @@ func (c *Config) Validate() error {
 	}
 	if strings.EqualFold(c.WorkloadIdentityProvider, "azure") && len(c.WorkloadIdentityImpersonationPath) > 0 {
 		return errors.New("WorkloadIdentityImpersonationPath is not supported for Azure")
+	}
+	// Only a provider explicitly set to something else is a conflict. An empty
+	// provider means the value is simply unused - a workloadIdentityHost left in a
+	// shared profile must not break non-WIF connections. Validating the host string
+	// itself is the WIF code's job, since its shape is dictated by AWS STS.
+	if c.WorkloadIdentityHost != "" && c.WorkloadIdentityProvider != "" && !strings.EqualFold(c.WorkloadIdentityProvider, "aws") {
+		return errors.New("WorkloadIdentityHost is supported only for AWS")
 	}
 	if c.Token != "" && c.TokenFilePath != "" {
 		return errTokenConfigConflict
