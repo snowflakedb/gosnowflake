@@ -59,7 +59,7 @@ func (qs queryResultStatus) String() string {
 func (qs queryResultStatus) isRunning() bool {
 	switch qs {
 	case SFQueryRunning, SFQueryResumingWarehouse, SFQueryQueued,
-		SFQueryQueueRepairingWarehouse, SFQueryNoData:
+		SFQueryQueueRepairingWarehouse, SFQueryRestarted, SFQueryNoData:
 		return true
 	default:
 		return false
