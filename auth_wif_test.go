@@ -200,6 +200,17 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 			expectedStsHost:  "sts.cn-northwest-1.amazonaws.com.cn",
 		},
 		{
+			// ISO partitions do not use an amazonaws.com suffix at all, so this pins
+			// the host that actually reaches the envelope, not just the resolver.
+			name: "Successful attestation for ISO region",
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds:  mockCreds,
+				region: "us-iso-east-1",
+			},
+			expectedProvider: "AWS",
+			expectedStsHost:  "sts.us-iso-east-1.c2s.ic.gov",
+		},
+		{
 			name: "Successful attestation with single role chaining",
 			config: Config{
 				WorkloadIdentityImpersonationPath: []string{"arn:aws:iam::123456789012:role/test-role"},
@@ -961,8 +972,18 @@ func TestAwsStsEndpointFor(t *testing.T) {
 		expectedOverride  bool
 		expectedError     string
 	}{
+		// Regional defaults come from the SDK's endpoint rules. The commercial and
+		// China cases pin that delegating there did not move the endpoint anyone
+		// already depends on; the rest are partitions whose DNS suffix is not
+		// amazonaws.com and which a hand-formatted hostname gets wrong.
 		{name: "regional default us-east-1", wifHost: "", region: "us-east-1", expectedAuthority: "sts.us-east-1.amazonaws.com", expectedBaseURL: "https://sts.us-east-1.amazonaws.com", expectedOverride: false},
 		{name: "regional default cn-north-1", wifHost: "", region: "cn-north-1", expectedAuthority: "sts.cn-north-1.amazonaws.com.cn", expectedBaseURL: "https://sts.cn-north-1.amazonaws.com.cn", expectedOverride: false},
+		{name: "regional default us-gov-west-1", wifHost: "", region: "us-gov-west-1", expectedAuthority: "sts.us-gov-west-1.amazonaws.com", expectedBaseURL: "https://sts.us-gov-west-1.amazonaws.com", expectedOverride: false},
+		{name: "regional default us-iso-east-1", wifHost: "", region: "us-iso-east-1", expectedAuthority: "sts.us-iso-east-1.c2s.ic.gov", expectedBaseURL: "https://sts.us-iso-east-1.c2s.ic.gov", expectedOverride: false},
+		{name: "regional default us-isob-east-1", wifHost: "", region: "us-isob-east-1", expectedAuthority: "sts.us-isob-east-1.sc2s.sgov.gov", expectedBaseURL: "https://sts.us-isob-east-1.sc2s.sgov.gov", expectedOverride: false},
+		{name: "regional default eu-isoe-west-1", wifHost: "", region: "eu-isoe-west-1", expectedAuthority: "sts.eu-isoe-west-1.cloud.adc-e.uk", expectedBaseURL: "https://sts.eu-isoe-west-1.cloud.adc-e.uk", expectedOverride: false},
+		{name: "regional default us-isof-south-1", wifHost: "", region: "us-isof-south-1", expectedAuthority: "sts.us-isof-south-1.csp.hci.ic.gov", expectedBaseURL: "https://sts.us-isof-south-1.csp.hci.ic.gov", expectedOverride: false},
+		{name: "regional default eusc-de-east-1", wifHost: "", region: "eusc-de-east-1", expectedAuthority: "sts.eusc-de-east-1.amazonaws.eu", expectedBaseURL: "https://sts.eusc-de-east-1.amazonaws.eu", expectedOverride: false},
 		{name: "bare host", wifHost: "sts.custom.example.com", region: "us-custom-1", expectedAuthority: "sts.custom.example.com", expectedBaseURL: "https://sts.custom.example.com", expectedOverride: true},
 		{name: "host with port", wifHost: "sts.custom.example.com:8443", region: "us-custom-1", expectedAuthority: "sts.custom.example.com:8443", expectedBaseURL: "https://sts.custom.example.com:8443", expectedOverride: true},
 		{name: "full URL", wifHost: "https://sts.custom.example.com", region: "us-custom-1", expectedAuthority: "sts.custom.example.com", expectedBaseURL: "https://sts.custom.example.com", expectedOverride: true},
@@ -979,7 +1000,7 @@ func TestAwsStsEndpointFor(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := &Config{WorkloadIdentityHost: tc.wifHost}
-			endpoint, err := awsStsEndpointFor(cfg, tc.region)
+			endpoint, err := awsStsEndpointFor(context.Background(), cfg, tc.region)
 			if tc.expectedError != "" {
 				assertNotNilE(t, err)
 				assertEqualE(t, err.Error(), tc.expectedError)

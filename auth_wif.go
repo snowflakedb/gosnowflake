@@ -169,37 +169,65 @@ func parseWorkloadIdentityHost(host string) (awsStsEndpoint, error) {
 		return awsStsEndpoint{}, fmt.Errorf("workloadIdentityHost %q must not contain user info, a query or a fragment", host)
 	}
 
-	// Strip any trailing slashes from path for cleaner BaseEndpoint
-	baseURL := strings.TrimRight(u.Scheme+"://"+u.Host+u.Path, "/")
+	baseURL := url.URL{
+		Scheme: u.Scheme,
+		Host:   u.Host,
+		Path:   u.Path,
+	}
 
 	return awsStsEndpoint{
-		authority:  u.Host,  // host[:port] for Host header
-		baseURL:    baseURL, // full URL for SDK
+		authority:  u.Host,                                   // host[:port] for Host header
+		baseURL:    strings.TrimRight(baseURL.String(), "/"), // full URL for SDK
 		overridden: true,
 	}, nil
 }
 
 // awsStsEndpointFor resolves the STS endpoint for the given region, checking
 // WorkloadIdentityHost first, falling back to the regional default.
-func awsStsEndpointFor(cfg *Config, region string) (awsStsEndpoint, error) {
+func awsStsEndpointFor(ctx context.Context, cfg *Config, region string) (awsStsEndpoint, error) {
 	if cfg.WorkloadIdentityHost != "" {
 		return parseWorkloadIdentityHost(cfg.WorkloadIdentityHost)
 	}
-	// Regional default
-	hostname := defaultStsHostname(region)
-	return awsStsEndpoint{
-		authority:  hostname,
-		baseURL:    "https://" + hostname,
-		overridden: false,
-	}, nil
+	return defaultStsEndpoint(ctx, region)
 }
 
-// defaultStsHostname returns the regional STS hostname, with .cn suffix for China regions.
-func defaultStsHostname(region string) string {
-	if strings.HasPrefix(region, "cn-") {
-		return fmt.Sprintf("sts.%s.amazonaws.com.cn", region)
+// defaultStsEndpoint resolves the regional STS endpoint using the AWS SDK's own
+// endpoint rules. The DNS suffix is partition-specific and not derivable from the
+// region name - the ISO partitions and the European Sovereign Cloud do not use
+// amazonaws.com at all - so formatting the hostname here would be wrong for every
+// partition the SDK already knows about. Resolution is a pure evaluation of the
+// endpoint rules compiled into the SDK: no network calls and no credentials.
+//
+// FIPS, dualstack and the legacy global endpoint are pinned off so this returns
+// the plain regional endpoint. The SDK-driven flows (role chaining, outbound
+// token) resolve their own endpoints and continue to honour the ambient
+// AWS_USE_FIPS_ENDPOINT and AWS_USE_DUALSTACK_ENDPOINT preferences.
+func defaultStsEndpoint(ctx context.Context, region string) (awsStsEndpoint, error) {
+	resolved, err := sts.NewDefaultEndpointResolverV2().ResolveEndpoint(ctx, sts.EndpointParameters{
+		Region:            aws.String(region),
+		UseFIPS:           aws.Bool(false),
+		UseDualStack:      aws.Bool(false),
+		UseGlobalEndpoint: aws.Bool(false),
+	})
+	if err != nil {
+		return awsStsEndpoint{}, fmt.Errorf("could not resolve an STS endpoint for region %q: %w", region, err)
 	}
-	return fmt.Sprintf("sts.%s.amazonaws.com", region)
+
+	uri := resolved.URI
+	if uri.Host == "" {
+		return awsStsEndpoint{}, fmt.Errorf("resolved STS endpoint for region %q has no host: %q", region, uri.String())
+	}
+
+	baseURL := url.URL{
+		Scheme: uri.Scheme,
+		Host:   uri.Host,
+		Path:   uri.Path,
+	}
+	return awsStsEndpoint{
+		authority:  uri.Host,
+		baseURL:    strings.TrimRight(baseURL.String(), "/"),
+		overridden: false,
+	}, nil
 }
 
 // withStsBaseEndpoint returns a functional option that pins the SDK's STS endpoint
@@ -257,7 +285,7 @@ func (s *defaultAwsAttestationMetadataProvider) awsCredentialsViaRoleChaining() 
 func (s *defaultAwsAttestationMetadataProvider) assumeRole(creds aws.Credentials, roleArn string) (aws.Credentials, error) {
 	logger.Debugf("assuming role %v", roleArn)
 	region := s.awsRegion()
-	endpoint, err := awsStsEndpointFor(s.cfg, region)
+	endpoint, err := awsStsEndpointFor(s.ctx, s.cfg, region)
 	if err != nil {
 		return aws.Credentials{}, err
 	}
@@ -294,7 +322,7 @@ func (s *defaultAwsAttestationMetadataProvider) awsRegion() string {
 }
 
 func (s *defaultAwsAttestationMetadataProvider) awsWebIdentityToken(creds aws.Credentials, region string) (string, error) {
-	endpoint, err := awsStsEndpointFor(s.cfg, region)
+	endpoint, err := awsStsEndpointFor(s.ctx, s.cfg, region)
 	if err != nil {
 		return "", err
 	}
@@ -364,7 +392,7 @@ func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 // createCallerIdentityAttestation produces the attestation as a base64-encoded,
 // SigV4-signed STS GetCallerIdentity request envelope.
 func (c *awsIdentityAttestationCreator) createCallerIdentityAttestation(creds aws.Credentials, region string) (*wifAttestation, error) {
-	endpoint, err := awsStsEndpointFor(c.cfg, region)
+	endpoint, err := awsStsEndpointFor(c.ctx, c.cfg, region)
 	if err != nil {
 		return nil, err
 	}
