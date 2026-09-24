@@ -4,52 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
+
+	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
-
-func TestGetTokenFromResponseFail(t *testing.T) {
-	response := "GET /?fakeToken=fakeEncodedSamlToken HTTP/1.1\r\n" +
-		"Host: localhost:54001\r\n" +
-		"Connection: keep-alive\r\n" +
-		"Upgrade-Insecure-Requests: 1\r\n" +
-		"User-Agent: userAgentStr\r\n" +
-		"Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8\r\n" +
-		"Referer: https://myaccount.snowflakecomputing.com/fed/login\r\n" +
-		"Accept-Encoding: gzip, deflate, br\r\n" +
-		"Accept-Language: en-US,en;q=0.9\r\n\r\n"
-
-	_, err := getTokenFromResponse(response)
-	if err == nil {
-		t.Errorf("Should have failed parsing the malformed response.")
-	}
-}
-
-func TestGetTokenFromResponse(t *testing.T) {
-	response := "GET /?token=GETtokenFromResponse HTTP/1.1\r\n" +
-		"Host: localhost:54001\r\n" +
-		"Connection: keep-alive\r\n" +
-		"Upgrade-Insecure-Requests: 1\r\n" +
-		"User-Agent: userAgentStr\r\n" +
-		"Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8\r\n" +
-		"Referer: https://myaccount.snowflakecomputing.com/fed/login\r\n" +
-		"Accept-Encoding: gzip, deflate, br\r\n" +
-		"Accept-Language: en-US,en;q=0.9\r\n\r\n"
-
-	expected := "GETtokenFromResponse"
-
-	token, err := getTokenFromResponse(response)
-	if err != nil {
-		t.Errorf("Failed to get the token. Err: %#v", err)
-	}
-	if token != expected {
-		t.Errorf("Expected: %s, found: %s", expected, token)
-	}
-}
 
 func TestBuildResponse(t *testing.T) {
 	resp, err := buildResponse(fmt.Sprintf(samlSuccessHTML, "Go"))
@@ -58,6 +21,125 @@ func TestBuildResponse(t *testing.T) {
 	respStr := string(bytes[:])
 	if !strings.Contains(respStr, "Your identity was confirmed and propagated to Snowflake Go.\nYou can close this window now and go back where you started from.") {
 		t.Fatalf("failed to build response")
+	}
+}
+
+func TestEncodedTokenFromRequest(t *testing.T) {
+	tests := []struct {
+		name      string
+		method    string
+		target    string
+		wantToken string
+		wantOK    bool
+	}{
+		{name: "encoded token", method: http.MethodGet, target: "/?token=test%2Btoken", wantToken: "test%2Btoken", wantOK: true},
+		{name: "token after another parameter", method: http.MethodGet, target: "/?other=value&token=test%2Btoken", wantToken: "test%2Btoken", wantOK: true},
+		{name: "missing token", method: http.MethodGet, target: "/?other=value"},
+		{name: "empty token", method: http.MethodGet, target: "/?token="},
+		{name: "wrong method", method: http.MethodPost, target: "/?token=test%2Btoken"},
+		{name: "wrong path", method: http.MethodGet, target: "/callback?token=test%2Btoken"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request, err := http.NewRequest(test.method, test.target, nil)
+			assertNilF(t, err)
+
+			gotToken, gotOK := encodedTokenFromRequest(request)
+			assertEqualE(t, gotToken, test.wantToken)
+			assertEqualE(t, gotOK, test.wantOK)
+		})
+	}
+}
+
+type acceptNotifyingListener struct {
+	net.Listener
+	accepted chan<- struct{}
+}
+
+func (l acceptNotifyingListener) Accept() (net.Conn, error) {
+	conn, err := l.Listener.Accept()
+	if err == nil {
+		select {
+		case l.accepted <- struct{}{}:
+		default:
+		}
+	}
+	return conn, err
+}
+
+func TestWaitForSamlResponseAcceptsCallbackAfterIdleConnection(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	assertNilF(t, err)
+	accepted := make(chan struct{}, 1)
+	notifyingListener := acceptNotifyingListener{Listener: listener, accepted: accepted}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	type result struct {
+		token string
+		err   error
+	}
+	resultChan := make(chan result, 1)
+	go func() {
+		token, err := waitForSamlResponse(ctx, notifyingListener, "Go")
+		resultChan <- result{token: token, err: err}
+	}()
+
+	idleConn, err := net.Dial("tcp", listener.Addr().String())
+	assertNilF(t, err)
+	defer idleConn.Close()
+	select {
+	case <-accepted:
+	case <-ctx.Done():
+		t.Fatal("idle connection was not accepted")
+	}
+
+	client := &http.Client{Timeout: time.Second}
+	response, err := client.Get("http://" + listener.Addr().String() + "/?token=test%2Btoken")
+	assertNilF(t, err)
+	defer response.Body.Close()
+	assertEqualE(t, response.StatusCode, http.StatusOK)
+
+	select {
+	case got := <-resultChan:
+		assertNilF(t, got.err)
+		assertEqualE(t, got.token, "test%2Btoken")
+	case <-ctx.Done():
+		t.Fatal("real callback was blocked by the idle connection")
+	}
+}
+
+func TestWaitForSamlResponseStopsOnContextCancellation(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	assertNilF(t, err)
+	accepted := make(chan struct{}, 1)
+	notifyingListener := acceptNotifyingListener{Listener: listener, accepted: accepted}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	resultChan := make(chan error, 1)
+	go func() {
+		_, err := waitForSamlResponse(ctx, notifyingListener, "Go")
+		resultChan <- err
+	}()
+
+	idleConn, err := net.Dial("tcp", listener.Addr().String())
+	assertNilF(t, err)
+	defer idleConn.Close()
+	select {
+	case <-accepted:
+	case <-time.After(time.Second):
+		t.Fatal("idle connection was not accepted")
+	}
+
+	cancel()
+	select {
+	case err := <-resultChan:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected context cancellation, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("listener did not stop after context cancellation")
 	}
 }
 
