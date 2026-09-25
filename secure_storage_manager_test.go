@@ -35,6 +35,25 @@ func TestLookupCacheDirCreatesNestedPath(t *testing.T) {
 	assertTrueE(t, info.IsDir(), "the cache directory must have been created")
 }
 
+// TestLookupCacheDirAcceptsSingleSegmentRootPath covers the other half of the
+// same bug on POSIX: for a path directly under the root, such as "/tmp",
+// slicing at the last "/" yields "" rather than "/", and os.MkdirAll("") fails,
+// so the directory is rejected even though it is perfectly usable.
+// filepath.Dir returns "/" and the lookup succeeds.
+func TestLookupCacheDirAcceptsSingleSegmentRootPath(t *testing.T) {
+	skipOnWindows(t, "a single segment path under / is POSIX specific")
+
+	// No path segments, so cacheDir is the env var's own value and its parent is
+	// the filesystem root. "/tmp" already exists, so nothing is created here:
+	// os.MkdirAll("/") and os.Mkdir("/tmp") are both no-ops.
+	env := overrideEnv("CACHE_DIR_TEST_ROOT_CHILD", "/tmp")
+	defer env.rollback()
+
+	cacheDir, err := lookupCacheDir("CACHE_DIR_TEST_ROOT_CHILD")
+	assertNilF(t, err)
+	assertEqualE(t, cacheDir, "/tmp")
+}
+
 func TestBuildCredCacheDirPath(t *testing.T) {
 	skipOnWindows(t, "permission model is different")
 	testRoot1, err := os.MkdirTemp("", "")
