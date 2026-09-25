@@ -207,7 +207,10 @@ func lookupCacheDir(envVar string, pathSegments ...string) (string, error) {
 	}
 
 	cacheDir := filepath.Join(envVal, filepath.Join(pathSegments...))
-	parentOfCacheDir := cacheDir[:strings.LastIndex(cacheDir, "/")]
+	// filepath.Dir rather than slicing at the last "/": filepath.Join emits the
+	// platform separator, so on windows the path holds "\" and a search for "/"
+	// returns -1, making the slice expression panic.
+	parentOfCacheDir := filepath.Dir(cacheDir)
 
 	if err = os.MkdirAll(parentOfCacheDir, os.FileMode(0755)); err != nil {
 		return "", err
