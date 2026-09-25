@@ -12,7 +12,13 @@ import (
 func defaultOsSpecificSecureStorageManager() secureStorageManager {
 	switch runtime.GOOS {
 	case "darwin", "windows":
-		if useFileCredentialCache() {
+		// The opt-in is darwin only. Windows is excluded on both counts: its
+		// credential manager is not keyed by the calling binary's code
+		// signature, so it does not have the problem this solves, and the file
+		// based manager's directory lookup is POSIX specific --
+		// defaultLinuxCacheDirConf reads HOME rather than USERPROFILE, and
+		// lookupCacheDir splits on "/" while filepath.Join emits "\" there.
+		if runtime.GOOS == "darwin" && useFileCredentialCache() {
 			ssm, err := newFileBasedSecureStorageManager()
 			if err == nil {
 				logger.Debugf("%v is enabled, using file based secure storage manager.", useFileCredCacheEnv)
