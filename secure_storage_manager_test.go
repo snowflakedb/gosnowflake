@@ -12,6 +12,29 @@ import (
 	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
 
+// TestLookupCacheDirCreatesNestedPath pins the parent directory computation to
+// filepath.Dir. Slicing at the last "/" panics on windows, where filepath.Join
+// emits "\" and the search returns -1. Deliberately not skipped on windows:
+// that is the platform this regression is about.
+func TestLookupCacheDirCreatesNestedPath(t *testing.T) {
+	testRoot, err := os.MkdirTemp("", "")
+	assertNilF(t, err)
+	defer os.RemoveAll(testRoot)
+
+	env := overrideEnv("CACHE_DIR_TEST_NESTED", testRoot)
+	defer env.rollback()
+
+	// More than one segment, so the parent directory has to be created rather
+	// than already existing as the env var's own value.
+	cacheDir, err := lookupCacheDir("CACHE_DIR_TEST_NESTED", "nested", "snowflake")
+	assertNilF(t, err)
+	assertEqualE(t, cacheDir, filepath.Join(testRoot, "nested", "snowflake"))
+
+	info, err := os.Stat(cacheDir)
+	assertNilF(t, err)
+	assertTrueE(t, info.IsDir(), "the cache directory must have been created")
+}
+
 func TestBuildCredCacheDirPath(t *testing.T) {
 	skipOnWindows(t, "permission model is different")
 	testRoot1, err := os.MkdirTemp("", "")
