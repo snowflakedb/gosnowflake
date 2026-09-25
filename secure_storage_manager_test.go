@@ -12,6 +12,64 @@ import (
 	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
 
+// TestLookupCacheDirCreatesNestedPath pins the parent directory computation to
+// filepath.Dir. Slicing at the last "/" panics on windows, where filepath.Join
+// emits "\" and the search returns -1. Deliberately not skipped on windows:
+// that is the platform this regression is about.
+func TestLookupCacheDirCreatesNestedPath(t *testing.T) {
+	testRoot, err := os.MkdirTemp("", "")
+	assertNilF(t, err)
+	defer os.RemoveAll(testRoot)
+
+	env := overrideEnv("CACHE_DIR_TEST_NESTED", testRoot)
+	defer env.rollback()
+
+	// More than one segment, so the parent directory has to be created rather
+	// than already existing as the env var's own value.
+	cacheDir, err := lookupCacheDir("CACHE_DIR_TEST_NESTED", "nested", "snowflake")
+	assertNilF(t, err)
+	assertEqualE(t, cacheDir, filepath.Join(testRoot, "nested", "snowflake"))
+
+	info, err := os.Stat(cacheDir)
+	assertNilF(t, err)
+	assertTrueE(t, info.IsDir(), "the cache directory must have been created")
+}
+
+// TestLookupCacheDirAcceptsSingleSegmentRootPath covers the other half of the
+// same bug on POSIX: for a path directly under the root, such as "/tmp",
+// slicing at the last "/" yields "" rather than "/", and os.MkdirAll("") fails,
+// so the directory is rejected even though it is perfectly usable.
+// filepath.Dir returns "/" and the lookup succeeds.
+func TestLookupCacheDirAcceptsSingleSegmentRootPath(t *testing.T) {
+	skipOnWindows(t, "a single segment path under / is POSIX specific")
+
+	// No path segments, so cacheDir is the env var's own value and its parent is
+	// the filesystem root. "/tmp" already exists, so nothing is created here:
+	// os.MkdirAll("/") and os.Mkdir("/tmp") are both no-ops.
+	env := overrideEnv("CACHE_DIR_TEST_ROOT_CHILD", "/tmp")
+	defer env.rollback()
+
+	cacheDir, err := lookupCacheDir("CACHE_DIR_TEST_ROOT_CHILD")
+	assertNilF(t, err)
+	assertEqualE(t, cacheDir, "/tmp")
+}
+
+// TestLookupCacheDirAcceptsRelativePath covers the case that is reachable on
+// every platform, linux included: a relative SF_TEMPORARY_CREDENTIAL_CACHE_DIR
+// such as "." contains no separator at all, so strings.LastIndex returns -1 and
+// slicing panics. filepath.Dir returns "." and the lookup succeeds.
+func TestLookupCacheDirAcceptsRelativePath(t *testing.T) {
+	// "." is the process working directory, which always exists, so this
+	// neither creates nor modifies anything: os.MkdirAll(".") is a no-op and
+	// os.Mkdir(".") returns ErrExist, which lookupCacheDir tolerates.
+	env := overrideEnv("CACHE_DIR_TEST_RELATIVE", ".")
+	defer env.rollback()
+
+	cacheDir, err := lookupCacheDir("CACHE_DIR_TEST_RELATIVE")
+	assertNilF(t, err)
+	assertEqualE(t, cacheDir, ".")
+}
+
 func TestBuildCredCacheDirPath(t *testing.T) {
 	skipOnWindows(t, "permission model is different")
 	testRoot1, err := os.MkdirTemp("", "")
