@@ -12,6 +12,14 @@ import (
 func defaultOsSpecificSecureStorageManager() secureStorageManager {
 	switch runtime.GOOS {
 	case "darwin", "windows":
+		if useFileCredentialCache() {
+			ssm, err := newFileBasedSecureStorageManager()
+			if err == nil {
+				logger.Debugf("%v is enabled, using file based secure storage manager.", useFileCredCacheEnv)
+				return &threadSafeSecureStorageManager{&sync.Mutex{}, ssm}
+			}
+			logger.Warnf("%v is enabled but the credentials cache dir could not be created: %v. Falling back to the keyring based secure storage manager.", useFileCredCacheEnv, err)
+		}
 		logger.Debugf("OS is %v, using keyring based secure storage manager.", runtime.GOOS)
 		return &threadSafeSecureStorageManager{&sync.Mutex{}, newKeyringBasedSecureStorageManager()}
 	default:
