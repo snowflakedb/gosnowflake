@@ -12,6 +12,27 @@ import (
 func defaultOsSpecificSecureStorageManager() secureStorageManager {
 	switch runtime.GOOS {
 	case "darwin", "windows":
+		// The opt-in is darwin only. Windows is excluded on both counts: its
+		// credential manager is not keyed by the calling binary's code
+		// signature, so it does not have the problem this solves, and the file
+		// based manager's directory lookup is POSIX specific --
+		// defaultLinuxCacheDirConf reads HOME rather than USERPROFILE, and
+		// lookupCacheDir splits on "/" while filepath.Join emits "\" there.
+		if runtime.GOOS == "darwin" && useFileCredentialCache() {
+			ssm, err := newFileBasedSecureStorageManager()
+			if err != nil {
+				// Deliberately not falling back to the keyring. The opt-in is
+				// explicit, and its whole purpose is to keep credentials out of
+				// the keyring, so quietly selecting it here would reintroduce
+				// the prompts the caller set the variable to avoid. Degrade to
+				// no caching instead, matching what linux does on the same
+				// failure.
+				logger.Warnf("%v is enabled but the credentials cache dir could not be created: %v. Not storing credentials locally.", useFileCredCacheEnv, err)
+				return newNoopSecureStorageManager()
+			}
+			logger.Debugf("%v is enabled, using file based secure storage manager.", useFileCredCacheEnv)
+			return &threadSafeSecureStorageManager{&sync.Mutex{}, ssm}
+		}
 		logger.Debugf("OS is %v, using keyring based secure storage manager.", runtime.GOOS)
 		return &threadSafeSecureStorageManager{&sync.Mutex{}, newKeyringBasedSecureStorageManager()}
 	default:

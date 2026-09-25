@@ -6,11 +6,124 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sync"
 	"testing"
 	"time"
 
 	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
+
+func TestUseFileCredentialCache(t *testing.T) {
+	for _, tc := range []struct {
+		value    string
+		expected bool
+	}{
+		{value: "", expected: false},
+		{value: "true", expected: true},
+		{value: "TRUE", expected: true},
+		{value: "1", expected: true},
+		{value: "false", expected: false},
+		{value: "0", expected: false},
+		{value: "not a bool", expected: false},
+	} {
+		t.Run("value="+tc.value, func(t *testing.T) {
+			env := overrideEnv(useFileCredCacheEnv, tc.value)
+			defer env.rollback()
+
+			assertEqualE(t, useFileCredentialCache(), tc.expected)
+		})
+	}
+}
+
+// TestFileCredentialCacheOptIn covers the two platforms that default to the
+// keyring. The opt-in applies to darwin only; windows must ignore it, since the
+// file based manager's cache directory lookup is POSIX specific there.
+func TestFileCredentialCacheOptIn(t *testing.T) {
+	if runtime.GOOS != "darwin" && runtime.GOOS != "windows" {
+		t.Skip("the keyring manager is only the default on darwin and windows")
+	}
+
+	cacheDir, err := os.MkdirTemp("", "")
+	assertNilF(t, err)
+	defer os.RemoveAll(cacheDir)
+
+	cacheDirEnv := overrideEnv(credCacheDirEnv, cacheDir)
+	defer cacheDirEnv.rollback()
+
+	delegateOf := func(t *testing.T) secureStorageManager {
+		t.Helper()
+		ssm, ok := newSecureStorageManager().(*threadSafeSecureStorageManager)
+		assertTrueF(t, ok, "expected a thread safe secure storage manager")
+		return ssm.delegate
+	}
+
+	t.Run("enabled", func(t *testing.T) {
+		env := overrideEnv(useFileCredCacheEnv, "true")
+		defer env.rollback()
+
+		if runtime.GOOS == "windows" {
+			_, ok := delegateOf(t).(*keyringSecureStorageManager)
+			assertTrueE(t, ok, "windows must ignore the opt-in and keep the keyring")
+			return
+		}
+		_, ok := delegateOf(t).(*fileBasedSecureStorageManager)
+		assertTrueE(t, ok, "expected the file based secure storage manager to be selected")
+	})
+
+	t.Run("unset keeps the keyring default", func(t *testing.T) {
+		env := overrideEnv(useFileCredCacheEnv, "")
+		defer env.rollback()
+
+		_, ok := delegateOf(t).(*keyringSecureStorageManager)
+		assertTrueE(t, ok, "expected the keyring secure storage manager to remain the default")
+	})
+
+	t.Run("enabled but no usable cache dir degrades to no caching", func(t *testing.T) {
+		if runtime.GOOS != "darwin" {
+			t.Skip("the opt-in only takes effect on darwin")
+		}
+
+		env := overrideEnv(useFileCredCacheEnv, "true")
+		defer env.rollback()
+
+		// Starve every candidate directory so newFileBasedSecureStorageManager
+		// fails. Falling back to the keyring here would reintroduce exactly the
+		// prompts the opt-in was set to avoid, so no caching is the safer
+		// degradation and matches linux.
+		missing := filepath.Join(cacheDir, "does-not-exist")
+		for _, envVar := range []string{credCacheDirEnv, "XDG_CACHE_DIR", "HOME"} {
+			starved := overrideEnv(envVar, missing)
+			defer starved.rollback()
+		}
+
+		_, ok := newSecureStorageManager().(*noopSecureStorageManager)
+		assertTrueE(t, ok, "an explicit opt-in must not silently fall back to the keyring")
+	})
+}
+
+// TestLazySecureStorageManagerResolvesOnce guards the reason credentialsStorage
+// is lazy: the underlying manager must be built on first use, not at package
+// initialization, so a consumer can still influence the choice from main.
+func TestLazySecureStorageManagerResolvesOnce(t *testing.T) {
+	resolved := 0
+	delegate := newNoopSecureStorageManager()
+	ssm := &lazySecureStorageManager{
+		resolve: sync.OnceValue(func() secureStorageManager {
+			resolved++
+			return delegate
+		}),
+	}
+
+	assertEqualE(t, resolved, 0, "the manager must not be built before first use")
+
+	spec := newIDTokenSpec(&Config{Host: "host.snowflakecomputing.com", User: "user"})
+	ssm.setCredential(spec, "value")
+	ssm.getCredential(spec)
+	ssm.deleteCredential(spec)
+
+	assertEqualE(t, resolved, 1, "the manager must be built exactly once")
+}
 
 func TestBuildCredCacheDirPath(t *testing.T) {
 	skipOnWindows(t, "permission model is different")
