@@ -54,6 +54,22 @@ func TestLookupCacheDirAcceptsSingleSegmentRootPath(t *testing.T) {
 	assertEqualE(t, cacheDir, "/tmp")
 }
 
+// TestLookupCacheDirAcceptsRelativePath covers the case that is reachable on
+// every platform, linux included: a relative SF_TEMPORARY_CREDENTIAL_CACHE_DIR
+// such as "." contains no separator at all, so strings.LastIndex returns -1 and
+// slicing panics. filepath.Dir returns "." and the lookup succeeds.
+func TestLookupCacheDirAcceptsRelativePath(t *testing.T) {
+	// "." is the process working directory, which always exists, so this
+	// neither creates nor modifies anything: os.MkdirAll(".") is a no-op and
+	// os.Mkdir(".") returns ErrExist, which lookupCacheDir tolerates.
+	env := overrideEnv("CACHE_DIR_TEST_RELATIVE", ".")
+	defer env.rollback()
+
+	cacheDir, err := lookupCacheDir("CACHE_DIR_TEST_RELATIVE")
+	assertNilF(t, err)
+	assertEqualE(t, cacheDir, ".")
+}
+
 func TestBuildCredCacheDirPath(t *testing.T) {
 	skipOnWindows(t, "permission model is different")
 	testRoot1, err := os.MkdirTemp("", "")

@@ -7,7 +7,7 @@ New features:
 
 Bug fixes:
 - Fixed `GetQueryStatus` treating `RESTARTED` as success by counting that status as still running (snowflakedb/gosnowflake#1842).
-- Fixed the credentials cache directory lookup deriving a parent path by slicing at the last `/`, which panics on windows where `filepath.Join` emits `\` (snowflakedb/gosnowflake#1849).
+- Fixed the credentials cache directory lookup deriving a parent path by slicing at the last `/`. It panics for a relative `SF_TEMPORARY_CREDENTIAL_CACHE_DIR` such as `.` on any platform, and for any path on windows where `filepath.Join` emits `\` (snowflakedb/gosnowflake#1849).
 
 ## 2.2.0
 
