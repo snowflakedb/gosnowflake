@@ -6,11 +6,94 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sync"
 	"testing"
 	"time"
 
 	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
+
+func TestUseFileCredentialCache(t *testing.T) {
+	for _, tc := range []struct {
+		value    string
+		expected bool
+	}{
+		{value: "", expected: false},
+		{value: "true", expected: true},
+		{value: "TRUE", expected: true},
+		{value: "1", expected: true},
+		{value: "false", expected: false},
+		{value: "0", expected: false},
+		{value: "not a bool", expected: false},
+	} {
+		t.Run("value="+tc.value, func(t *testing.T) {
+			env := overrideEnv(useFileCredCacheEnv, tc.value)
+			defer env.rollback()
+
+			assertEqualE(t, useFileCredentialCache(), tc.expected)
+		})
+	}
+}
+
+// TestFileCredentialCacheSelectedOnKeyringPlatforms covers darwin and windows,
+// where the keyring remains the default and the env var opts into the
+// file-based manager instead.
+func TestFileCredentialCacheSelectedOnKeyringPlatforms(t *testing.T) {
+	if runtime.GOOS != "darwin" && runtime.GOOS != "windows" {
+		t.Skip("the keyring manager is only the default on darwin and windows")
+	}
+
+	cacheDir, err := os.MkdirTemp("", "")
+	assertNilF(t, err)
+	defer os.RemoveAll(cacheDir)
+
+	cacheDirEnv := overrideEnv(credCacheDirEnv, cacheDir)
+	defer cacheDirEnv.rollback()
+
+	t.Run("enabled selects the file based manager", func(t *testing.T) {
+		env := overrideEnv(useFileCredCacheEnv, "true")
+		defer env.rollback()
+
+		ssm, ok := newSecureStorageManager().(*threadSafeSecureStorageManager)
+		assertTrueF(t, ok, "expected a thread safe secure storage manager")
+		_, ok = ssm.delegate.(*fileBasedSecureStorageManager)
+		assertTrueE(t, ok, "expected the file based secure storage manager to be selected")
+	})
+
+	t.Run("unset keeps the keyring default", func(t *testing.T) {
+		env := overrideEnv(useFileCredCacheEnv, "")
+		defer env.rollback()
+
+		ssm, ok := newSecureStorageManager().(*threadSafeSecureStorageManager)
+		assertTrueF(t, ok, "expected a thread safe secure storage manager")
+		_, ok = ssm.delegate.(*keyringSecureStorageManager)
+		assertTrueE(t, ok, "expected the keyring secure storage manager to remain the default")
+	})
+}
+
+// TestLazySecureStorageManagerResolvesOnce guards the reason credentialsStorage
+// is lazy: the underlying manager must be built on first use, not at package
+// initialization, so a consumer can still influence the choice from main.
+func TestLazySecureStorageManagerResolvesOnce(t *testing.T) {
+	resolved := 0
+	delegate := newNoopSecureStorageManager()
+	ssm := &lazySecureStorageManager{
+		resolve: sync.OnceValue(func() secureStorageManager {
+			resolved++
+			return delegate
+		}),
+	}
+
+	assertEqualE(t, resolved, 0, "the manager must not be built before first use")
+
+	spec := newIDTokenSpec(&Config{Host: "host.snowflakecomputing.com", User: "user"})
+	ssm.setCredential(spec, "value")
+	ssm.getCredential(spec)
+	ssm.deleteCredential(spec)
+
+	assertEqualE(t, resolved, 1, "the manager must be built exactly once")
+}
 
 func TestBuildCredCacheDirPath(t *testing.T) {
 	skipOnWindows(t, "permission model is different")

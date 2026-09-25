@@ -31,7 +31,18 @@ const (
 const (
 	credCacheDirEnv   = "SF_TEMPORARY_CREDENTIAL_CACHE_DIR"
 	credCacheFileName = "credential_cache_v1.json"
+	// useFileCredCacheEnv selects the file-based credential cache on platforms
+	// that otherwise default to the OS keyring (darwin and windows). Unset or
+	// false keeps the existing per-platform default.
+	useFileCredCacheEnv = "SF_USE_FILE_CREDENTIAL_CACHE"
 )
+
+// useFileCredentialCache reports whether the file-based credential cache was
+// explicitly requested via useFileCredCacheEnv.
+func useFileCredentialCache() bool {
+	enabled, err := strconv.ParseBool(os.Getenv(useFileCredCacheEnv))
+	return err == nil && enabled
+}
 
 type cacheDirConf struct {
 	envVar       string
@@ -170,10 +181,37 @@ type secureStorageManager interface {
 	deleteCredential(tokenSpec secureTokenSpec)
 }
 
-var credentialsStorage = newSecureStorageManager()
+// credentialsStorage resolves the platform's secure storage manager on first
+// use rather than at package initialization.
+//
+// The distinction matters for useFileCredCacheEnv: package-level initializers
+// run before the importing program's main, so a driver consumer that sets the
+// variable with os.Setenv would otherwise always be too late to affect the
+// choice, leaving the setting usable only from outside the process.
+var credentialsStorage secureStorageManager = &lazySecureStorageManager{
+	resolve: sync.OnceValue(newSecureStorageManager),
+}
 
 func newSecureStorageManager() secureStorageManager {
 	return defaultOsSpecificSecureStorageManager()
+}
+
+// lazySecureStorageManager defers construction of the underlying manager to the
+// first credential operation.
+type lazySecureStorageManager struct {
+	resolve func() secureStorageManager
+}
+
+func (ssm *lazySecureStorageManager) setCredential(tokenSpec secureTokenSpec, value string) {
+	ssm.resolve().setCredential(tokenSpec, value)
+}
+
+func (ssm *lazySecureStorageManager) getCredential(tokenSpec secureTokenSpec) string {
+	return ssm.resolve().getCredential(tokenSpec)
+}
+
+func (ssm *lazySecureStorageManager) deleteCredential(tokenSpec secureTokenSpec) {
+	ssm.resolve().deleteCredential(tokenSpec)
 }
 
 type fileBasedSecureStorageManager struct {
