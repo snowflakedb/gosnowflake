@@ -4,7 +4,7 @@
 
 New features:
 - Added `WorkloadIdentityHost` config option (DSN field `workloadIdentityHost`) that overrides the STS host used by the AWS WIF flows, for endpoints the driver cannot derive from the region (such as an interface VPC endpoint). Must be an STS endpoint for the region the workload runs in (snowflakedb/gosnowflake#5).
-- Added `SF_USE_FILE_CREDENTIAL_CACHE` environment variable that selects the file based credential cache on darwin and windows, where the OS keyring is otherwise used. Unset or false keeps the existing per-platform default (snowflakedb/gosnowflake#1848).
+- Added `SF_USE_FILE_CREDENTIAL_CACHE` environment variable that selects the file based credential cache on darwin, where the OS keyring is otherwise used. Unset or false keeps the existing per-platform default (snowflakedb/gosnowflake#1848).
 
 Bug fixes:
 - Fixed `GetQueryStatus` treating `RESTARTED` as success by counting that status as still running (snowflakedb/gosnowflake#1842).

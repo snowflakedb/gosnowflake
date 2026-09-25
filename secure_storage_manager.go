@@ -31,9 +31,9 @@ const (
 const (
 	credCacheDirEnv   = "SF_TEMPORARY_CREDENTIAL_CACHE_DIR"
 	credCacheFileName = "credential_cache_v1.json"
-	// useFileCredCacheEnv selects the file-based credential cache on platforms
-	// that otherwise default to the OS keyring (darwin and windows). Unset or
-	// false keeps the existing per-platform default.
+	// useFileCredCacheEnv selects the file-based credential cache on darwin,
+	// which otherwise defaults to the OS keyring. Unset or false keeps the
+	// existing per-platform default. Ignored on every other platform.
 	useFileCredCacheEnv = "SF_USE_FILE_CREDENTIAL_CACHE"
 )
 

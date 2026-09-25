@@ -36,10 +36,10 @@ func TestUseFileCredentialCache(t *testing.T) {
 	}
 }
 
-// TestFileCredentialCacheSelectedOnKeyringPlatforms covers darwin and windows,
-// where the keyring remains the default and the env var opts into the
-// file-based manager instead.
-func TestFileCredentialCacheSelectedOnKeyringPlatforms(t *testing.T) {
+// TestFileCredentialCacheOptIn covers the two platforms that default to the
+// keyring. The opt-in applies to darwin only; windows must ignore it, since the
+// file based manager's cache directory lookup is POSIX specific there.
+func TestFileCredentialCacheOptIn(t *testing.T) {
 	if runtime.GOOS != "darwin" && runtime.GOOS != "windows" {
 		t.Skip("the keyring manager is only the default on darwin and windows")
 	}
@@ -51,13 +51,23 @@ func TestFileCredentialCacheSelectedOnKeyringPlatforms(t *testing.T) {
 	cacheDirEnv := overrideEnv(credCacheDirEnv, cacheDir)
 	defer cacheDirEnv.rollback()
 
-	t.Run("enabled selects the file based manager", func(t *testing.T) {
+	delegateOf := func(t *testing.T) secureStorageManager {
+		t.Helper()
+		ssm, ok := newSecureStorageManager().(*threadSafeSecureStorageManager)
+		assertTrueF(t, ok, "expected a thread safe secure storage manager")
+		return ssm.delegate
+	}
+
+	t.Run("enabled", func(t *testing.T) {
 		env := overrideEnv(useFileCredCacheEnv, "true")
 		defer env.rollback()
 
-		ssm, ok := newSecureStorageManager().(*threadSafeSecureStorageManager)
-		assertTrueF(t, ok, "expected a thread safe secure storage manager")
-		_, ok = ssm.delegate.(*fileBasedSecureStorageManager)
+		if runtime.GOOS == "windows" {
+			_, ok := delegateOf(t).(*keyringSecureStorageManager)
+			assertTrueE(t, ok, "windows must ignore the opt-in and keep the keyring")
+			return
+		}
+		_, ok := delegateOf(t).(*fileBasedSecureStorageManager)
 		assertTrueE(t, ok, "expected the file based secure storage manager to be selected")
 	})
 
@@ -65,9 +75,7 @@ func TestFileCredentialCacheSelectedOnKeyringPlatforms(t *testing.T) {
 		env := overrideEnv(useFileCredCacheEnv, "")
 		defer env.rollback()
 
-		ssm, ok := newSecureStorageManager().(*threadSafeSecureStorageManager)
-		assertTrueF(t, ok, "expected a thread safe secure storage manager")
-		_, ok = ssm.delegate.(*keyringSecureStorageManager)
+		_, ok := delegateOf(t).(*keyringSecureStorageManager)
 		assertTrueE(t, ok, "expected the keyring secure storage manager to remain the default")
 	})
 }
