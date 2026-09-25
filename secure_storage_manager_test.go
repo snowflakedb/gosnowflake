@@ -78,6 +78,28 @@ func TestFileCredentialCacheOptIn(t *testing.T) {
 		_, ok := delegateOf(t).(*keyringSecureStorageManager)
 		assertTrueE(t, ok, "expected the keyring secure storage manager to remain the default")
 	})
+
+	t.Run("enabled but no usable cache dir degrades to no caching", func(t *testing.T) {
+		if runtime.GOOS != "darwin" {
+			t.Skip("the opt-in only takes effect on darwin")
+		}
+
+		env := overrideEnv(useFileCredCacheEnv, "true")
+		defer env.rollback()
+
+		// Starve every candidate directory so newFileBasedSecureStorageManager
+		// fails. Falling back to the keyring here would reintroduce exactly the
+		// prompts the opt-in was set to avoid, so no caching is the safer
+		// degradation and matches linux.
+		missing := filepath.Join(cacheDir, "does-not-exist")
+		for _, envVar := range []string{credCacheDirEnv, "XDG_CACHE_DIR", "HOME"} {
+			starved := overrideEnv(envVar, missing)
+			defer starved.rollback()
+		}
+
+		_, ok := newSecureStorageManager().(*noopSecureStorageManager)
+		assertTrueE(t, ok, "an explicit opt-in must not silently fall back to the keyring")
+	})
 }
 
 // TestLazySecureStorageManagerResolvesOnce guards the reason credentialsStorage

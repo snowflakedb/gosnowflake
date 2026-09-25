@@ -20,11 +20,18 @@ func defaultOsSpecificSecureStorageManager() secureStorageManager {
 		// lookupCacheDir splits on "/" while filepath.Join emits "\" there.
 		if runtime.GOOS == "darwin" && useFileCredentialCache() {
 			ssm, err := newFileBasedSecureStorageManager()
-			if err == nil {
-				logger.Debugf("%v is enabled, using file based secure storage manager.", useFileCredCacheEnv)
-				return &threadSafeSecureStorageManager{&sync.Mutex{}, ssm}
+			if err != nil {
+				// Deliberately not falling back to the keyring. The opt-in is
+				// explicit, and its whole purpose is to keep credentials out of
+				// the keyring, so quietly selecting it here would reintroduce
+				// the prompts the caller set the variable to avoid. Degrade to
+				// no caching instead, matching what linux does on the same
+				// failure.
+				logger.Warnf("%v is enabled but the credentials cache dir could not be created: %v. Not storing credentials locally.", useFileCredCacheEnv, err)
+				return newNoopSecureStorageManager()
 			}
-			logger.Warnf("%v is enabled but the credentials cache dir could not be created: %v. Falling back to the keyring based secure storage manager.", useFileCredCacheEnv, err)
+			logger.Debugf("%v is enabled, using file based secure storage manager.", useFileCredCacheEnv)
+			return &threadSafeSecureStorageManager{&sync.Mutex{}, ssm}
 		}
 		logger.Debugf("OS is %v, using keyring based secure storage manager.", runtime.GOOS)
 		return &threadSafeSecureStorageManager{&sync.Mutex{}, newKeyringBasedSecureStorageManager()}
