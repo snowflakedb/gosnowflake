@@ -821,6 +821,10 @@ func TestBulkArrayBinding(t *testing.T) {
 		someTime := time.Date(1, time.January, 1, 12, 34, 56, 123456789, time.UTC)
 		someDate := time.Date(2024, time.March, 18, 0, 0, 0, 0, time.UTC)
 		someBinary := []byte{0x01, 0x02, 0x03}
+		// TIMESTAMP_TZ stores the offset as data, so bind a fixed non-UTC offset rather than
+		// the host's, to keep the round trip meaningful on a UTC runner.
+		tzOffsetSeconds := 5*3600 + 30*60
+		tzLocation := time.FixedZone("+0530", tzOffsetSeconds)
 		numRows := 100000
 		intArr := make([]int, numRows)
 		strArr := make([]string, numRows)
@@ -834,7 +838,7 @@ func TestBulkArrayBinding(t *testing.T) {
 			intArr[i] = i
 			strArr[i] = "test" + strconv.Itoa(i)
 			ltzArr[i] = now
-			tzArr[i] = now.Add(time.Hour).UTC()
+			tzArr[i] = now.Add(time.Hour).In(tzLocation)
 			ntzArr[i] = now.Add(2 * time.Hour)
 			dateArr[i] = someDate
 			timeArr[i] = someTime
@@ -851,22 +855,110 @@ func TestBulkArrayBinding(t *testing.T) {
 		var ltz, tz, ntz, date, tt time.Time
 		var b []byte
 		for rows.Next() {
-			if err := rows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b); err != nil {
-				t.Fatal(err)
-			}
+			assertNilF(t, rows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b), "scan bulk array row")
 			assertEqualE(t, i, cnt)
 			assertEqualE(t, "test"+strconv.Itoa(cnt), s)
 			assertEqualE(t, ltz.UTC(), now.UTC())
 			assertEqualE(t, tz.UTC(), now.Add(time.Hour).UTC())
+			_, actualTzOffset := tz.Zone()
+			assertEqualE(t, actualTzOffset, tzOffsetSeconds, "TIMESTAMP_TZ should retain the bound offset")
 			assertEqualE(t, ntz.UTC(), now.Add(2*time.Hour).UTC())
 			assertEqualE(t, date, someDate)
 			assertEqualE(t, tt, someTime)
 			assertBytesEqualE(t, b, someBinary)
 			cnt++
 		}
-		if cnt != numRows {
-			t.Fatalf("expected %v rows, got %v", numRows, cnt)
+		assertEqualF(t, cnt, numRows, "bulk array row count")
+	})
+}
+
+// TestScalarVsStageTimestampBinding checks that a single-value (scalar) bind of
+// TIMESTAMP_LTZ/TZ/NTZ stores the same values as a stage (CSV) array bind of the
+// same Go time.Time values. This is the behavioural contract the stream CSV
+// formatter must keep with convertTimeToTimeStamp.
+func TestScalarVsStageTimestampBinding(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		scalarTable := "test_scalar_ts_bind"
+		stageTable := "test_stage_ts_bind"
+		dbt.mustExec(fmt.Sprintf(
+			"create or replace table %v (c1 integer, c2 timestamp_ltz, c3 timestamp_tz, c4 timestamp_ntz)",
+			scalarTable))
+		dbt.mustExec(fmt.Sprintf(
+			"create or replace table %v (c1 integer, c2 timestamp_ltz, c3 timestamp_tz, c4 timestamp_ntz)",
+			stageTable))
+		defer func() {
+			dbt.mustExec(fmt.Sprintf("drop table if exists %v", scalarTable))
+			dbt.mustExec(fmt.Sprintf("drop table if exists %v", stageTable))
+		}()
+
+		// LTZ/NTZ in a fixed non-UTC zone; session TIMEZONE is a different zone so
+		// an offset-less CSV would be misread as session TZ (the original bug on UTC CI).
+		tzOffsetSeconds := 5*3600 + 30*60
+		tzLocation := time.FixedZone("+0530", tzOffsetSeconds)
+		loc := time.FixedZone("PDT", -7*3600)
+		ts := time.Date(2024, time.March, 18, 12, 34, 56, 123456789, loc)
+		ltz := ts
+		tz := ts.In(tzLocation)
+		ntz := ts
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'America/New_York'")
+
+		stmt, err := dbt.prepare(fmt.Sprintf(
+			"insert into %v (c1, c2, c3, c4) values (1, ?, ?, ?)", scalarTable))
+		assertNilF(t, err, "prepare scalar insert")
+		defer func() {
+			assertNilF(t, stmt.Close())
+		}()
+		_, err = stmt.Exec(
+			DataTypeTimestampLtz, ltz,
+			DataTypeTimestampTz, tz,
+			DataTypeTimestampNtz, ntz)
+		assertNilF(t, err, "scalar insert")
+
+		numRows := 10
+		ids := make([]int, numRows)
+		ltzArr := make([]time.Time, numRows)
+		tzArr := make([]time.Time, numRows)
+		ntzArr := make([]time.Time, numRows)
+		for i := range numRows {
+			ids[i] = i
+			ltzArr[i] = ltz
+			tzArr[i] = tz
+			ntzArr[i] = ntz
 		}
+		dbt.mustExec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
+		dbt.mustExec(
+			fmt.Sprintf("insert into %v (c1, c2, c3, c4) values (?, ?, ?, ?)", stageTable),
+			mustArray(&ids),
+			mustArray(&ltzArr, TimestampLTZType),
+			mustArray(&tzArr, TimestampTZType),
+			mustArray(&ntzArr, TimestampNTZType))
+
+		scalarRows := dbt.mustQuery(fmt.Sprintf("select c2, c3, c4 from %v where c1 = 1", scalarTable))
+		defer func() {
+			assertNilF(t, scalarRows.Close())
+		}()
+		assertTrueF(t, scalarRows.Next(), "scalar row should exist")
+		var sLtz, sTz, sNtz time.Time
+		assertNilF(t, scalarRows.Scan(&sLtz, &sTz, &sNtz), "scan scalar row")
+		assertFalseF(t, scalarRows.Next(), "scalar table should have exactly one row")
+
+		stageRows := dbt.mustQuery(fmt.Sprintf("select c2, c3, c4 from %v order by c1", stageTable))
+		defer func() {
+			assertNilF(t, stageRows.Close())
+		}()
+		cnt := 0
+		for stageRows.Next() {
+			var aLtz, aTz, aNtz time.Time
+			assertNilF(t, stageRows.Scan(&aLtz, &aTz, &aNtz), "scan stage row")
+			assertEqualE(t, aLtz.UTC(), sLtz.UTC(), "LTZ stage vs scalar")
+			assertEqualE(t, aTz.UTC(), sTz.UTC(), "TZ instant stage vs scalar")
+			_, stageTzOffset := aTz.Zone()
+			_, scalarTzOffset := sTz.Zone()
+			assertEqualE(t, stageTzOffset, scalarTzOffset, "TZ offset stage vs scalar")
+			assertEqualE(t, aNtz.UTC(), sNtz.UTC(), "NTZ stage vs scalar")
+			cnt++
+		}
+		assertEqualF(t, cnt, numRows, "stage row count")
 	})
 }
 

@@ -319,6 +319,94 @@ func TestArrayToString(t *testing.T) {
 	}
 }
 
+func TestStreamArrayTimestampToString(t *testing.T) {
+	loc := time.FixedZone("PDT", -7*3600)
+	tm := time.Date(2026, 9, 24, 3, 54, 24, 906498600, loc)
+	wholeSecond := time.Date(2026, 9, 24, 3, 54, 24, 0, loc)
+	preEpoch := time.Date(1960, 1, 2, 3, 4, 5, 60000000, loc)
+
+	ist := time.FixedZone("+0530", 5*3600+30*60)
+	tmIst := time.Date(2026, 9, 24, 3, 54, 24, 906498600, ist)
+	tmUtc := time.Date(2026, 9, 24, 10, 54, 24, 906498600, time.UTC)
+
+	testcases := []struct {
+		name string
+		in   driver.NamedValue
+		typ  types.SnowflakeType
+		out  string
+	}{
+		{
+			name: "ntz uses UTC wallclock (Z)",
+			in:   driver.NamedValue{Value: &timestampNtzArray{tm}},
+			typ:  types.TimestampNtzType,
+			out:  "2026-09-24 10:54:24.906498600 Z",
+		},
+		{
+			name: "ltz includes numeric offset",
+			in:   driver.NamedValue{Value: &timestampLtzArray{tm}},
+			typ:  types.TimestampLtzType,
+			out:  "2026-09-24 03:54:24.906498600 -07:00",
+		},
+		{
+			name: "tz includes numeric offset",
+			in:   driver.NamedValue{Value: &timestampTzArray{tm}},
+			typ:  types.TimestampTzType,
+			out:  "2026-09-24 03:54:24.906498600 -07:00",
+		},
+		{
+			name: "ltz +05:30",
+			in:   driver.NamedValue{Value: &timestampLtzArray{tmIst}},
+			typ:  types.TimestampLtzType,
+			out:  "2026-09-24 03:54:24.906498600 +05:30",
+		},
+		{
+			name: "tz +05:30",
+			in:   driver.NamedValue{Value: &timestampTzArray{tmIst}},
+			typ:  types.TimestampTzType,
+			out:  "2026-09-24 03:54:24.906498600 +05:30",
+		},
+		{
+			name: "ltz UTC produces Z",
+			in:   driver.NamedValue{Value: &timestampLtzArray{tmUtc}},
+			typ:  types.TimestampLtzType,
+			out:  "2026-09-24 10:54:24.906498600 Z",
+		},
+		{
+			name: "tz UTC produces Z",
+			in:   driver.NamedValue{Value: &timestampTzArray{tmUtc}},
+			typ:  types.TimestampTzType,
+			out:  "2026-09-24 10:54:24.906498600 Z",
+		},
+		{
+			name: "whole second keeps nine fractional digits",
+			in:   driver.NamedValue{Value: &timestampNtzArray{wholeSecond}},
+			typ:  types.TimestampNtzType,
+			out:  "2026-09-24 10:54:24.000000000 Z",
+		},
+		{
+			name: "pre epoch ltz",
+			in:   driver.NamedValue{Value: &timestampLtzArray{preEpoch}},
+			typ:  types.TimestampLtzType,
+			out:  "1960-01-02 03:04:05.060000000 -07:00",
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			s, a, err := snowflakeArrayToString(&tc.in, true)
+			assertNilF(t, err, "Unexpected error")
+			assertEqualF(t, s, tc.typ, "Snowflake type")
+			assertEqualF(t, len(a), 1, "array length")
+			assertNotNilF(t, a[0], "formatted value")
+			assertEqualF(t, *a[0], tc.out, "stream timestamp CSV")
+		})
+	}
+
+	localWallclock := tm.Format(format)
+	ntz, err := getTimestampBindValue(tm, true, types.TimestampNtzType)
+	assertNilF(t, err, "Unexpected error")
+	assertNotEqualF(t, ntz, localWallclock, "NTZ stream bind must not use local wallclock without offset")
+}
+
 func TestArrowToValues(t *testing.T) {
 	dest := make([]snowflakeValue, 2)
 
@@ -1213,11 +1301,11 @@ func TestArrowDecimal128ToValueExactForNonZeroScale(t *testing.T) {
 		scale    int
 	}{
 		// More significant digits than a 64-bit mantissa can represent.
-		{"12345678901234567890", 10},
-		{"-12345678901234567890", 10},
+		{"12345678901234567890", 10},  // pragma: allowlist secret
+		{"-12345678901234567890", 10}, // pragma: allowlist secret
 		// 38 digits, the widest NUMBER Snowflake supports.
-		{"12345678901234567890123456789012345678", 10},
-		{"-12345678901234567890123456789012345678", 2},
+		{"12345678901234567890123456789012345678", 10}, // pragma: allowlist secret
+		{"-12345678901234567890123456789012345678", 2}, // pragma: allowlist secret
 		{"99999999999999999999999999999999999999", 1},
 		// Values below one, where every digit is fractional.
 		{"5", 10},

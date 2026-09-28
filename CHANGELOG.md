@@ -7,6 +7,7 @@ New features:
 
 Bug fixes:
 - Fixed `GetQueryStatus` treating `RESTARTED` as success by counting that status as still running (snowflakedb/gosnowflake#1842).
+- Fixed stage array bind of TIMESTAMP_LTZ/NTZ/TZ writing local wallclock with no offset, so bulk inserts disagreed with scalar bind on non-UTC hosts.
 
 ## 2.2.0
 

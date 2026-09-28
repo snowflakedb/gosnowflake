@@ -27,6 +27,7 @@ import (
 )
 
 const format = "2006-01-02 15:04:05.999999999"
+const streamTimestampFormat = "2006-01-02 15:04:05.000000000 Z07:00"
 const numberDefaultPrecision = 38
 const jsonFormatStr = "json"
 
@@ -2993,9 +2994,25 @@ func convertTzTypeToSnowflakeType(tzType timezoneType) types.SnowflakeType {
 
 func getTimestampBindValue(x time.Time, stream bool, t types.SnowflakeType) (string, error) {
 	if stream {
-		return x.Format(format), nil
+		return formatTimestampForStream(x, t), nil
 	}
 	return convertTimeToTimeStamp(x, t)
+}
+
+// formatTimestampForStream writes a CSV timestamp that preserves the same instant
+// as convertTimeToTimeStamp, independent of session TIMEZONE. NTZ is rendered in UTC
+// to match the UTC wallclock that Unix nanos imply. LTZ and TZ Format in x's own
+// Location, not time.Local: that keeps the same instant as convertTimeToTimeStamp
+// and does not depend on host or session timezone. JDBC re-expresses LTZ in the JVM
+// default zone (equivalent for the instant); aligning this with time.Local would
+// break callers who pass a non-local time.Time. TZ also stores that offset as data.
+// The fixed nine-digit fraction keeps the output shape identical to the one JDBC's
+// bind uploader has been sending.
+func formatTimestampForStream(x time.Time, t types.SnowflakeType) string {
+	if t == types.TimestampNtzType {
+		x = x.UTC()
+	}
+	return x.Format(streamTimestampFormat)
 }
 
 func convertTimeToTimeStamp(x time.Time, t types.SnowflakeType) (string, error) {
