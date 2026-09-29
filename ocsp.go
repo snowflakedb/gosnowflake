@@ -45,8 +45,8 @@ var (
 	cacheUpdated = true
 )
 
-// OCSPFailOpenMode is OCSP fail open mode. OCSPFailOpenTrue by default and may
-// set to ocspModeFailClosed for fail closed mode
+// OCSPFailOpenMode is OCSP fail open mode. The zero value does not enable
+// OCSP; True/False are explicit fail-open / fail-closed opt-ins.
 // Deprecated: will be moved to Config/DSN in the future releases.
 type OCSPFailOpenMode = sfconfig.OCSPFailOpenMode
 

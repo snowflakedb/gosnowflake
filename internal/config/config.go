@@ -65,9 +65,15 @@ type Config struct {
 	CleanupTimeout      time.Duration // Bounds post-cancellation cleanup (query abort and session logout); 0 keeps the legacy unbounded behavior
 	MaxRetryCount       int           // Specifies how many times non-periodic HTTP request can be retried
 
-	Application       string           // application name.
-	DisableOCSPChecks bool             // driver doesn't check certificate revocation status
-	OCSPFailOpen      OCSPFailOpenMode // OCSP Fail Open
+	Application string // application name.
+	// DisableOCSPChecks, when true, always disables OCSP. false is unset
+	// (the default is off) and is not an opt-in.
+	DisableOCSPChecks bool
+	// OCSPFailOpen chooses fail-open vs fail-closed when OCSP is otherwise
+	// on. NotSet does not enable OCSP. True opts in unless
+	// DisableOCSPChecks or SF_DISABLE_OCSP_CHECKS is true. False (fail-closed)
+	// stays on unless DisableOCSPChecks is true; the env cannot disable it.
+	OCSPFailOpen OCSPFailOpenMode
 
 	Token                  string        // Token to use for OAuth other forms of token based auth
 	TokenFilePath          string        // TokenFilePath defines a file where to read token from

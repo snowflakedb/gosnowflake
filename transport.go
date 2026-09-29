@@ -221,7 +221,7 @@ func (tf *transportFactory) createTransport(transportConfig *transportConfig) (h
 	}
 
 	// Handle no revocation checking path
-	if tf.config.DisableOCSPChecks {
+	if !sfconfig.OCSPEnabled(tf.config) {
 		logger.Debug("createTransport: skipping OCSP validation")
 		// A user-registered TLS config (e.g. certificate pinning via
 		// RegisterTLSConfig + tlsConfigName) must still be applied even when
@@ -242,7 +242,7 @@ func (tf *transportFactory) createTransport(transportConfig *transportConfig) (h
 
 // validateRevocationConfig checks for conflicting revocation settings
 func (tf *transportFactory) validateRevocationConfig() error {
-	if !tf.config.DisableOCSPChecks && tf.config.CertRevocationCheckMode != CertRevocationCheckDisabled {
+	if sfconfig.OCSPEnabled(tf.config) && tf.config.CertRevocationCheckMode != CertRevocationCheckDisabled {
 		return errors.New("both OCSP and CRL cannot be enabled at the same time, please disable one of them")
 	}
 	return nil

@@ -649,6 +649,20 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 	}
 }
 
+func TestParseTomlDisableOCSPChecksBeatsFailOpen(t *testing.T) {
+	unsetOCSPEnv(t, EnvVarDisableOCSPChecks)
+	cfg := &Config{}
+	err := ParseToml(cfg, map[string]any{
+		"disable_ocsp_checks": true,
+		"ocsp_fail_open":      true,
+	})
+	assertNilF(t, err, "ParseToml")
+	assertEqualF(t, cfg.DisableOCSPChecks, true, "DisableOCSPChecks")
+	assertEqualF(t, cfg.OCSPFailOpen, OCSPFailOpenTrue, "OCSPFailOpen")
+	assertEqualF(t, OCSPEnabled(cfg), false, "disable_ocsp_checks=true plus ocsp_fail_open=true must leave OCSP off")
+	assertEqualF(t, OcspMode(cfg), ocspModeInsecure, "OcspMode")
+}
+
 func TestGetTomlFilePath(t *testing.T) {
 	if (runtime.GOOS == "linux" || runtime.GOOS == "darwin") && os.Getenv("HOME") == "" {
 		t.Skip("skipping on missing HOME environment variable")

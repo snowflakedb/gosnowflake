@@ -121,10 +121,12 @@ The following connection parameters are supported:
 
   - application: Identifies your application to Snowflake Support.
 
-  - disableOCSPChecks: false by default. Set to true to bypass the Online
-    Certificate Status Protocol (OCSP) certificate revocation check.
-    OCSP module caches responses internally. If your application is long running, you can enable cache clearing by calling StartOCSPCacheClearer and disable by calling StopOCSPCacheClearer.
-    IMPORTANT: Change the default value for testing or emergency situations only.
+  - disableOCSPChecks: true always turns OCSP off, including when ocspFailOpen
+    is set. false is the zero-value bool and is not an opt-in; callers who used
+    disableOCSPChecks=false as "please check OCSP" now get no OCSP.
+    IMPORTANT: OCSP is off by default. Production that still wants revocation
+    checking must opt in via ocspFailOpen or SF_DISABLE_OCSP_CHECKS=false.
+    OCSP caches responses internally. If your application is long running, you can enable cache clearing by calling StartOCSPCacheClearer and disable by calling StopOCSPCacheClearer.
 
   - token: a token that can be used to authenticate. Should be used in conjunction with the "oauth" authenticator.
 
@@ -138,7 +140,25 @@ The following connection parameters are supported:
     > Maximum value is 3600 seconds. A larger value will be reset to 3600 seconds.
     > This parameter is only valid if client_session_keep_alive is set to true.
 
-  - ocspFailOpen: true by default. Set to false to make OCSP check fail closed mode.
+  - ocspFailOpen: unset by default (OCSP stays off). Set to true to enable
+    OCSP in fail-open mode, or false for fail-closed, but only when
+    disableOCSPChecks is not true.     DSN omit means unset and stays default-off. Old DSN() always wrote
+    ocspFailOpen=true unless fail-closed, so a DSN stored from v2.2 with
+    that key still enables OCSP. Config{} and a hand-written DSN without
+    the key stay off. That split is easy to miss. Only an explicit
+    ocspFailOpen=true/false is an opt-in when the disable flag is false.
+    SF_DISABLE_OCSP_CHECKS=true disables fail-open (explicit or default)
+    but is ignored when fail-closed is active.
+
+  - SF_DISABLE_OCSP_CHECKS (environment variable): process-wide opt-in/out
+    when disableOCSPChecks is false. The name is inverted: false/0/f
+    enables OCSP (FAIL_OPEN). Old drivers treated false as a no-op because
+    OCSP defaulted on; now false turns OCSP on. true/1/t disable fail-open
+    (including ocspFailOpen=true) but are ignored when fail-closed is
+    active; a warning is logged in that case, not for the default-off.
+    Unset, empty, or an invalid value (foo, yes) is treated as unset.
+    Read live in OCSPEnabled, not snapshotted at FillMissing.
+    disableOCSPChecks=true wins over this env. Cache-server env vars never enable OCSP.
 
   - certRevocationCheckMode (enabled, advisory, disabled): Specifies the certificate revocation check mode.
     When enabled, the driver performs a certificate revocation check using CRL.
@@ -146,7 +166,8 @@ The following connection parameters are supported:
     If the status cannot be determined, the connection is established.
     When disabled, the driver does not perform a certificate revocation check.
     Keep in mind that the certificate revocation check with CRLs is a heavy task, both for memory and CPU.
-    The default is disabled.
+    The default is disabled. OCSP and CRL cannot both be enabled; default-off
+    OCSP plus CRL is allowed.
 
   - crlAllowCertificatesWithoutCrlURL: if a certificate does not have a CRL URL, the driver will
     allow the connection to be established.
@@ -1579,7 +1600,7 @@ The `ConnectionDiagnosticsAllowlistFile` is only taken into consideration when `
 
 4. checks if proxy is used in the connection
 
-5. sets up a connection; for which we use the same transport which is driven by the driver's config (custom transport, or when OCSP disabled then OCSP-less transport, or by default, the OCSP-enabled transport)
+ 5. sets up a connection; for which we use the same transport which is driven by the driver's config (custom transport, or the OCSP-enabled transport when OCSP is opted in, otherwise an OCSP-less transport)
 
 6. for HTTP endpoints, issues a HTTP GET request and see if it connects
 

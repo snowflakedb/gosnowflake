@@ -15,6 +15,7 @@ func TestTransportFactoryErrorHandling(t *testing.T) {
 	// Test CreateCustomTLSTransport with conflicting OCSP and CRL settings
 	conflictingConfig := &Config{
 		DisableOCSPChecks:       false,
+		OCSPFailOpen:            OCSPFailOpenTrue,
 		CertRevocationCheckMode: CertRevocationCheckEnabled,
 		TLSConfigName:           "TestTransportFactoryErrorHandlingTlsConfig",
 	}
@@ -32,6 +33,7 @@ func TestCreateStandardTransportErrorHandling(t *testing.T) {
 	// Test CreateStandardTransport with conflicting settings
 	conflictingConfig := &Config{
 		DisableOCSPChecks:       false,
+		OCSPFailOpen:            OCSPFailOpenTrue,
 		CertRevocationCheckMode: CertRevocationCheckEnabled,
 	}
 

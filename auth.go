@@ -292,6 +292,7 @@ func authenticate(
 	clientEnvironment.Application = sc.cfg.Application
 	clientEnvironment.ApplicationPath = applicationPath
 	clientEnvironment.OAuthType = oauthType
+	clientEnvironment.OCSPMode = sfconfig.OcspMode(sc.cfg)
 	clientEnvironment.CertRevocationCheckMode = sc.cfg.CertRevocationCheckMode.String()
 	clientEnvironment.Platform = getDetectedPlatforms()
 

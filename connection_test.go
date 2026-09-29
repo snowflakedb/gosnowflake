@@ -1045,20 +1045,25 @@ func TestGetTransport(t *testing.T) {
 		roundTripperCheck func(t *testing.T, roundTripper http.RoundTripper)
 	}{
 		{
-			name: "DisableOCSPChecks",
+			name: "DisableOCSPChecks false is default-off",
 			cfg:  &Config{Account: "one", DisableOCSPChecks: false},
 			transportCheck: func(t *testing.T, transport *http.Transport) {
-				// We should have a verifier function
 				assertNotNilF(t, transport)
-				assertNotNilF(t, transport.TLSClientConfig)
-				assertNotNilF(t, transport.TLSClientConfig.VerifyPeerCertificate)
+				assertNilF(t, transport.TLSClientConfig)
 			},
 		},
 		{
-			name: "DisableOCSPChecks missing from Config",
+			name: "DisableOCSPChecks missing from Config is default-off",
 			cfg:  &Config{Account: "four"},
 			transportCheck: func(t *testing.T, transport *http.Transport) {
-				// We should have a verifier function
+				assertNotNilF(t, transport)
+				assertNilF(t, transport.TLSClientConfig)
+			},
+		},
+		{
+			name: "explicit fail-open installs OCSP verifier",
+			cfg:  &Config{Account: "ocsp-on", OCSPFailOpen: OCSPFailOpenTrue},
+			transportCheck: func(t *testing.T, transport *http.Transport) {
 				assertNotNilF(t, transport)
 				assertNotNilF(t, transport.TLSClientConfig)
 				assertNotNilF(t, transport.TLSClientConfig.VerifyPeerCertificate)
