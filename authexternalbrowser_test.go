@@ -1,10 +1,13 @@
 package gosnowflake
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
+	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -175,6 +178,405 @@ func TestUnitGetLoginURL(t *testing.T) {
 	assertStringContainsF(t, urlPtr.RawQuery, "login_name")
 	assertStringContainsF(t, urlPtr.RawQuery, "browser_mode_redirect_port")
 	assertStringContainsF(t, urlPtr.RawQuery, "proof_key")
+}
+
+func TestExternalBrowserOriginMatchesAccount(t *testing.T) {
+	tests := []struct {
+		name       string
+		accountURL string
+		origin     string
+		expected   bool
+	}{
+		{name: "exact HTTPS origin", accountURL: "https://account.example.com:443", origin: "https://account.example.com:443", expected: true},
+		{name: "implicit HTTPS port", accountURL: "https://account.example.com:443", origin: "https://account.example.com", expected: true},
+		{name: "implicit HTTP port", accountURL: "http://account.example.com:80", origin: "http://account.example.com", expected: true},
+		{name: "trailing slash path", accountURL: "https://account.example.com:443", origin: "https://account.example.com/", expected: true},
+		{name: "non-empty path", accountURL: "https://account.example.com:443", origin: "https://account.example.com/extra", expected: false},
+		{name: "wrong scheme", accountURL: "https://account.example.com:443", origin: "http://account.example.com", expected: false},
+		{name: "wrong host", accountURL: "https://account.example.com:443", origin: "https://other.example.com", expected: false},
+		{name: "suffix lookalike", accountURL: "https://account.example.com:443", origin: "https://account.example.com.other.test", expected: false},
+		{name: "wrong port", accountURL: "https://account.example.com:443", origin: "https://account.example.com:8443", expected: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			accountURL, err := url.Parse(tt.accountURL)
+			assertNilF(t, err, "failed to parse account URL")
+			assertEqualF(t, externalBrowserOriginMatchesAccount(tt.origin, accountURL), tt.expected, "origin match result")
+		})
+	}
+}
+
+func TestExternalBrowserCallbackOriginHandling(t *testing.T) {
+	accountURL, err := url.Parse("https://account.example.com:443")
+	assertNilF(t, err, "failed to parse account URL")
+
+	tests := []struct {
+		name       string
+		request    string
+		expectCORS bool
+	}{
+		{
+			name:    "originless GET",
+			request: "GET /?token=originless HTTP/1.1\r\nHost: localhost\r\n\r\n",
+		},
+		{
+			name:    "null Origin",
+			request: "GET /?token=null-origin HTTP/1.1\r\nHost: localhost\r\nOrigin: null\r\n\r\n",
+		},
+		{
+			name:       "matching Origin",
+			request:    "GET /?token=matching HTTP/1.1\r\nHost: localhost\r\nOrigin: https://account.example.com\r\n\r\n",
+			expectCORS: true,
+		},
+		{
+			name:    "body Origin ignored with CRLF",
+			request: "GET /?token=body-crlf HTTP/1.1\r\nHost: localhost\r\nContent-Length: 35\r\n\r\nOrigin: https://foreign.example.com",
+		},
+		{
+			name:    "body Origin ignored with LF",
+			request: "GET /?token=body-lf HTTP/1.1\nHost: localhost\nContent-Length: 35\n\nOrigin: https://foreign.example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token, response := runExternalBrowserCallback(t, accountURL, tt.request)
+			assertEqualF(t, token, strings.TrimPrefix(strings.Fields(tt.request)[1], "/?token="), "callback token")
+			assertEqualF(t, strings.Contains(response, "Access-Control-Allow-Origin"), tt.expectCORS, "CORS response header")
+		})
+	}
+}
+
+func TestExternalBrowserPreflightValidation(t *testing.T) {
+	accountURL, err := url.Parse("https://account.example.com:443")
+	assertNilF(t, err, "failed to parse account URL")
+	tests := []struct {
+		name     string
+		headers  string
+		expected bool
+	}{
+		{
+			name:     "POST with requested Content-Type",
+			headers:  "Origin: https://account.example.com\r\nAccess-Control-Request-Method: POST\r\nAccess-Control-Request-Headers: Content-Type\r\n",
+			expected: true,
+		},
+		{
+			name:     "case-insensitive method and header",
+			headers:  "Origin: https://account.example.com\r\nAccess-Control-Request-Method: post\r\nAccess-Control-Request-Headers: content-type\r\n",
+			expected: true,
+		},
+		{
+			name:     "requested headers omitted",
+			headers:  "Origin: https://account.example.com\r\nAccess-Control-Request-Method: POST\r\n",
+			expected: true,
+		},
+		{
+			name:     "foreign Origin",
+			headers:  "Origin: https://foreign.example.com\r\nAccess-Control-Request-Method: POST\r\nAccess-Control-Request-Headers: Content-Type\r\n",
+			expected: false,
+		},
+		{
+			name:     "wrong requested method",
+			headers:  "Origin: https://account.example.com\r\nAccess-Control-Request-Method: GET\r\nAccess-Control-Request-Headers: Content-Type\r\n",
+			expected: false,
+		},
+		{
+			name:     "unsupported requested header",
+			headers:  "Origin: https://account.example.com\r\nAccess-Control-Request-Method: POST\r\nAccess-Control-Request-Headers: Content-Type, X-Custom\r\n",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request, err := http.ReadRequest(bufio.NewReader(strings.NewReader(
+				"OPTIONS / HTTP/1.1\r\nHost: localhost\r\n" + tt.headers + "\r\n",
+			)))
+			assertNilF(t, err, "failed to parse preflight request")
+			assertEqualF(t, validExternalBrowserPreflight(request, accountURL), tt.expected, "preflight validity")
+		})
+	}
+}
+
+func TestExternalBrowserCallbackPreflight(t *testing.T) {
+	accountURL, err := url.Parse("https://account.example.com:443")
+	assertNilF(t, err, "failed to parse account URL")
+	listener, err := createLocalTCPListener(0)
+	assertNilF(t, err, "failed to create callback listener")
+	defer listener.Close()
+
+	result := startExternalBrowserCallback(context.Background(), listener, accountURL)
+
+	response := sendExternalBrowserRequest(t, listener,
+		"OPTIONS / HTTP/1.1\r\nHost: localhost\r\nOrigin: https://account.example.com\r\n"+
+			"Access-Control-Request-Method: POST\r\nAccess-Control-Request-Headers: Content-Type\r\n\r\n")
+	assertStringContainsF(t, response, "200 OK", "preflight status")
+	assertStringContainsF(t, response, "Access-Control-Allow-Origin: https://account.example.com", "preflight origin")
+	assertStringContainsF(t, response, "Access-Control-Allow-Methods: POST, GET, OPTIONS", "preflight method")
+	assertStringContainsF(t, response, "Access-Control-Allow-Headers: Content-Type", "preflight headers")
+
+	select {
+	case <-result:
+		assertFalseF(t, true, "preflight must not complete the callback listener")
+	default:
+	}
+
+	sendExternalBrowserRequest(t, listener,
+		"GET /?token=after-preflight HTTP/1.1\r\nHost: localhost\r\nOrigin: https://account.example.com\r\n\r\n")
+	callback := <-result
+	assertNilF(t, callback.err, "callback failed")
+	assertEqualF(t, callback.token, "after-preflight", "callback token")
+}
+
+func TestExternalBrowserCallbackMatchingOriginJSONPost(t *testing.T) {
+	accountURL, err := url.Parse("https://account.example.com:443")
+	assertNilF(t, err, "failed to parse account URL")
+	body := `{"token":"json-token","consent":true}`
+	request := fmt.Sprintf(
+		"POST / HTTP/1.1\r\nHost: localhost\r\nOrigin: https://account.example.com\r\n"+
+			"Content-Type: application/json\r\nContent-Length: %d\r\n\r\n%s",
+		len(body), body,
+	)
+	token, response := runExternalBrowserCallback(t, accountURL, request)
+	assertEqualF(t, token, "json-token", "callback token")
+	assertStringContainsF(t, response, "200 OK", "POST callback status")
+	assertStringContainsF(t, response, "Access-Control-Allow-Origin: https://account.example.com", "POST CORS origin")
+}
+
+func TestExternalBrowserCallbackTrailingSlashOrigin(t *testing.T) {
+	accountURL, err := url.Parse("https://account.example.com:443")
+	assertNilF(t, err, "failed to parse account URL")
+	token, response := runExternalBrowserCallback(t, accountURL,
+		"GET /?token=slash-origin HTTP/1.1\r\nHost: localhost\r\nOrigin: https://account.example.com/\r\n\r\n")
+	assertEqualF(t, token, "slash-origin", "callback token")
+	assertStringContainsF(t, response, "200 OK", "trailing-slash origin status")
+	assertStringContainsF(t, response, "Access-Control-Allow-Origin: https://account.example.com/", "trailing-slash CORS origin")
+}
+
+func TestTokenFromPostCallbackBody(t *testing.T) {
+	assertEqualF(t, tokenFromJSONCallbackBody([]byte(`{"token":"json-token","consent":true}`)), "json-token", "JSON token")
+	assertEqualF(t, tokenFromJSONCallbackBody([]byte(`{"token":""}`)), "", "empty JSON token")
+	assertEqualF(t, tokenFromJSONCallbackBody([]byte(`not-json`)), "", "invalid JSON")
+	assertEqualF(t, tokenFromFormCallbackBody("token=form-token&extra=val"), "form-token", "form token")
+	assertEqualF(t, tokenFromFormCallbackBody("extra=val"), "", "form without token")
+	assertEqualF(t, tokenFromFormCallbackBody("token=hello%20world"), "hello world", "form token URL-decoded")
+	assertEqualF(t, tokenFromFormCallbackBody("token=hello%2Bworld"), "hello+world", "form token plus sign decoded")
+}
+
+func TestExternalBrowserCallbackPostRequiresMatchingOrigin(t *testing.T) {
+	accountURL, err := url.Parse("https://account.example.com:443")
+	assertNilF(t, err, "failed to parse account URL")
+	body := `{"token":"post-token"}`
+
+	tests := []struct {
+		name    string
+		headers string
+	}{
+		{
+			name:    "no Origin header",
+			headers: "",
+		},
+		{
+			name:    "null Origin",
+			headers: "Origin: null\r\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			listener, err := createLocalTCPListener(0)
+			assertNilF(t, err, "failed to create callback listener")
+			defer listener.Close()
+
+			result := startExternalBrowserCallback(context.Background(), listener, accountURL)
+
+			request := fmt.Sprintf(
+				"POST / HTTP/1.1\r\nHost: localhost\r\n%sContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s",
+				tt.headers, len(body), body,
+			)
+			response := sendExternalBrowserRequest(t, listener, request)
+			assertStringContainsF(t, response, "403 Forbidden", "POST without matching Origin must be rejected")
+
+			select {
+			case <-result:
+				assertFalseF(t, true, "POST without matching Origin must not complete the callback listener")
+			default:
+			}
+
+			sendExternalBrowserRequest(t, listener,
+				fmt.Sprintf(
+					"POST / HTTP/1.1\r\nHost: localhost\r\nOrigin: https://account.example.com\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s",
+					len(body), body,
+				),
+			)
+			callback := waitExternalBrowserCallback(t, result)
+			assertNilF(t, callback.err, "callback failed")
+			assertEqualF(t, callback.token, "post-token", "callback token after rejected request")
+		})
+	}
+}
+
+func TestExternalBrowserCallbackForeignOriginThenValid(t *testing.T) {
+	accountURL, err := url.Parse("https://account.example.com:443")
+	assertNilF(t, err, "failed to parse account URL")
+	listener, err := createLocalTCPListener(0)
+	assertNilF(t, err, "failed to create callback listener")
+	defer listener.Close()
+
+	result := startExternalBrowserCallback(context.Background(), listener, accountURL)
+
+	sendExternalBrowserRequest(t, listener,
+		"GET /?token=foreign HTTP/1.1\r\nHost: localhost\r\nOrigin: https://foreign.example.com\r\n\r\n")
+	select {
+	case <-result:
+		assertFalseF(t, true, "foreign Origin must not complete the callback listener")
+	default:
+	}
+
+	sendExternalBrowserRequest(t, listener,
+		"GET /?token=valid HTTP/1.1\r\nHost: localhost\r\nOrigin: https://account.example.com\r\n\r\n")
+	callback := <-result
+	assertNilF(t, callback.err, "callback failed")
+	assertEqualF(t, callback.token, "valid", "callback token")
+}
+
+func TestExternalBrowserCallbackContinuesAfterInvalidConnection(t *testing.T) {
+	accountURL, err := url.Parse("https://account.example.com:443")
+	assertNilF(t, err, "failed to parse account URL")
+
+	tests := []struct {
+		name           string
+		invalidRequest string
+		connectOnly    bool
+	}{
+		{name: "connect then close", connectOnly: true},
+		{name: "malformed request", invalidRequest: "not an HTTP request\r\n\r\n"},
+		{name: "GET without token", invalidRequest: "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"},
+		{name: "favicon", invalidRequest: "GET /favicon.ico HTTP/1.1\r\nHost: localhost\r\n\r\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			listener, err := createLocalTCPListener(0)
+			assertNilF(t, err, "failed to create callback listener")
+			defer listener.Close()
+			result := startExternalBrowserCallback(context.Background(), listener, accountURL)
+
+			if tt.connectOnly {
+				conn, err := net.Dial("tcp", listener.Addr().String())
+				assertNilF(t, err, "failed to connect to callback listener")
+				assertNilF(t, conn.Close(), "failed to close callback connection")
+			} else {
+				response := sendExternalBrowserRequest(t, listener, tt.invalidRequest)
+				assertStringContainsF(t, response, "400 Bad Request", "invalid callback response")
+			}
+
+			sendExternalBrowserRequest(t, listener,
+				"GET /?token=valid-after-invalid HTTP/1.1\r\nHost: localhost\r\n\r\n")
+			callback := waitExternalBrowserCallback(t, result)
+			assertNilF(t, callback.err, "callback failed")
+			assertEqualF(t, callback.token, "valid-after-invalid", "callback token")
+		})
+	}
+}
+
+func TestExternalBrowserCallbackTimeoutClosesSlowReader(t *testing.T) {
+	accountURL, err := url.Parse("https://account.example.com:443")
+	assertNilF(t, err, "failed to parse account URL")
+	listener, err := createLocalTCPListener(0)
+	assertNilF(t, err, "failed to create callback listener")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	result := startExternalBrowserCallback(ctx, listener, accountURL)
+
+	conn, err := net.Dial("tcp", listener.Addr().String())
+	assertNilF(t, err, "failed to connect to callback listener")
+	_, err = io.WriteString(conn, "GET /?token=slow HTTP/1.1\r\nHost:")
+	assertNilF(t, err, "failed to write partial callback request")
+
+	started := time.Now()
+	callback := waitExternalBrowserCallback(t, result)
+	assertErrIsF(t, callback.err, context.DeadlineExceeded, "callback should stop at its deadline")
+	assertTrueF(t, time.Since(started) < time.Second, "callback deadline should promptly unblock the read")
+
+	err = listener.SetDeadline(time.Now().Add(time.Second))
+	if err == nil {
+		_, err = listener.Accept()
+	}
+	assertTrueF(t, errors.Is(err, net.ErrClosed), "callback listener should be closed after timeout")
+	assertNilF(t, conn.Close(), "failed to close slow callback connection")
+}
+
+func TestExternalBrowserCallbackCancellationClosesSlowReader(t *testing.T) {
+	accountURL, err := url.Parse("https://account.example.com:443")
+	assertNilF(t, err, "failed to parse account URL")
+	listener, err := createLocalTCPListener(0)
+	assertNilF(t, err, "failed to create callback listener")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	result := startExternalBrowserCallback(ctx, listener, accountURL)
+	conn, err := net.Dial("tcp", listener.Addr().String())
+	assertNilF(t, err, "failed to connect to callback listener")
+	_, err = io.WriteString(conn, "GET /?token=slow HTTP/1.1\r\nHost:")
+	assertNilF(t, err, "failed to write partial callback request")
+
+	cancel()
+	callback := waitExternalBrowserCallback(t, result)
+	assertErrIsF(t, callback.err, context.Canceled, "callback should stop when canceled")
+	assertNilF(t, conn.Close(), "failed to close slow callback connection")
+}
+
+type externalBrowserCallbackResult struct {
+	token string
+	err   error
+}
+
+func startExternalBrowserCallback(ctx context.Context, listener *net.TCPListener, accountURL *url.URL) <-chan externalBrowserCallbackResult {
+	result := make(chan externalBrowserCallbackResult, 1)
+	go func() {
+		token, callbackErr := receiveExternalBrowserCallback(ctx, listener, accountURL, "Go")
+		result <- externalBrowserCallbackResult{token: token, err: callbackErr}
+	}()
+	return result
+}
+
+func waitExternalBrowserCallback(t *testing.T, result <-chan externalBrowserCallbackResult) externalBrowserCallbackResult {
+	t.Helper()
+	select {
+	case callback := <-result:
+		return callback
+	case <-time.After(2 * time.Second):
+		assertFalseF(t, true, "timed out waiting for callback listener")
+		return externalBrowserCallbackResult{}
+	}
+}
+
+func runExternalBrowserCallback(t *testing.T, accountURL *url.URL, request string) (string, string) {
+	t.Helper()
+	listener, err := createLocalTCPListener(0)
+	assertNilF(t, err, "failed to create callback listener")
+	defer listener.Close()
+
+	result := startExternalBrowserCallback(context.Background(), listener, accountURL)
+
+	response := sendExternalBrowserRequest(t, listener, request)
+	callback := waitExternalBrowserCallback(t, result)
+	assertNilF(t, callback.err, "callback failed")
+	return callback.token, response
+}
+
+func sendExternalBrowserRequest(t *testing.T, listener *net.TCPListener, request string) string {
+	t.Helper()
+	conn, err := net.Dial("tcp", listener.Addr().String())
+	assertNilF(t, err, "failed to connect to callback listener")
+	_, err = io.WriteString(conn, request)
+	assertNilF(t, err, "failed to write callback request")
+	response, err := io.ReadAll(conn)
+	assertNilF(t, err, "failed to read callback response")
+	assertNilF(t, conn.Close(), "failed to close callback connection")
+	return string(response)
 }
 
 type nonInteractiveSamlResponseProvider struct {

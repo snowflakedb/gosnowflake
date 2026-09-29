@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -9,7 +10,6 @@ import (
 	"fmt"
 	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -206,6 +206,259 @@ func getTokenFromResponse(response string) (string, error) {
 	return token, nil
 }
 
+func getTokenFromPostRequest(request *http.Request) (string, error) {
+	if request.Body == nil {
+		return "", nil
+	}
+	body, err := io.ReadAll(request.Body)
+	if closeErr := request.Body.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return "", err
+	}
+	if token := tokenFromJSONCallbackBody(body); token != "" {
+		return token, nil
+	}
+	return tokenFromFormCallbackBody(string(body)), nil
+}
+
+func tokenFromJSONCallbackBody(body []byte) string {
+	var payload struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+	return payload.Token
+}
+
+func tokenFromFormCallbackBody(body string) string {
+	for pair := range strings.SplitSeq(body, "&") {
+		key, value, found := strings.Cut(pair, "=")
+		if found && key == "token" {
+			decoded, err := url.QueryUnescape(value)
+			if err != nil {
+				return ""
+			}
+			return decoded
+		}
+	}
+	return ""
+}
+
+func externalBrowserOriginPathIsEmpty(path string) bool {
+	return path == "" || path == "/"
+}
+
+func externalBrowserOriginMatchesAccount(origin string, accountURL *url.URL) bool {
+	parsedOrigin, err := url.Parse(origin)
+	if err != nil || accountURL == nil ||
+		parsedOrigin.User != nil || !externalBrowserOriginPathIsEmpty(parsedOrigin.Path) ||
+		parsedOrigin.RawQuery != "" || parsedOrigin.Fragment != "" {
+		return false
+	}
+	return strings.EqualFold(parsedOrigin.Scheme, accountURL.Scheme) &&
+		strings.EqualFold(parsedOrigin.Hostname(), accountURL.Hostname()) &&
+		effectiveURLPort(parsedOrigin) == effectiveURLPort(accountURL)
+}
+
+func effectiveURLPort(parsedURL *url.URL) string {
+	if port := parsedURL.Port(); port != "" {
+		return port
+	}
+	switch strings.ToLower(parsedURL.Scheme) {
+	case "http":
+		return "80"
+	case "https":
+		return "443"
+	default:
+		return ""
+	}
+}
+
+func validExternalBrowserPreflight(request *http.Request, accountURL *url.URL) bool {
+	origins := request.Header.Values("Origin")
+	if len(origins) != 1 || !externalBrowserOriginMatchesAccount(origins[0], accountURL) {
+		return false
+	}
+	requestedMethods := request.Header.Values("Access-Control-Request-Method")
+	if len(requestedMethods) != 1 || !strings.EqualFold(requestedMethods[0], http.MethodPost) {
+		return false
+	}
+	requestedHeaderValues := request.Header.Values("Access-Control-Request-Headers")
+	if len(requestedHeaderValues) == 0 {
+		return true
+	}
+	for _, requestedHeaders := range requestedHeaderValues {
+		for header := range strings.SplitSeq(requestedHeaders, ",") {
+			if !strings.EqualFold(strings.TrimSpace(header), httpHeaderContentType) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func writeExternalBrowserResponse(conn net.Conn, statusCode int, headers http.Header, body string) error {
+	response := &http.Response{
+		Status:        fmt.Sprintf("%d %s", statusCode, http.StatusText(statusCode)),
+		StatusCode:    statusCode,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Body:          io.NopCloser(strings.NewReader(body)),
+		ContentLength: int64(len(body)),
+		Header:        headers,
+	}
+	return response.Write(conn)
+}
+
+func closeExternalBrowserConnection(conn net.Conn) {
+	if err := conn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+		logger.Warnf("error while closing browser connection: %v", err)
+	}
+}
+
+func receiveExternalBrowserCallback(ctx context.Context, listener *net.TCPListener, accountURL *url.URL, application string) (string, error) {
+	stopListenerClose := context.AfterFunc(ctx, func() {
+		if err := listener.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+			logger.Warnf("error while closing external browser listener: %v", err)
+		}
+	})
+	defer stopListenerClose()
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			if ctx.Err() != nil {
+				return "", ctx.Err()
+			}
+			return "", err
+		}
+
+		if deadline, ok := ctx.Deadline(); ok {
+			if err := conn.SetDeadline(deadline); err != nil {
+				closeExternalBrowserConnection(conn)
+				if ctx.Err() != nil {
+					return "", ctx.Err()
+				}
+				logger.Debugf("unable to set external browser callback deadline: %v", err)
+				continue
+			}
+		}
+		stopConnectionClose := context.AfterFunc(ctx, func() {
+			closeExternalBrowserConnection(conn)
+		})
+		request, readErr := http.ReadRequest(bufio.NewReader(conn))
+		stopConnectionClose()
+		if readErr != nil {
+			if ctx.Err() != nil {
+				closeExternalBrowserConnection(conn)
+				return "", ctx.Err()
+			}
+			if writeErr := writeExternalBrowserResponse(conn, http.StatusBadRequest, make(http.Header), ""); writeErr != nil {
+				logger.Debugf("unable to write invalid external browser callback response: %v", writeErr)
+			}
+			closeExternalBrowserConnection(conn)
+			logger.Debug("ignoring invalid external browser callback request")
+			continue
+		}
+
+		if request.Method == http.MethodOptions {
+			headers := make(http.Header)
+			statusCode := http.StatusForbidden
+			if validExternalBrowserPreflight(request, accountURL) {
+				origin := request.Header.Get("Origin")
+				headers.Set("Access-Control-Allow-Origin", origin)
+				headers.Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+				headers.Set("Access-Control-Allow-Headers", httpHeaderContentType)
+				statusCode = http.StatusOK
+			}
+			if writeErr := writeExternalBrowserResponse(conn, statusCode, headers, ""); writeErr != nil {
+				if ctx.Err() != nil {
+					closeExternalBrowserConnection(conn)
+					return "", ctx.Err()
+				}
+				logger.Debugf("unable to write external browser preflight response: %v", writeErr)
+			}
+			closeExternalBrowserConnection(conn)
+			continue
+		}
+
+		origins := request.Header.Values("Origin")
+		originPresent := len(origins) != 0
+		origin := ""
+		if len(origins) == 1 {
+			origin = origins[0]
+		}
+		originMatchesAccount := len(origins) == 1 &&
+			!strings.EqualFold(strings.TrimSpace(origin), "null") &&
+			externalBrowserOriginMatchesAccount(origin, accountURL)
+		rejectOrigin := false
+		if request.Method == http.MethodPost {
+			rejectOrigin = !originMatchesAccount
+		} else {
+			rejectOrigin = originPresent && !strings.EqualFold(strings.TrimSpace(origin), "null") && !originMatchesAccount
+		}
+		if rejectOrigin {
+			if writeErr := writeExternalBrowserResponse(conn, http.StatusForbidden, make(http.Header), ""); writeErr != nil {
+				logger.Debugf("unable to write external browser callback rejection: %v", writeErr)
+			}
+			closeExternalBrowserConnection(conn)
+			continue
+		}
+
+		var encodedSamlResponse string
+		switch request.Method {
+		case http.MethodPost:
+			encodedSamlResponse, err = getTokenFromPostRequest(request)
+			if err != nil || encodedSamlResponse == "" {
+				if writeErr := writeExternalBrowserResponse(conn, http.StatusBadRequest, make(http.Header), ""); writeErr != nil {
+					logger.Debugf("unable to write external browser callback response without token: %v", writeErr)
+				}
+				closeExternalBrowserConnection(conn)
+				continue
+			}
+		case http.MethodGet:
+			if request.URL.Path != "/" || !strings.HasPrefix(request.URL.RawQuery, "token=") {
+				if writeErr := writeExternalBrowserResponse(conn, http.StatusBadRequest, make(http.Header), ""); writeErr != nil {
+					logger.Debugf("unable to write external browser callback response without token: %v", writeErr)
+				}
+				closeExternalBrowserConnection(conn)
+				continue
+			}
+			encodedSamlResponse, err = getTokenFromResponse(
+				request.Method + " " + request.RequestURI + " HTTP/1.1\r\n",
+			)
+			if err != nil || encodedSamlResponse == "" {
+				if writeErr := writeExternalBrowserResponse(conn, http.StatusBadRequest, make(http.Header), ""); writeErr != nil {
+					logger.Debugf("unable to write invalid external browser callback response: %v", writeErr)
+				}
+				closeExternalBrowserConnection(conn)
+				continue
+			}
+		default:
+			if writeErr := writeExternalBrowserResponse(conn, http.StatusMethodNotAllowed, make(http.Header), ""); writeErr != nil {
+				logger.Debugf("unable to write unsupported external browser callback response: %v", writeErr)
+			}
+			closeExternalBrowserConnection(conn)
+			continue
+		}
+		body := fmt.Sprintf(samlSuccessHTML, application)
+		headers := make(http.Header)
+		if origin != "" && !strings.EqualFold(strings.TrimSpace(origin), "null") {
+			headers.Set("Access-Control-Allow-Origin", origin)
+			headers.Set("Vary", "Origin")
+		}
+		if err = writeExternalBrowserResponse(conn, http.StatusOK, headers, body); err != nil {
+			logger.Debugf("unable to write successful external browser callback response: %v", err)
+		}
+		closeExternalBrowserConnection(conn)
+		return encodedSamlResponse, nil
+	}
+}
+
 type authenticateByExternalBrowserResult struct {
 	escapedSamlResponse []byte
 	proofKey            []byte
@@ -214,17 +467,25 @@ type authenticateByExternalBrowserResult struct {
 
 func authenticateByExternalBrowser(ctx context.Context, sr *snowflakeRestful, authenticator string, application string,
 	account string, user string, externalBrowserTimeout time.Duration, disableConsoleLogin ConfigBool) ([]byte, []byte, error) {
+	authCtx, cancel := context.WithTimeout(ctx, externalBrowserTimeout)
+	defer cancel()
 	resultChan := make(chan authenticateByExternalBrowserResult, 1)
 	go GoroutineWrapper(
-		ctx,
+		authCtx,
 		func() {
-			resultChan <- doAuthenticateByExternalBrowser(ctx, sr, authenticator, application, account, user, disableConsoleLogin)
+			resultChan <- doAuthenticateByExternalBrowser(authCtx, sr, authenticator, application, account, user, disableConsoleLogin)
 		},
 	)
 	select {
-	case <-time.After(externalBrowserTimeout):
-		return nil, nil, errors.New("authentication timed out")
+	case <-authCtx.Done():
+		if errors.Is(authCtx.Err(), context.DeadlineExceeded) {
+			return nil, nil, errors.New("authentication timed out")
+		}
+		return nil, nil, authCtx.Err()
 	case result := <-resultChan:
+		if errors.Is(result.err, context.DeadlineExceeded) {
+			return nil, nil, errors.New("authentication timed out")
+		}
 		return result.escapedSamlResponse, result.proofKey, result.err
 	}
 }
@@ -244,7 +505,7 @@ func doAuthenticateByExternalBrowser(ctx context.Context, sr *snowflakeRestful, 
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 	defer func() {
-		if err = l.Close(); err != nil {
+		if err = l.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 			logger.Errorf("error while closing TCP listener for external browser (%v). %v", l.Addr().String(), err)
 		}
 	}()
@@ -269,68 +530,12 @@ func doAuthenticateByExternalBrowser(ctx context.Context, sr *snowflakeRestful, 
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 
-	encodedSamlResponseChan := make(chan string)
-	errChan := make(chan error)
-
-	var encodedSamlResponse string
-	var errFromGoroutine error
-	conn, err := l.Accept()
+	encodedSamlResponse, err := receiveExternalBrowserCallback(ctx, l, sr.getURL(), application)
 	if err != nil {
-		logger.WithContext(ctx).Errorf("unable to accept connection. err: %v", err)
-		log.Fatal(err)
-	}
-	go func(c net.Conn) {
-		var buf bytes.Buffer
-		total := 0
-		encodedSamlResponse := ""
-		var errAccept error
-		for {
-			b := make([]byte, bufSize)
-			n, err := c.Read(b)
-			if err != nil {
-				if err != io.EOF {
-					logger.WithContext(ctx).Infof("error reading from socket. err: %v", err)
-					errAccept = &SnowflakeError{
-						Number:      ErrFailedToGetExternalBrowserResponse,
-						SQLState:    SQLStateConnectionRejected,
-						Message:     errors2.ErrMsgFailedToGetExternalBrowserResponse,
-						MessageArgs: []any{err},
-					}
-				}
-				break
-			}
-			total += n
-			buf.Write(b)
-			if n < bufSize {
-				// We successfully read all data
-				s := string(buf.Bytes()[:total])
-				encodedSamlResponse, errAccept = getTokenFromResponse(s)
-				break
-			}
-			buf.Grow(bufSize)
+		if ctx.Err() == nil {
+			logger.WithContext(ctx).Errorf("unable to receive external browser response. err: %v", err)
 		}
-		if encodedSamlResponse != "" {
-			body := fmt.Sprintf(samlSuccessHTML, application)
-			httpResponse, err := buildResponse(body)
-			if err != nil && errAccept == nil {
-				errAccept = err
-			}
-			if _, err = c.Write(httpResponse.Bytes()); err != nil && errAccept == nil {
-				errAccept = err
-			}
-		}
-		if err := c.Close(); err != nil {
-			logger.Warnf("error while closing browser connection. %v", err)
-		}
-		encodedSamlResponseChan <- encodedSamlResponse
-		errChan <- errAccept
-	}(conn)
-
-	encodedSamlResponse = <-encodedSamlResponseChan
-	errFromGoroutine = <-errChan
-
-	if errFromGoroutine != nil {
-		return authenticateByExternalBrowserResult{nil, nil, errFromGoroutine}
+		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 
 	escapedSamlResponse, err := url.QueryUnescape(encodedSamlResponse)
