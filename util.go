@@ -31,6 +31,7 @@ const (
 	fetchResultByID        ContextKey = "SF_FETCH_RESULT_BY_ID"
 	filePutStream          ContextKey = "STREAMING_PUT_FILE"
 	fileGetStream          ContextKey = "STREAMING_GET_FILE"
+	skipFileTransfer       ContextKey = "SKIP_FILE_TRANSFER"
 	fileTransferOptions    ContextKey = "FILE_TRANSFER_OPTIONS"
 	enableDecfloat         ContextKey = "ENABLE_DECFLOAT"
 	arrowAlloc             ContextKey = "ARROW_ALLOC"
@@ -79,9 +80,23 @@ func WithFilePutStream(ctx context.Context, reader io.Reader) context.Context {
 	return context.WithValue(ctx, filePutStream, reader)
 }
 
-// WithFileGetStream returns a context that contains the address of the file stream to be GET
+// WithFileGetStream returns a context that contains the address of the file stream to be GET.
+//
+// Deprecated: WithFileGetStream buffers the entire object before writing to writer.
+// Use SnowflakeConnection.DownloadStream instead.
 func WithFileGetStream(ctx context.Context, writer io.Writer) context.Context {
 	return context.WithValue(ctx, fileGetStream, writer)
+}
+
+func withSkipFileTransfer(ctx context.Context) context.Context {
+	return context.WithValue(ctx, skipFileTransfer, true)
+}
+
+// isSkipFileTransfer prevents exec from running the regular GET transfer after
+// DownloadStream has executed GET only to obtain stage and object metadata.
+func isSkipFileTransfer(ctx context.Context) bool {
+	v, ok := ctx.Value(skipFileTransfer).(bool)
+	return ok && v
 }
 
 // WithFileTransferOptions returns a context that contains the address of file transfer options

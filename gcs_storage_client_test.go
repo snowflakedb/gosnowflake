@@ -13,6 +13,7 @@ import (
 	"path"
 	"strings"
 	"testing"
+	"time"
 )
 
 type tcFileURL struct {
@@ -1318,4 +1319,113 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 			assertEqualF(t, fileURL.String(), expectedURL.String(), "failed. in: %v, expected: %v, got: %v", fmt.Sprintf("%v", test.in), expectedURL.String(), fileURL.String())
 		})
 	}
+}
+
+func TestGcsHeaderFromHTTPEncryptionMetadata(t *testing.T) {
+	resp := &http.Response{Header: make(http.Header)}
+	h, err := gcsHeaderFromHTTP(resp)
+	assertNilF(t, err)
+	assertNotNilF(t, h)
+	assertTrueF(t, h.encryptionMetadata == nil)
+
+	resp.Header.Set(gcsMetadataEncryptionDataProp, "{not-json")
+	_, err = gcsHeaderFromHTTP(resp)
+	assertNotNilF(t, err)
+
+	resp.Header.Set(gcsMetadataEncryptionDataProp, "null")
+	_, err = gcsHeaderFromHTTP(resp)
+	assertNotNilF(t, err)
+
+	enc := `{"WrappedContentKey":{"EncryptedKey":"abc"},"ContentEncryptionIV":"iv"}`
+	resp.Header.Set(gcsMetadataEncryptionDataProp, enc)
+	resp.Header.Set(gcsMetadataMatdescKey, "mat")
+	h, err = gcsHeaderFromHTTP(resp)
+	assertNilF(t, err)
+	assertNotNilF(t, h.encryptionMetadata)
+	assertEqualF(t, h.encryptionMetadata.key, "abc")
+	assertEqualF(t, h.encryptionMetadata.iv, "iv")
+	assertEqualF(t, h.encryptionMetadata.matdesc, "mat")
+}
+
+func TestGcsDownloadToStreamRenewToken(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "gcs/teststage/users/34/",
+		LocationType: "GCS",
+	}
+	meta := fileMetadata{
+		srcFileName: "data1.txt.gz",
+		stageInfo:   &info,
+		client:      "tok",
+		mockGcsClient: &clientMock{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					Status:     "401 Unauthorized",
+					StatusCode: 401,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
+				}, nil
+			},
+		},
+	}
+	_, err := (&snowflakeGcsClient{cfg: &Config{}}).downloadToStream(context.Background(), &meta)
+	assertNotNilF(t, err)
+	assertEqualF(t, meta.resStatus, renewToken)
+}
+
+func TestGcsDownloadToStreamInvalidEncryptionHeader(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "gcs/teststage/users/34/",
+		LocationType: "GCS",
+	}
+	body := &trackingCloser{Reader: strings.NewReader("x")}
+	meta := fileMetadata{
+		srcFileName: "data1.txt.gz",
+		stageInfo:   &info,
+		client:      "tok",
+		mockGcsClient: &clientMock{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				h := make(http.Header)
+				h.Set(gcsMetadataEncryptionDataProp, "{not-json")
+				return &http.Response{
+					Status:     "200 OK",
+					StatusCode: http.StatusOK,
+					Header:     h,
+					Body:       body,
+				}, nil
+			},
+		},
+	}
+	_, err := (&snowflakeGcsClient{cfg: &Config{}}).downloadToStream(context.Background(), &meta)
+	assertNotNilF(t, err)
+	assertEqualF(t, body.closed, 1)
+}
+
+func TestGcsDownloadToStreamIgnoresCloudStorageTimeout(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "gcs/teststage/users/34/",
+		LocationType: "GCS",
+	}
+	payload := []byte("still readable after timeout")
+	meta := fileMetadata{
+		srcFileName: "data1.txt",
+		stageInfo:   &info,
+		client:      "tok",
+		mockGcsClient: &clientMock{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					Status:     "200 OK",
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(bytes.NewReader(payload)),
+				}, nil
+			},
+		},
+	}
+	rc, err := (&snowflakeGcsClient{cfg: &Config{CloudStorageTimeout: time.Nanosecond}}).downloadToStream(context.Background(), &meta)
+	assertNilF(t, err)
+	time.Sleep(2 * time.Millisecond)
+	got, err := io.ReadAll(rc)
+	assertNilF(t, err)
+	assertNilF(t, rc.Close())
+	assertEqualF(t, string(got), string(payload))
 }

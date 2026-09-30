@@ -166,6 +166,14 @@ const (
 	// ErrGetStreamMultipleFiles is an error code denoting a streaming GET whose stage path
 	// matched more than one file, so it cannot be streamed into a single writer.
 	ErrGetStreamMultipleFiles = 264013
+	// ErrDownloadStreamLocalFS is an error code denoting DownloadStream used with a LOCAL_FS stage
+	ErrDownloadStreamLocalFS = 264014
+	// ErrDownloadStreamInvalidArg is an error code denoting a missing stage or file name for DownloadStream
+	ErrDownloadStreamInvalidArg = 264015
+	// ErrFailedToDecrypt is an error code denoting CSE metadata or decryption failed for a stage download
+	ErrFailedToDecrypt = 264016
+	// ErrDownloadStreamDecompress is an error code denoting gzip decompression failed while reading a DownloadStream
+	ErrDownloadStreamDecompress = 264017
 
 	/* binding */
 
@@ -273,7 +281,12 @@ const (
 	ErrMsgNoResultIDs                        = "no result IDs returned with the multi-statement query"
 	ErrMsgQueryStatus                        = "server ErrorCode=%s, ErrorMessage=%s"
 	ErrMsgInvalidPadding                     = "invalid padding on input"
-	ErrMsgGetStreamMultipleFiles             = "get stream can only return one file, please use the GET PATTERN argument"
+	ErrMsgGetStreamMultipleFiles             = "GET matched more than one file; specify a single object"
+	ErrMsgDownloadStreamLocalFS              = "DownloadStream is only supported for remote stages"
+	ErrMsgDownloadStreamInvalidArg           = "DownloadStream requires a non-empty stage name and source file name"
+	ErrMsgDownloadStreamFileNotFound         = "File not found: %v"
+	ErrMsgFailedToDecrypt                    = "failed to decrypt downloaded stage object"
+	ErrMsgDownloadStreamDecompress           = "failed to decompress downloaded stream: %v"
 	ErrMsgClientConfigFailed                 = "client configuration failed: %v"
 	ErrMsgNullValueInArray                   = "for handling null values in arrays use WithArrayValuesNullable(ctx)"
 	ErrMsgNullValueInMap                     = "for handling null values in maps use WithMapValuesNullable(ctx)"

@@ -1496,7 +1496,29 @@ an absolute path rather than a relative path. For example:
 
 	db.Query("GET @~ file:///tmp/my_data_file auto_compress=false overwrite=false")
 
-To download a file into an in-memory stream (rather than a file) use code similar to the code below.
+To download a file as a stream, use `SnowflakeConnection.DownloadStream` via `database/sql` `Conn.Raw`. Consume the reader before returning from the callback:
+
+	conn, err := db.Conn(ctx)
+	err = conn.Raw(func(x any) error {
+		sc := x.(SnowflakeConnection)
+		r, err := sc.DownloadStream(ctx, "@~", "data1.txt.gz")
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+		_, err = io.Copy(dst, r)
+		return err
+	})
+
+Use `DownloadStreamWithConfig` to configure the download.
+
+Optional download stream properties:
+
+  - Decompress: gunzip the downloaded object. The default is false.
+    Decompression errors are returned by Read (an invalid gzip header is
+    reported on the first Read, not by DownloadStreamWithConfig).
+
+`WithFileGetStream` still works but buffers the entire object in memory before writing to the `io.Writer`. Prefer `DownloadStream`.
 
 	var streamBuf bytes.Buffer
 	ctx := WithFileGetStream(context.Background(), &streamBuf)

@@ -126,6 +126,8 @@ type snowflakeFileTransferAgent struct {
 	presignedURLs               []string
 	options                     *SnowflakeFileTransferOptions
 	streamBuffer                *bytes.Buffer
+	streamDownload              bool
+	streamDownloadFileName      string
 }
 
 func (sfa *snowflakeFileTransferAgent) execute() error {
@@ -225,6 +227,19 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 
 	sfa.initEncryptionMaterial()
 	if len(sfa.data.SrcLocations) == 0 {
+		if sfa.streamDownload {
+			name := sfa.streamDownloadFileName
+			if name == "" {
+				name = "requested stage object"
+			}
+			return exceptionTelemetry(&SnowflakeError{
+				Number:      ErrFileNotExists,
+				SQLState:    SQLStateNoData,
+				QueryID:     sfa.data.QueryID,
+				Message:     errors2.ErrMsgDownloadStreamFileNotFound,
+				MessageArgs: []any{name},
+			}, sfa.sc)
+		}
 		return exceptionTelemetry(&SnowflakeError{
 			Number:   ErrInvalidStageLocation,
 			SQLState: sfa.data.SQLState,
@@ -262,27 +277,29 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 			}, sfa.sc)
 		}
 
-		// A get-stream has a single io.Writer, so a GET matching more than one file would
-		// stream a corrupt mix. Fail deterministically instead of guessing which file the
-		// caller meant, pointing them at the GET PATTERN argument to narrow the match.
-		if isFileGetStream(sfa.ctx) {
+		// A get-stream / DownloadStream can return only one file. GET resolves its stage
+		// path by prefix, so a short name can match several objects; fail instead of
+		// picking one at random.
+		if isFileGetStream(sfa.ctx) || sfa.streamDownload {
 			if err = sfa.ensureSingleGetStreamFile(); err != nil {
 				return err
 			}
 		}
 
-		sfa.localLocation, err = expandUser(sfa.data.LocalLocation)
-		if err != nil {
-			return err
-		}
-		if fi, err := os.Stat(sfa.localLocation); err != nil || !fi.IsDir() {
-			return exceptionTelemetry(&SnowflakeError{
-				Number:      ErrLocalPathNotDirectory,
-				SQLState:    sfa.data.SQLState,
-				QueryID:     sfa.data.QueryID,
-				Message:     errors2.ErrMsgLocalPathNotDirectory,
-				MessageArgs: []any{sfa.localLocation},
-			}, sfa.sc)
+		if !sfa.streamDownload {
+			sfa.localLocation, err = expandUser(sfa.data.LocalLocation)
+			if err != nil {
+				return err
+			}
+			if fi, err := os.Stat(sfa.localLocation); err != nil || !fi.IsDir() {
+				return exceptionTelemetry(&SnowflakeError{
+					Number:      ErrLocalPathNotDirectory,
+					SQLState:    sfa.data.SQLState,
+					QueryID:     sfa.data.QueryID,
+					Message:     errors2.ErrMsgLocalPathNotDirectory,
+					MessageArgs: []any{sfa.localLocation},
+				}, sfa.sc)
+			}
 		}
 	}
 
@@ -310,10 +327,10 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 	return nil
 }
 
-// ensureSingleGetStreamFile fails a get-stream that matched more than one file. A GET resolves its
-// stage path by prefix, so it can match several files, but a get-stream has a single io.Writer and
-// streaming them all into it yields a corrupt mix. Rather than guess which file the caller meant,
-// return ErrGetStreamMultipleFiles so the caller narrows the GET with its PATTERN argument.
+// ensureSingleGetStreamFile fails when GET matched more than one file. A GET
+// resolves its stage path by prefix, so it can match several files, but
+// get-stream and DownloadStream can return only one. Rather than guess which
+// file the caller meant, return ErrGetStreamMultipleFiles.
 func (sfa *snowflakeFileTransferAgent) ensureSingleGetStreamFile() error {
 	if len(sfa.srcFiles) > 1 {
 		return exceptionTelemetry(&SnowflakeError{

@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path"
@@ -28,6 +29,7 @@ type cloudUtil interface {
 	getFileHeader(context.Context, *fileMetadata, string) (*fileHeader, error)
 	uploadFile(context.Context, string, *fileMetadata, int, int64) error
 	nativeDownloadFile(context.Context, *fileMetadata, string, int64, int64) error
+	downloadToStream(context.Context, *fileMetadata) (io.ReadCloser, error)
 }
 
 type cloudClient any
@@ -242,18 +244,20 @@ func (rsu *remoteStorageUtil) downloadOneFile(ctx context.Context, meta *fileMet
 				}
 				timer = time.Now()
 				if isFileGetStream(ctx) {
-					totalFileSize, err := decryptStreamCBC(header.encryptionMetadata,
-						meta.encryptionMaterial, 0, meta.dstStream, meta.sfa.streamBuffer)
+					dec, err := decryptStreamCBC(header.encryptionMetadata,
+						meta.encryptionMaterial, 0, meta.dstStream)
+					if err != nil {
+						logger.Errorf("Stream decryption failed for %s - temp file will be cleaned up to prevent corrupted data: %v", meta.srcFileName, err)
+						return err
+					}
+					totalFileSize, err := io.Copy(meta.sfa.streamBuffer, dec)
+					_ = dec.Close()
 					if err != nil {
 						logger.Errorf("Stream decryption failed for %s - temp file will be cleaned up to prevent corrupted data: %v", meta.srcFileName, err)
 						return err
 					}
 					logger.Debugf("Total file size: %d", totalFileSize)
-					if totalFileSize < 0 || totalFileSize > meta.sfa.streamBuffer.Len() {
-						return fmt.Errorf("invalid total file size: %d", totalFileSize)
-					}
-					meta.sfa.streamBuffer.Truncate(totalFileSize)
-					meta.dstFileSize = int64(totalFileSize)
+					meta.dstFileSize = totalFileSize
 				} else {
 					if err = rsu.processEncryptedFileToDestination(meta, header, tempDownloadFile, fullDstFileName); err != nil {
 						return err

@@ -83,8 +83,9 @@ type snowflakeConn struct {
 }
 
 var (
-	queryIDPattern = `[\w\-_]+`
-	queryIDRegexp  = regexp.MustCompile(queryIDPattern)
+	queryIDPattern                     = `[\w\-_]+`
+	queryIDRegexp                      = regexp.MustCompile(queryIDPattern)
+	_              SnowflakeConnection = (*snowflakeConn)(nil)
 )
 
 func (sc *snowflakeConn) exec(
@@ -188,7 +189,7 @@ func (sc *snowflakeConn) exec(
 
 	// handle PUT/GET commands
 	fileTransferChan := make(chan error, 1)
-	if isFileTransfer(query) {
+	if isFileTransfer(query) && !isSkipFileTransfer(ctx) {
 		go func() {
 			data, err = sc.processFileTransfer(ctx, data, query, isInternal)
 			fileTransferChan <- err

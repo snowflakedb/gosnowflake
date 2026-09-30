@@ -6,15 +6,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strings"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/logging"
-	"net/http"
-	"os"
-	"strings"
 )
 
 const (
@@ -381,6 +383,42 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 	}
 	meta.resStatus = downloaded
 	return nil
+}
+
+func (util *snowflakeS3Client) downloadToStream(ctx context.Context, meta *fileMetadata) (io.ReadCloser, error) {
+	s3Obj, err := util.getS3Object(meta, meta.srcFileName)
+	if err != nil {
+		return nil, err
+	}
+	client, ok := meta.client.(*s3.Client)
+	if !ok {
+		return nil, &SnowflakeError{Message: "failed to cast to s3 client"}
+	}
+	// Do not wrap GetObject in withCloudStorageTimeout: that helper cancels the
+	// request context when the API call returns, which aborts the response body.
+	out, err := client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: s3Obj.Bucket,
+		Key:    s3Obj.Key,
+	})
+	if err != nil {
+		var ae smithy.APIError
+		if errors.As(err, &ae) && ae.ErrorCode() == expiredToken {
+			meta.resStatus = renewToken
+		}
+		return nil, err
+	}
+	header := &fileHeader{
+		digest:        out.Metadata[sfcDigest],
+		contentLength: convertContentLength(out.ContentLength),
+	}
+	if out.Metadata[amzKey] != "" {
+		header.encryptionMetadata = &encryptMetadata{
+			out.Metadata[amzKey],
+			out.Metadata[amzIv],
+			out.Metadata[amzMatdesc],
+		}
+	}
+	return maybeDecryptStream(out.Body, header, meta.encryptionMaterial)
 }
 
 func (util *snowflakeS3Client) extractBucketNameAndPath(location string) (*s3Location, error) {

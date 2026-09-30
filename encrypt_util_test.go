@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"bufio"
+	"bytes"
 	"compress/gzip"
 	"encoding/base64"
 	"errors"
@@ -156,9 +157,54 @@ func TestDecryptStreamCBCReadError(t *testing.T) {
 	wantErr := errors.New("test error")
 	r := iotest.ErrReader(wantErr)
 
-	n, err := decryptStreamCBC(meta, &sfe, 0, r, nil)
+	dec, err := decryptStreamCBC(meta, &sfe, 0, r)
+	assertNilF(t, err, "decrypt reader setup")
+	n, err := io.Copy(io.Discard, dec)
 	assertTrueF(t, errors.Is(err, wantErr), fmt.Sprintf("expected error: %v, got: %v", wantErr, err))
-	assertEqualE(t, n, 0, "expected 0 bytes written")
+	assertEqualE(t, n, int64(0), "expected 0 bytes written")
+	assertNilF(t, dec.Close())
+}
+
+type noProgressReader struct{}
+
+func (noProgressReader) Read([]byte) (int, error) {
+	return 0, nil
+}
+
+func TestDecryptStreamCBCNoProgress(t *testing.T) {
+	sfe := snowflakeFileEncryption{
+		QueryStageMasterKey: "YWJjZGVmMTIzNDU2Nzg5MA==",
+		QueryID:             "unused",
+		SMKID:               9223372036854775807,
+	}
+	var encrypted bytes.Buffer
+	meta, err := encryptStreamCBC(&sfe, bytes.NewReader([]byte("hello")), &encrypted, 0)
+	assertNilF(t, err)
+
+	dec, err := decryptStreamCBC(meta, &sfe, 0, noProgressReader{})
+	assertNilF(t, err, "decrypt reader setup")
+	_, err = io.Copy(io.Discard, dec)
+	assertTrueF(t, errors.Is(err, io.ErrNoProgress), fmt.Sprintf("expected ErrNoProgress, got: %v", err))
+	assertNilF(t, dec.Close())
+}
+
+func TestDecryptStreamCBCTruncatedCiphertext(t *testing.T) {
+	sfe := snowflakeFileEncryption{
+		QueryStageMasterKey: "YWJjZGVmMTIzNDU2Nzg5MA==",
+		QueryID:             "unused",
+		SMKID:               9223372036854775807,
+	}
+	var encrypted bytes.Buffer
+	meta, err := encryptStreamCBC(&sfe, bytes.NewReader([]byte("hello world")), &encrypted, 0)
+	assertNilF(t, err)
+	cipher := encrypted.Bytes()
+	assertTrueF(t, len(cipher) > 1, "expected ciphertext")
+
+	dec, err := decryptStreamCBC(meta, &sfe, 0, bytes.NewReader(cipher[:len(cipher)-1]))
+	assertNilF(t, err, "decrypt reader setup")
+	_, err = io.Copy(io.Discard, dec)
+	assertTrueF(t, errors.Is(err, io.ErrUnexpectedEOF), fmt.Sprintf("expected ErrUnexpectedEOF, got: %v", err))
+	assertNilF(t, dec.Close())
 }
 
 func encryptDecryptFile(t *testing.T, encMat snowflakeFileEncryption, expected int, tmpDir string) {

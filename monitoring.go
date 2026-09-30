@@ -5,10 +5,12 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
+	"io"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/snowflakedb/gosnowflake/v2/internal/errors"
 )
 
 const urlQueriesResultFmt = "/queries/%s/result"
@@ -129,6 +131,17 @@ type SnowflakeQueryStatus struct {
 type SnowflakeConnection interface {
 	GetQueryStatus(ctx context.Context, queryID string) (*SnowflakeQueryStatus, error)
 	AddTelemetryData(ctx context.Context, eventDate time.Time, data map[string]string) error
+	// DownloadStream downloads one stage object as a readable stream.
+	// ctx is used for the metadata GET and the cloud body: canceling it aborts a
+	// blocked Read. The returned reader must be closed. Concurrent Read and Close
+	// are not supported. When used via database/sql Conn.Raw, consume and close
+	// the reader before returning from the Raw callback so the connection is not
+	// released while the body is still open. ctx must remain valid until Close.
+	// With Decompress: true, an invalid gzip header is reported as
+	// ErrDownloadStreamDecompress by the first Read, not by
+	// DownloadStreamWithConfig. Truncated gzip may fail on a later Read.
+	DownloadStream(ctx context.Context, stageName, sourceFileName string) (io.ReadCloser, error)
+	DownloadStreamWithConfig(ctx context.Context, stageName, sourceFileName string, config DownloadStreamConfig) (io.ReadCloser, error)
 }
 
 // checkQueryStatus returns the status given the query ID. If successful,

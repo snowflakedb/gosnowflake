@@ -13,4 +13,6 @@ const (
 	SQLStateConnectionFailure = "08006"
 	// SQLStateFeatureNotSupported is a SQL State code indicating the feature is not enabled.
 	SQLStateFeatureNotSupported = "0A000"
+	// SQLStateNoData is a SQL State code indicating no data (JDBC FILE_NOT_FOUND).
+	SQLStateNoData = "02000"
 )

@@ -350,6 +350,77 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 	return nil
 }
 
+func (util *snowflakeAzureClient) downloadToStream(ctx context.Context, meta *fileMetadata) (io.ReadCloser, error) {
+	azureLoc, err := util.extractContainerNameAndPath(meta.stageInfo.Location)
+	if err != nil {
+		return nil, err
+	}
+	path := azureLoc.path + strings.TrimLeft(meta.srcFileName, "/")
+	client, ok := meta.client.(*azblob.Client)
+	if !ok {
+		return nil, &SnowflakeError{Message: "failed to cast to azure client"}
+	}
+	containerClient, err := createContainerClient(client.URL(), util.cfg, util.telemetry)
+	if err != nil {
+		return nil, &SnowflakeError{Message: "failed to create container client"}
+	}
+	var blobClient azureAPI = containerClient.NewBlockBlobClient(path)
+	if meta.mockAzureClient != nil {
+		blobClient = meta.mockAzureClient
+	}
+	// Do not wrap DownloadStream in withCloudStorageTimeout: that helper cancels
+	// the request context when the call returns, which aborts the response body.
+	resp, err := blobClient.DownloadStream(ctx, &azblob.DownloadStreamOptions{})
+	if err != nil {
+		var se *azcore.ResponseError
+		if errors.As(err, &se) && se.StatusCode == 403 {
+			meta.resStatus = renewToken
+		}
+		return nil, err
+	}
+	header, err := azureFileHeaderFromMetadata(resp.Metadata, resp.ContentLength)
+	if err != nil {
+		if resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+		return nil, err
+	}
+	retryReader := resp.NewRetryReader(ctx, &azblob.RetryReaderOptions{})
+	return maybeDecryptStream(retryReader, header, meta.encryptionMaterial)
+}
+
+func azureFileHeaderFromMetadata(metadata map[string]*string, contentLength *int64) (*fileHeader, error) {
+	h := &fileHeader{}
+	if contentLength != nil {
+		h.contentLength = *contentLength
+	}
+	if metadata == nil {
+		return h, nil
+	}
+	metadata = withLowerKeys(metadata)
+	if digest, ok := metadata["sfcdigest"]; ok && digest != nil {
+		h.digest = *digest
+	}
+	encJSON, ok := metadata["encryptiondata"]
+	if !ok || encJSON == nil || *encJSON == "" {
+		return h, nil
+	}
+	var encData encryptionData
+	if err := json.Unmarshal([]byte(*encJSON), &encData); err != nil {
+		return nil, err
+	}
+	matdesc := ""
+	if m, ok := metadata["matdesc"]; ok && m != nil {
+		matdesc = *m
+	}
+	h.encryptionMetadata = &encryptMetadata{
+		encData.WrappedContentKey.EncryptionKey,
+		encData.ContentEncryptionIV,
+		matdesc,
+	}
+	return h, nil
+}
+
 func (util *snowflakeAzureClient) extractContainerNameAndPath(location string) (*azureLocation, error) {
 	stageLocation, err := expandUser(location)
 	if err != nil {

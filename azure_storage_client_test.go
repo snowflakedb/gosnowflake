@@ -754,3 +754,54 @@ func TestAzureGetHeaderClientCastFail(t *testing.T) {
 		t.Fatal("should have failed")
 	}
 }
+
+func TestAzureFileHeaderFromMetadata(t *testing.T) {
+	h, err := azureFileHeaderFromMetadata(nil, nil)
+	assertNilF(t, err)
+	assertTrueF(t, h.encryptionMetadata == nil)
+
+	cl := int64(12)
+	digest := "abc"
+	h, err = azureFileHeaderFromMetadata(map[string]*string{"sfcDigest": &digest}, &cl)
+	assertNilF(t, err)
+	assertEqualF(t, h.digest, "abc")
+	assertEqualF(t, h.contentLength, cl)
+
+	bad := "{not-json"
+	_, err = azureFileHeaderFromMetadata(map[string]*string{"encryptiondata": &bad}, &cl)
+	assertNotNilF(t, err)
+
+	enc := `{"WrappedContentKey":{"EncryptedKey":"k"},"ContentEncryptionIV":"iv"}`
+	mat := "m"
+	h, err = azureFileHeaderFromMetadata(map[string]*string{
+		"encryptiondata": &enc,
+		"matdesc":        &mat,
+	}, &cl)
+	assertNilF(t, err)
+	assertNotNilF(t, h.encryptionMetadata)
+	assertEqualF(t, h.encryptionMetadata.key, "k")
+	assertEqualF(t, h.encryptionMetadata.iv, "iv")
+	assertEqualF(t, h.encryptionMetadata.matdesc, "m")
+}
+
+func TestAzureDownloadToStreamRenewToken(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "azblob/storage/users/456/",
+		LocationType: "AZURE",
+	}
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
+	assertNilF(t, err)
+	meta := fileMetadata{
+		srcFileName: "file.txt",
+		stageInfo:   &info,
+		client:      azureCli,
+		mockAzureClient: &azureObjectAPIMock{
+			DownloadStreamFunc: func(ctx context.Context, o *blob.DownloadStreamOptions) (azblob.DownloadStreamResponse, error) {
+				return azblob.DownloadStreamResponse{}, &azcore.ResponseError{StatusCode: 403}
+			},
+		},
+	}
+	_, err = (&snowflakeAzureClient{cfg: &Config{}}).downloadToStream(context.Background(), &meta)
+	assertNotNilF(t, err)
+	assertEqualF(t, meta.resStatus, renewToken)
+}

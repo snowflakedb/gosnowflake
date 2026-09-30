@@ -11,6 +11,7 @@ Breaking changes:
 
 New features:
 - Added `WorkloadIdentityHost` config option (DSN field `workloadIdentityHost`) that overrides the STS host used by the AWS WIF flows, for endpoints the driver cannot derive from the region (such as an interface VPC endpoint). Must be an STS endpoint for the region the workload runs in (snowflakedb/gosnowflake#5).
+- Added `DownloadStream` / `DownloadStreamWithConfig` on `SnowflakeConnection`: sequential GET of one stage object as `io.ReadCloser`, with optional gzip decompression. Prefer this over `WithFileGetStream`, which still buffers the whole file (snowflakedb/gosnowflake#12).
 
 Bug fixes:
 - Hardened external-browser callback handling by checking `Origin` headers against the connected Snowflake account endpoint, accepting matching-Origin POST callbacks, and continuing to wait after unrelated or incomplete requests (snowflakedb/gosnowflake#14).

@@ -196,9 +196,16 @@ const (
 	// ErrInvalidPadding is an error code denoting the invalid padding of decryption key
 	ErrInvalidPadding = sferrors.ErrInvalidPadding
 	// ErrGetStreamMultipleFiles is an error code denoting a streaming GET whose stage path
-	// matched more than one file, so it cannot be streamed into a single writer. Narrow the
-	// GET with its PATTERN argument so it matches exactly one file.
+	// matched more than one file, so it cannot be streamed into a single reader.
 	ErrGetStreamMultipleFiles = sferrors.ErrGetStreamMultipleFiles
+	// ErrDownloadStreamLocalFS is an error code denoting DownloadStream used with a LOCAL_FS stage
+	ErrDownloadStreamLocalFS = sferrors.ErrDownloadStreamLocalFS
+	// ErrDownloadStreamInvalidArg is an error code denoting a missing stage or file name for DownloadStream
+	ErrDownloadStreamInvalidArg = sferrors.ErrDownloadStreamInvalidArg
+	// ErrFailedToDecrypt is an error code denoting CSE metadata or decryption failed for a stage download
+	ErrFailedToDecrypt = sferrors.ErrFailedToDecrypt
+	// ErrDownloadStreamDecompress is an error code denoting gzip decompression failed while reading a DownloadStream
+	ErrDownloadStreamDecompress = sferrors.ErrDownloadStreamDecompress
 
 	/* binding */
 

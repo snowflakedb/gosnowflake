@@ -383,6 +383,12 @@ func TestInternal(t *testing.T) {
 	assertTrueE(t, isInternal(ctx))
 }
 
+func TestIsSkipFileTransfer(t *testing.T) {
+	assertFalseF(t, isSkipFileTransfer(context.Background()))
+	assertFalseF(t, isSkipFileTransfer(context.WithValue(context.Background(), skipFileTransfer, "true")))
+	assertTrueF(t, isSkipFileTransfer(withSkipFileTransfer(context.Background())))
+}
+
 type envOverride struct {
 	envName  string
 	oldValue string

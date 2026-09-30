@@ -253,63 +253,129 @@ func decryptFileCBC(
 			err = tmpErr
 		}
 	}()
-	totalFileSize, err := decryptStreamCBC(metadata, sfe, chunkSize, infile, tmpOutputFile)
+	dec, err := decryptStreamCBC(metadata, sfe, chunkSize, infile)
 	if err != nil {
 		return "", err
 	}
-	err = tmpOutputFile.Truncate(int64(totalFileSize))
+	if _, err = io.Copy(tmpOutputFile, dec); err != nil {
+		return "", err
+	}
 	return tmpOutputFile.Name(), err
 }
 
-// Returns decrypted file size and any error that happened during decryption.
+// decryptStreamCBC returns a reader that decrypts AES-CBC ciphertext from src.
+// PKCS padding is stripped at EOF. Close does not close src; the caller owns that.
 func decryptStreamCBC(
 	metadata *encryptMetadata,
 	sfe *snowflakeFileEncryption,
 	chunkSize int,
-	src io.Reader,
-	out io.Writer) (int, error) {
+	src io.Reader) (io.ReadCloser, error) {
 	if chunkSize == 0 {
 		chunkSize = aes.BlockSize * 4 * 1024
 	}
 	decryptedKey, ivBytes, err := decryptFileKeyECB(metadata, sfe)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	mode, err := initCBC(decryptedKey, ivBytes)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
+	return &cbcDecryptReader{
+		src:     src,
+		mode:    mode,
+		readBuf: make([]byte, chunkSize),
+	}, nil
+}
 
-	var totalFileSize int
-	var prevChunk []byte
+type cbcDecryptReader struct {
+	src       io.Reader
+	mode      cipher.BlockMode
+	readBuf   []byte
+	cipherBuf []byte
+	held      []byte
+	plain     []byte
+	readErr   error
+}
+
+func (r *cbcDecryptReader) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
 	for {
-		chunk := make([]byte, chunkSize)
-		n, err := src.Read(chunk)
-		if err != nil && err != io.EOF {
-			return 0, fmt.Errorf("reading: %w", err)
+		if len(r.plain) > 0 {
+			n := copy(p, r.plain)
+			r.plain = r.plain[n:]
+			return n, nil
 		}
-		if n == 0 {
-			break
+		if r.readErr != nil {
+			return 0, r.readErr
 		}
-
-		if n%aes.BlockSize != 0 {
-			// add padding to the end of the chunk and update the length n
-			chunk = padBytesLength(chunk[:n], aes.BlockSize)
-			n = len(chunk)
+		if err := r.pull(); err != nil {
+			if err == io.EOF {
+				if ferr := r.finalize(); ferr != nil {
+					r.readErr = ferr
+					return 0, ferr
+				}
+				r.readErr = io.EOF
+				continue
+			}
+			r.readErr = fmt.Errorf("reading: %w", err)
+			return 0, r.readErr
 		}
-		totalFileSize += n
-		chunk = chunk[:n]
-		mode.CryptBlocks(chunk, chunk)
-		if _, err := out.Write(chunk); err != nil {
-			return 0, err
-		}
-		prevChunk = chunk
 	}
+}
 
-	if prevChunk != nil {
-		totalFileSize -= paddingOffset(prevChunk)
+func (r *cbcDecryptReader) pull() error {
+	n, err := r.src.Read(r.readBuf)
+	if n > 0 {
+		r.cipherBuf = append(r.cipherBuf, r.readBuf[:n]...)
+		r.decryptReady(false)
 	}
-	return totalFileSize, nil
+	if n == 0 && err == nil {
+		return io.ErrNoProgress
+	}
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *cbcDecryptReader) decryptReady(final bool) {
+	usable := len(r.cipherBuf) - len(r.cipherBuf)%aes.BlockSize
+	if usable == 0 {
+		return
+	}
+	dec := make([]byte, usable)
+	r.mode.CryptBlocks(dec, r.cipherBuf[:usable])
+	r.cipherBuf = append([]byte(nil), r.cipherBuf[usable:]...)
+	r.held = append(r.held, dec...)
+	if !final && len(r.held) > aes.BlockSize {
+		flush := len(r.held) - aes.BlockSize
+		r.plain = append(r.plain, r.held[:flush]...)
+		r.held = append([]byte(nil), r.held[flush:]...)
+	}
+}
+
+func (r *cbcDecryptReader) finalize() error {
+	if len(r.cipherBuf) != 0 {
+		return io.ErrUnexpectedEOF
+	}
+	r.decryptReady(true)
+	if len(r.held) == 0 {
+		return nil
+	}
+	stripped, err := paddingTrim(r.held)
+	if err != nil {
+		return err
+	}
+	r.plain = append(r.plain, stripped...)
+	r.held = nil
+	return nil
+}
+
+func (r *cbcDecryptReader) Close() error {
+	return nil
 }
 
 func encryptGCM(iv []byte, plaintext []byte, encryptionKey []byte, aad []byte) ([]byte, error) {
@@ -511,11 +577,6 @@ func paddingTrim(src []byte) ([]byte, error) {
 		}
 	}
 	return src[:len(src)-n], nil
-}
-
-func paddingOffset(src []byte) int {
-	length := len(src)
-	return int(src[length-1])
 }
 
 type contentKey struct {

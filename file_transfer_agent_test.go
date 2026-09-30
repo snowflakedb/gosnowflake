@@ -341,6 +341,22 @@ func TestParseCommandWithInvalidStageLocation(t *testing.T) {
 	})
 }
 
+func TestParseCommandEmptySrcLocationsStreamDownload(t *testing.T) {
+	sfa := &snowflakeFileTransferAgent{
+		streamDownload:         true,
+		streamDownloadFileName: "gone.txt",
+		data:                   &execResponseData{QueryID: "qid"},
+		sc:                     &snowflakeConn{cfg: &Config{}},
+	}
+	err := sfa.parseCommand()
+	assertNotNilF(t, err)
+	var se *SnowflakeError
+	assertErrorsAsF(t, err, &se)
+	assertEqualF(t, se.Number, ErrFileNotExists)
+	assertEqualF(t, se.SQLState, SQLStateNoData)
+	assertEqualF(t, se.QueryID, "qid")
+}
+
 func TestParseCommandEncryptionMaterialMismatchError(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		mockEncMaterial1 := snowflakeFileEncryption{
