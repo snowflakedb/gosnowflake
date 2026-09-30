@@ -4,7 +4,7 @@
 
 ## 2.3.0
 
-Breaking changes:
+Updates:
 - OCSP certificate revocation checking is now off by default; opt in with `ocspFailOpen`/`OCSPFailOpen` or `SF_DISABLE_OCSP_CHECKS=false`.
   - `FillMissingConfigParameters` no longer defaults `OCSPFailOpen` nor snapshots the env onto `DisableOCSPChecks`.
   - `DSN()` omits unset `ocspFailOpen`, so newly generated DSNs no longer carry the opt-in, while DSNs stored from v2.2 still enable OCSP.
