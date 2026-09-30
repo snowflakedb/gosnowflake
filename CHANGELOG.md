@@ -2,6 +2,8 @@
 
 ## Upcoming release
 
+## 2.3.0
+
 Breaking changes:
 - OCSP certificate revocation checking is now off by default; opt in with `ocspFailOpen`/`OCSPFailOpen` or `SF_DISABLE_OCSP_CHECKS=false`.
   - `FillMissingConfigParameters` no longer defaults `OCSPFailOpen` nor snapshots the env onto `DisableOCSPChecks`.
@@ -10,11 +12,11 @@ Breaking changes:
   - `SF_DISABLE_OCSP_CHECKS=true` still disables, except under fail-closed.
 
 New features:
-- Added `WorkloadIdentityHost` config option (DSN field `workloadIdentityHost`) that overrides the STS host used by the AWS WIF flows, for endpoints the driver cannot derive from the region (such as an interface VPC endpoint). Must be an STS endpoint for the region the workload runs in (snowflakedb/gosnowflake#5).
-- Added `DownloadStream` / `DownloadStreamWithConfig` on `SnowflakeConnection`: sequential GET of one stage object as `io.ReadCloser`, with optional gzip decompression. Prefer this over `WithFileGetStream`, which still buffers the whole file (snowflakedb/gosnowflake#12).
+- Added `WorkloadIdentityHost` config option (DSN field `workloadIdentityHost`) that overrides the STS host used by the AWS WIF flows, for endpoints the driver cannot derive from the region (such as an interface VPC endpoint). Must be an STS endpoint for the region the workload runs in (snowflakedb/gosnowflake@b1ea3911a7e2).
+- Added `DownloadStream` / `DownloadStreamWithConfig` on `SnowflakeConnection`: sequential GET of one stage object as `io.ReadCloser`, with optional gzip decompression. Prefer this over `WithFileGetStream`, which still buffers the whole file (snowflakedb/gosnowflake@bf1dad211856).
 
 Bug fixes:
-- Hardened external-browser callback handling by checking `Origin` headers against the connected Snowflake account endpoint, accepting matching-Origin POST callbacks, and continuing to wait after unrelated or incomplete requests (snowflakedb/gosnowflake#14).
+- Hardened external-browser callback handling by checking `Origin` headers against the connected Snowflake account endpoint, accepting matching-Origin POST callbacks, and continuing to wait after unrelated or incomplete requests (snowflakedb/gosnowflake@386bbc9d8caa).
 - Fixed `GetQueryStatus` treating `RESTARTED` as success by counting that status as still running (snowflakedb/gosnowflake#1842).
 - Fixed stage array bind of TIMESTAMP_LTZ/NTZ/TZ writing local wallclock with no offset, so bulk inserts disagreed with scalar bind on non-UTC hosts.
 
