@@ -24,3 +24,6 @@ vendor
 # SSH private key for WIF tests
 ci/wif/parameters/rsa_wif_aws_azure
 ci/wif/parameters/rsa_wif_gcp
+
+# Staged WIF e2e artifacts (built on Jenkins, not committed)
+ci/wif/artifacts/
