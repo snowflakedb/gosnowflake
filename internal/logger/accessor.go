@@ -3,25 +3,26 @@ package logger
 import (
 	"errors"
 	"log"
-	"sync"
+	"sync/atomic"
 
 	"github.com/snowflakedb/gosnowflake/v2/sflog"
 )
 
-// LoggerAccessor allows internal packages to access the global logger
-// without importing the main gosnowflake package (avoiding circular dependencies)
-var (
-	loggerAccessorMu sync.Mutex
-	// globalLogger is the actual logger that provides all features (secret masking, level filtering, etc.)
-	globalLogger sflog.SFLogger
-)
+// globalLogger is the actual logger that provides all features (secret masking, level filtering, etc.).
+// Reads are a single atomic load so discarded log calls do not take a process-global mutex.
+var globalLogger atomic.Pointer[sflog.SFLogger]
 
-// GetLogger returns the global logger for use by internal packages
+// GetLogger returns the global logger for use by internal packages.
 func GetLogger() sflog.SFLogger {
-	loggerAccessorMu.Lock()
-	defer loggerAccessorMu.Unlock()
+	p := globalLogger.Load()
+	if p == nil {
+		return nil
+	}
+	return *p
+}
 
-	return globalLogger
+func setGlobalLogger(l sflog.SFLogger) {
+	globalLogger.Store(&l)
 }
 
 // SetLogger sets the raw (base) logger implementation and wraps it with the standard protection layers.
@@ -39,9 +40,6 @@ func GetLogger() sflog.SFLogger {
 // Internal wrapper types that would cause issues are rejected:
 //   - Proxy (would cause infinite recursion)
 func SetLogger(providedLogger SFLogger) error {
-	loggerAccessorMu.Lock()
-	defer loggerAccessorMu.Unlock()
-
 	// Reject Proxy to prevent infinite recursion
 	if _, isProxy := providedLogger.(*Proxy); isProxy {
 		return errors.New("cannot set Proxy as raw logger - it would create infinite recursion")
@@ -65,7 +63,7 @@ func SetLogger(providedLogger SFLogger) error {
 	masked := newSecretMaskingLogger(rawLogger)
 	filtered := newLevelFilteringLogger(masked)
 
-	globalLogger = filtered
+	setGlobalLogger(filtered)
 	return nil
 }
 

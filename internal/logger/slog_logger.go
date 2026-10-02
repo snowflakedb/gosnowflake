@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/snowflakedb/gosnowflake/v2/sflog"
@@ -67,7 +68,9 @@ func findActualCaller() uintptr {
 type rawLogger struct {
 	inner   *slog.Logger
 	handler *snowflakeHandler
-	level   sflog.Level
+	// level is read on every filtered log call. It is atomic so that read does not take mu.
+	// int64 because sflog.LevelOff is math.MaxInt, which does not fit in an int32 on 64-bit platforms.
+	level   atomic.Int64
 	enabled bool // For OFF level support
 	file    *os.File
 	output  io.Writer
@@ -88,13 +91,14 @@ func newRawLogger() SFLogger {
 
 	slogLogger := slog.New(handler)
 
-	return &rawLogger{
+	log := &rawLogger{
 		inner:   slogLogger,
 		handler: handler,
-		level:   level,
 		enabled: true,
 		output:  os.Stderr,
 	}
+	log.level.Store(int64(level))
+	return log
 }
 
 // isEnabled checks if logging is enabled (for OFF level)
@@ -113,7 +117,7 @@ func (log *rawLogger) SetLogLevel(level string) error {
 
 	if upperLevel == sflog.LevelOff {
 		log.mu.Lock()
-		log.level = sflog.LevelOff
+		log.level.Store(int64(sflog.LevelOff))
 		log.enabled = false
 		log.mu.Unlock()
 		return nil
@@ -121,7 +125,7 @@ func (log *rawLogger) SetLogLevel(level string) error {
 
 	log.mu.Lock()
 	log.enabled = true
-	log.level = upperLevel
+	log.level.Store(int64(upperLevel))
 	log.mu.Unlock()
 
 	return nil
@@ -135,22 +139,24 @@ func (log *rawLogger) SetLogLevelInt(level sflog.Level) error {
 	if err != nil {
 		return fmt.Errorf("invalid log level: %d", level)
 	}
-	log.level = level
+	log.level.Store(int64(level))
 	return nil
 }
 
 // GetLogLevel returns the current log level
 func (log *rawLogger) GetLogLevel() string {
-	if levelStr, err := sflog.LevelToString(log.level); err == nil {
+	if levelStr, err := sflog.LevelToString(log.logLevel()); err == nil {
 		return levelStr
 	}
 	return "unknown"
 }
 
 func (log *rawLogger) GetLogLevelInt() sflog.Level {
-	log.mu.Lock()
-	defer log.mu.Unlock()
-	return log.level
+	return log.logLevel()
+}
+
+func (log *rawLogger) logLevel() sflog.Level {
+	return sflog.Level(log.level.Load())
 }
 
 // SetOutput sets the output writer
@@ -161,10 +167,10 @@ func (log *rawLogger) SetOutput(output io.Writer) {
 	log.output = output
 
 	// Create new handler with new output
-	opts := createOpts(slog.Level(log.level))
+	opts := createOpts(slog.Level(log.logLevel()))
 
 	textHandler := slog.NewTextHandler(output, opts)
-	log.handler = newSnowflakeHandler(textHandler, log.level)
+	log.handler = newSnowflakeHandler(textHandler, log.logLevel())
 	log.inner = slog.New(log.handler)
 }
 
@@ -203,7 +209,7 @@ func (log *rawLogger) SetHandler(handler slog.Handler) error {
 	defer log.mu.Unlock()
 
 	// Wrap user's handler with snowflakeHandler to preserve context extraction
-	log.handler = newSnowflakeHandler(handler, log.level)
+	log.handler = newSnowflakeHandler(handler, log.logLevel())
 	log.inner = slog.New(log.handler)
 
 	return nil

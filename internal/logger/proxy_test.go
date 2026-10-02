@@ -23,23 +23,18 @@ func newProxyTestLogger(t *testing.T) (SFLogger, *bytes.Buffer, func()) {
 	rawLog := &rawLogger{
 		inner:   slog.New(snowHandler),
 		handler: snowHandler,
-		level:   sflog.LevelDebug,
 		enabled: true,
 		output:  buf,
 	}
+	rawLog.level.Store(int64(sflog.LevelDebug))
 
 	masked := newSecretMaskingLogger(rawLog)
 	filtered := newLevelFilteringLogger(masked)
 
-	loggerAccessorMu.Lock()
-	oldLogger := globalLogger
-	globalLogger = filtered
-	loggerAccessorMu.Unlock()
-
+	oldLogger := GetLogger()
+	setGlobalLogger(filtered)
 	cleanup := func() {
-		loggerAccessorMu.Lock()
-		globalLogger = oldLogger
-		loggerAccessorMu.Unlock()
+		setGlobalLogger(oldLogger)
 	}
 
 	return NewLoggerProxy(), buf, cleanup
@@ -87,25 +82,19 @@ func TestProxyWithContextSourceLocation(t *testing.T) {
 	rawLog := &rawLogger{
 		inner:   slog.New(snowHandler),
 		handler: snowHandler,
-		level:   sflog.LevelDebug,
 		enabled: true,
 		output:  &buf,
 	}
+	rawLog.level.Store(int64(sflog.LevelDebug))
 
 	// Wrap with secret masking and level filtering
 	masked := newSecretMaskingLogger(rawLog)
 	filtered := newLevelFilteringLogger(masked)
 
-	// Set as global logger
-	loggerAccessorMu.Lock()
-	oldLogger := globalLogger
-	globalLogger = filtered
-	loggerAccessorMu.Unlock()
-
+	oldLogger := GetLogger()
+	setGlobalLogger(filtered)
 	defer func() {
-		loggerAccessorMu.Lock()
-		globalLogger = oldLogger
-		loggerAccessorMu.Unlock()
+		setGlobalLogger(oldLogger)
 	}()
 
 	// Create a proxy and log through it with WithContext

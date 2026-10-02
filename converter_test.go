@@ -1,12 +1,11 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/v2/internal/query"
-	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 	"io"
 	"math"
 	"math/big"
@@ -20,6 +19,8 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/decimal128"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	"github.com/snowflakedb/gosnowflake/v2/internal/query"
+	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 )
 
 func stringIntToDecimal(src string) (decimal128.Num, bool) {
@@ -1369,5 +1370,98 @@ func TestArrowIntToValueExactForNonZeroScale(t *testing.T) {
 				t.Errorf("expected %v, got %v", expected, actual)
 			}
 		})
+	}
+}
+
+func installTestLogger(t *testing.T, level string) *bytes.Buffer {
+	t.Helper()
+	original := GetLogger()
+	buf := &bytes.Buffer{}
+	log := CreateDefaultLogger()
+	assertNilF(t, log.SetLogLevel(level), "set log level")
+	log.SetOutput(buf)
+	assertNilF(t, SetLogger(log), "install logger")
+	t.Cleanup(func() {
+		assertNilF(t, SetLogger(original), "restore logger")
+	})
+	return buf
+}
+
+func TestStringToValueInfoLevelSkipsLogAllocs(t *testing.T) {
+	installTestLogger(t, "info")
+
+	shortSrc := "hello"
+	longSrc := strings.Repeat("x", 2048)
+	rowType := query.ExecResponseRowType{Type: "text"}
+	ctx := context.Background()
+
+	convert := func(src *string) {
+		var dest driver.Value
+		err := stringToValue(ctx, &dest, rowType, src, nil, nil)
+		assertNilF(t, err, "stringToValue")
+	}
+
+	shortAllocs := testing.AllocsPerRun(200, func() { convert(&shortSrc) })
+	longAllocs := testing.AllocsPerRun(200, func() { convert(&longSrc) })
+	assertEqualF(t, shortAllocs, longAllocs, "a long cell must not allocate a truncated log argument at INFO")
+}
+
+func TestStringToValueDebugStillEmitted(t *testing.T) {
+	buf := installTestLogger(t, "debug")
+
+	src := "1609459200.123456789"
+	var dest driver.Value
+	err := stringToValue(context.Background(), &dest, query.ExecResponseRowType{Type: "timestamp_ntz"}, &src, time.UTC, nil)
+	assertNilF(t, err, "stringToValue")
+
+	out := buf.String()
+	assertStringContainsF(t, out, "snowflake data type: timestamp_ntz", "column type is logged at debug")
+	assertStringContainsF(t, out, "raw value: 1609459200.123456789", "raw value is logged at debug")
+	assertStringContainsF(t, out, "sec:", "timestamp seconds are logged at debug")
+	assertStringContainsF(t, out, "nsec:", "timestamp nanos are logged at debug")
+
+	longSrc := strings.Repeat("y", 2048)
+	buf.Reset()
+	err = stringToValue(context.Background(), &dest, query.ExecResponseRowType{Type: "text"}, &longSrc, nil, nil)
+	assertNilF(t, err, "stringToValue long text")
+	assertStringContainsF(t, buf.String(), "bytes total", "long values are still truncated in debug logs")
+}
+
+func TestStringToValueInfoSuppressesPerValueLogs(t *testing.T) {
+	buf := installTestLogger(t, "info")
+
+	src := "1609459200.123456789"
+	var dest driver.Value
+	err := stringToValue(context.Background(), &dest, query.ExecResponseRowType{Type: "timestamp_ntz"}, &src, time.UTC, nil)
+	assertNilF(t, err, "stringToValue")
+	assertEmptyStringE(t, buf.String(), "per-value logs are suppressed at INFO")
+}
+
+func BenchmarkStringToValueInfoLevel(b *testing.B) {
+	original := GetLogger()
+	b.Cleanup(func() {
+		if err := SetLogger(original); err != nil {
+			b.Errorf("restore logger: %v", err)
+		}
+	})
+	log := CreateDefaultLogger()
+	if err := log.SetLogLevel("info"); err != nil {
+		b.Fatal(err)
+	}
+	log.SetOutput(io.Discard)
+	if err := SetLogger(log); err != nil {
+		b.Fatal(err)
+	}
+
+	src := "hello"
+	rowType := query.ExecResponseRowType{Type: "text"}
+	ctx := context.Background()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var dest driver.Value
+		if err := stringToValue(ctx, &dest, rowType, &src, nil, nil); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

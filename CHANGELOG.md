@@ -2,6 +2,10 @@
 
 ## Upcoming release
 
+Bug fixes:
+- Avoided a process-global logger lock and per-value argument formatting while converting result cells when debug logging is off (snowflakedb/gosnowflake#23).
+- Demoted per-timestamp `sec`/`nsec` logging in `extractTimestamp` from INFO to DEBUG (snowflakedb/gosnowflake#23).
+
 ## 2.3.0
 
 Updates:

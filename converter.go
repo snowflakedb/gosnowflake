@@ -12,6 +12,7 @@ import (
 	errors2 "github.com/snowflakedb/gosnowflake/v2/internal/errors"
 	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 	"github.com/snowflakedb/gosnowflake/v2/internal/types"
+	"github.com/snowflakedb/gosnowflake/v2/sflog"
 	"math"
 	"math/big"
 	"reflect"
@@ -927,7 +928,9 @@ func timeTypeValueToString(tm time.Time, tsmode types.SnowflakeType) (bindingVal
 
 // extractTimestamp extracts the internal timestamp data to epoch time in seconds and milliseconds
 func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
-	logger.Debugf("SRC: %v", srcValue)
+	if logger.GetLogLevelInt() <= sflog.LevelDebug {
+		logger.Debugf("SRC: %v", srcValue)
+	}
 	var i int
 	for i = 0; i < len(*srcValue); i++ {
 		if (*srcValue)[i] == '.' {
@@ -952,7 +955,9 @@ func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
 			return 0, 0, err
 		}
 	}
-	logger.Infof("sec: %v, nsec: %v", sec, nsec)
+	if logger.GetLogLevelInt() <= sflog.LevelDebug {
+		logger.Debugf("sec: %v, nsec: %v", sec, nsec)
+	}
 	return sec, nsec, nil
 }
 
@@ -960,18 +965,23 @@ func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
 // This is mainly used in fetching data.
 func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta query.ExecResponseRowType, srcValue *string, loc *time.Location, params *syncParams) error {
 	if srcValue == nil {
-		logger.Debugf("snowflake data type: %v, raw value: nil", srcColumnMeta.Type)
+		if logger.GetLogLevelInt() <= sflog.LevelDebug {
+			logger.Debugf("snowflake data type: %v, raw value: nil", srcColumnMeta.Type)
+		}
 		*dest = nil
 		return nil
 	}
 	structuredTypesEnabled := structuredTypesEnabled(ctx)
 
-	// Truncate large strings before logging to avoid secret masking performance issues
-	valueForLogging := *srcValue
-	if len(valueForLogging) > 1024 {
-		valueForLogging = valueForLogging[:1024] + fmt.Sprintf("... (%d bytes total)", len(*srcValue))
+	// Truncate large strings before logging to avoid secret masking performance issues.
+	// The truncation and the Debugf arguments run only when debug logging is on.
+	if logger.GetLogLevelInt() <= sflog.LevelDebug {
+		valueForLogging := *srcValue
+		if len(valueForLogging) > 1024 {
+			valueForLogging = valueForLogging[:1024] + fmt.Sprintf("... (%d bytes total)", len(*srcValue))
+		}
+		logger.Debugf("snowflake data type: %v, raw value: %v", srcColumnMeta.Type, valueForLogging)
 	}
-	logger.Debugf("snowflake data type: %v, raw value: %v", srcColumnMeta.Type, valueForLogging)
 	switch srcColumnMeta.Type {
 	case "object":
 		if len(srcColumnMeta.Fields) == 0 || !structuredTypesEnabled {
@@ -1062,7 +1072,9 @@ func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta query.
 		*dest = time.Unix(sec, nsec).In(loc)
 		return nil
 	case "timestamp_tz":
-		logger.Debugf("tz: %v", *srcValue)
+		if logger.GetLogLevelInt() <= sflog.LevelDebug {
+			logger.Debugf("tz: %v", *srcValue)
+		}
 
 		tm := strings.Split(*srcValue, " ")
 		if len(tm) != 2 {
@@ -1558,7 +1570,9 @@ func arrowToValues(
 	if len(destcol) != srcValue.Len() {
 		return fmt.Errorf("array interface length mismatch")
 	}
-	logger.Debugf("snowflake data type: %v, arrow data type: %v", srcColumnMeta.Type, srcValue.DataType())
+	if logger.GetLogLevelInt() <= sflog.LevelDebug {
+		logger.Debugf("snowflake data type: %v, arrow data type: %v", srcColumnMeta.Type, srcValue.DataType())
+	}
 
 	var err error
 	snowflakeType := types.GetSnowflakeType(srcColumnMeta.Type)

@@ -3,10 +3,13 @@ package logger_test
 import (
 	"bytes"
 	"context"
+	"io"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/snowflakedb/gosnowflake/v2/internal/logger"
+	"github.com/snowflakedb/gosnowflake/v2/sflog"
 )
 
 // TestLoggerConfiguration verifies configuration methods work
@@ -264,4 +267,89 @@ func TestLogEntryWithContext(t *testing.T) {
 	if !strings.Contains(output, "message with context") {
 		t.Errorf("Expected message in output: %s", output)
 	}
+}
+
+// TestLevelSnapshotTracksSetLogLevel verifies GetLogLevelInt follows
+// SetLogLevel and SetLogLevelInt, including OFF.
+func TestLevelSnapshotTracksSetLogLevel(t *testing.T) {
+	log := logger.CreateDefaultLogger()
+
+	cases := []struct {
+		name  string
+		set   func() error
+		want  sflog.Level
+		label string
+	}{
+		{
+			name:  "debug",
+			set:   func() error { return log.SetLogLevel("debug") },
+			want:  sflog.LevelDebug,
+			label: "DEBUG",
+		},
+		{
+			name:  "info",
+			set:   func() error { return log.SetLogLevelInt(sflog.LevelInfo) },
+			want:  sflog.LevelInfo,
+			label: "INFO",
+		},
+		{
+			name:  "off",
+			set:   func() error { return log.SetLogLevel("OFF") },
+			want:  sflog.LevelOff,
+			label: "OFF",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := tc.set(); err != nil {
+				t.Fatalf("set level: %v", err)
+			}
+			if got := log.GetLogLevelInt(); got != tc.want {
+				t.Errorf("GetLogLevelInt() = %d, want %d", got, tc.want)
+			}
+			if got := log.GetLogLevel(); got != tc.label {
+				t.Errorf("GetLogLevel() = %q, want %q", got, tc.label)
+			}
+		})
+	}
+}
+
+// TestGetSetLoggerConcurrent races logger replacement and level changes
+// against lock-free reads.
+func TestGetSetLoggerConcurrent(t *testing.T) {
+	original := logger.GetLogger()
+	t.Cleanup(func() {
+		if err := logger.SetLogger(original); err != nil {
+			t.Errorf("restore logger: %v", err)
+		}
+	})
+
+	const n = 32
+	var wg sync.WaitGroup
+	wg.Add(n * 2)
+	for i := range n {
+		go func() {
+			defer wg.Done()
+			l := logger.CreateDefaultLogger()
+			l.SetOutput(io.Discard)
+			if err := logger.SetLogger(l); err != nil {
+				t.Errorf("SetLogger: %v", err)
+				return
+			}
+			if err := logger.GetLogger().SetLogLevel("debug"); err != nil {
+				t.Errorf("SetLogLevel: %v", err)
+			}
+		}()
+		go func(i int) {
+			defer wg.Done()
+			l := logger.GetLogger()
+			if l == nil {
+				t.Error("GetLogger returned nil")
+				return
+			}
+			_ = l.GetLogLevelInt()
+			l.Debugf("concurrent %d", i)
+		}(i)
+	}
+	wg.Wait()
 }

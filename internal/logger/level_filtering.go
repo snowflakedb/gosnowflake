@@ -3,9 +3,10 @@ package logger
 import (
 	"context"
 	"errors"
-	"github.com/snowflakedb/gosnowflake/v2/sflog"
 	"io"
 	"log/slog"
+
+	"github.com/snowflakedb/gosnowflake/v2/sflog"
 )
 
 // levelFilteringLogger wraps any logger and filters log messages based on log level.
@@ -24,7 +25,7 @@ func (l *levelFilteringLogger) Unwrap() any {
 }
 
 // shouldLog determines if a message at messageLevel should be logged
-// given the current configured level
+// given the current configured level.
 func (l *levelFilteringLogger) shouldLog(messageLevel sflog.Level) bool {
 	return messageLevel >= l.inner.GetLogLevelInt()
 }
