@@ -2,6 +2,9 @@
 
 ## Upcoming release
 
+New features:
+- Added `WrapDialContext` config option that wraps the dial function of the transports the driver creates, so that the connections can be customized or instrumented while keeping the certificate revocation checks, the proxy handling and the TLS configuration that setting `Transporter` would replace.
+
 ## 2.3.0
 
 Updates:
