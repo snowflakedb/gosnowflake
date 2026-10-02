@@ -1,8 +1,10 @@
 package gosnowflake
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"testing"
 
@@ -296,6 +298,61 @@ func TestProxyTransportCreation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWrapDialContext(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	assertNilF(t, err, "Cannot listen for the test connections")
+	defer listener.Close()
+
+	for _, test := range []struct {
+		name   string
+		config *Config
+	}{
+		{"OCSP", &Config{DisableOCSPChecks: false, CertRevocationCheckMode: CertRevocationCheckDisabled}},
+		{"CRL", &Config{DisableOCSPChecks: true, CertRevocationCheckMode: CertRevocationCheckEnabled}},
+		{"NoRevocation", &Config{DisableOCSPChecks: true, CertRevocationCheckMode: CertRevocationCheckDisabled}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var wrapped, dialed bool
+			test.config.WrapDialContext = func(dial DialFunc) DialFunc {
+				wrapped = true
+				return func(ctx context.Context, network, addr string) (net.Conn, error) {
+					dialed = true
+					return dial(ctx, network, addr)
+				}
+			}
+
+			factory := newTransportFactory(test.config, nil)
+
+			transport, err := factory.createTransport(transportConfigFor(transportTypeSnowflake))
+			assertNilF(t, err, "Unexpected error")
+			assertTrueF(t, wrapped, "Expected the dial function to be wrapped by WrapDialContext")
+
+			conn, err := transport.(*http.Transport).DialContext(context.Background(), "tcp", listener.Addr().String())
+			assertNilF(t, err, "Unexpected error")
+			defer conn.Close()
+			assertTrueF(t, dialed, "Expected the connection to be dialed by the wrapping dial function")
+		})
+	}
+}
+
+func TestWrapDialContextIgnoredWithTransporter(t *testing.T) {
+	transporter := &http.Transport{}
+	config := &Config{
+		DisableOCSPChecks: true,
+		Transporter:       transporter,
+		WrapDialContext: func(DialFunc) DialFunc {
+			t.Fatal("Expected WrapDialContext not to be called when Transporter is set")
+			return nil
+		},
+	}
+
+	factory := newTransportFactory(config, nil)
+
+	transport, err := factory.createTransport(transportConfigFor(transportTypeSnowflake))
+	assertNilF(t, err, "Unexpected error")
+	assertEqualF(t, transport, http.RoundTripper(transporter), "Expected the transport set as Transporter")
 }
 
 func createTestNoRevocationTransport() http.RoundTripper {

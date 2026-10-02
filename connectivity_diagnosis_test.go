@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -157,7 +158,7 @@ func TestCreateDiagnosticClient(t *testing.T) {
 }
 
 func TestCreateDiagnosticDialContext(t *testing.T) {
-	dialContext := createDiagnosticDialContext()
+	dialContext := createDiagnosticDialContext(&Config{})
 
 	assertNotNilE(t, dialContext, "dialContext should not be nil")
 
@@ -174,6 +175,33 @@ func TestCreateDiagnosticDialContext(t *testing.T) {
 
 	_, err := dialContext(ctx, "tcp", u.Host)
 	assertNilE(t, err, "error should be nil")
+}
+
+func TestCreateDiagnosticDialContextWithWrapDialContext(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	u, _ := url.Parse(server.URL)
+
+	var dialed bool
+	dialContext := createDiagnosticDialContext(&Config{
+		WrapDialContext: func(dial DialFunc) DialFunc {
+			return func(ctx context.Context, network, addr string) (net.Conn, error) {
+				dialed = true
+				return dial(ctx, network, addr)
+			}
+		},
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	conn, err := dialContext(ctx, "tcp", u.Host)
+	assertNilF(t, err, "error should be nil")
+	defer conn.Close()
+	assertTrueE(t, dialed, "Expected the connection to be dialed by the wrapping dial function")
 }
 
 func TestOpenAndReadAllowlistJSON(t *testing.T) {

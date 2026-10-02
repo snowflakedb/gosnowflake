@@ -12,6 +12,8 @@ type (
 	ConfigBool = sfconfig.Bool
 	// ConfigParam is used to bind the name of the Config field with the environment variable and set the requirement for it
 	ConfigParam = sfconfig.Param
+	// DialFunc establishes a network connection. It is the type of the dial functions Config.WrapDialContext takes and returns.
+	DialFunc = sfconfig.DialFunc
 )
 
 // ConfigBool constants — re-exported from internal/config.

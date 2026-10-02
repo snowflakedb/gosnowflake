@@ -114,6 +114,11 @@ func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig
 		Timeout:   transportConfig.DialTimeout,
 		KeepAlive: transportConfig.KeepAlive,
 	}
+	dialContext := dialer.DialContext
+	if tf.config != nil && tf.config.WrapDialContext != nil {
+		logger.Debug("Create a new Base Transport with the dial function wrapped by WrapDialContext")
+		dialContext = tf.config.WrapDialContext(dialContext)
+	}
 
 	defaultTransport := http.DefaultTransport.(*http.Transport)
 	return &http.Transport{
@@ -122,7 +127,7 @@ func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig
 		MaxIdleConnsPerHost: cmp.Or(transportConfig.MaxIdleConns, defaultTransport.MaxIdleConns),
 		IdleConnTimeout:     cmp.Or(transportConfig.IdleConnTimeout, defaultTransport.IdleConnTimeout),
 		Proxy:               tf.createProxy(transportConfig),
-		DialContext:         dialer.DialContext,
+		DialContext:         dialContext,
 	}, nil
 }
 
@@ -182,6 +187,9 @@ func (tf *transportFactory) createTransport(transportConfig *transportConfig) (h
 	// if user configured a custom Transporter, prioritize that
 	if tf.config.Transporter != nil {
 		logger.Debug("createTransport: using Transporter configured by the user")
+		if tf.config.WrapDialContext != nil {
+			logger.Warn("createTransport: WrapDialContext is ignored because Transporter is set")
+		}
 		// If it's an *http.Transport, try to apply MinTLSVersion to its TLS config
 		if httpTransport, ok := tf.config.Transporter.(*http.Transport); ok {
 			var err error
