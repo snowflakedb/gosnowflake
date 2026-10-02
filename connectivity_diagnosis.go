@@ -64,14 +64,20 @@ func createDiagnosticClient(cfg *Config) *http.Client {
 
 // necessary to be able to log the IP address of the remote host to which we actually connected
 // might be even different from the result of DNS resolution
-func createDiagnosticDialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
+func createDiagnosticDialContext(cfg *Config) func(ctx context.Context, network, addr string) (net.Conn, error) {
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}
+	dialContext := dialer.DialContext
+	// apply WrapDialContext as the transport factory does, unless a custom Transporter replaces it
+	if cfg != nil && cfg.Transporter == nil && cfg.WrapDialContext != nil {
+		logger.Debug("[createDiagnosticDialContext] wrapping the dial function with WrapDialContext")
+		dialContext = cfg.WrapDialContext(dialContext)
+	}
 
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
-		conn, err := dialer.DialContext(ctx, network, addr)
+		conn, err := dialContext(ctx, network, addr)
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +121,7 @@ func createDiagnosticTransport(cfg *Config) *http.Transport {
 		MaxIdleConns:    httpTransport.MaxIdleConns,
 		IdleConnTimeout: httpTransport.IdleConnTimeout,
 		Proxy:           httpTransport.Proxy,
-		DialContext:     createDiagnosticDialContext(),
+		DialContext:     createDiagnosticDialContext(cfg),
 	}
 }
 

@@ -95,10 +95,15 @@ type Config struct {
 	// created, already configured with its dial timeout and its keep-alive, and
 	// returns the dial function the transport dials with.
 	//
-	// It allows, for example, to instrument the connections the driver
+	// It can be used, for example, to instrument the connections the driver
 	// establishes, keeping the certificate revocation checks, the proxy handling
 	// and the TLS configuration the driver sets up, which setting Transporter
 	// would replace. It is ignored when Transporter is set.
+	//
+	// WrapDialContext is called every time the driver creates a transport, which
+	// can happen many times during the life of a connection, and the dial
+	// functions it returns may be called concurrently. Both must therefore be
+	// safe for concurrent use.
 	WrapDialContext func(dial DialFunc) DialFunc
 
 	TLSConfigName string // Name of the TLS config to use

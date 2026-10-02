@@ -309,6 +309,20 @@ If you wish to specify a custom transporter (e.g. to provide a custom TLS config
 
 As an alternative, you can use the `RegisterTLSConfig` / `DeregisterTLSConfig` functions as seen in the unit tests: https://github.com/snowflakedb/gosnowflake/blob/v1.16.0/transport_test.go#L127
 
+If you only need to customize how the network connections are established (e.g. to instrument them), set `WrapDialContext`
+instead of `Transporter`. It wraps the dial function of every transport the driver creates, keeping the certificate revocation
+checks, the proxy handling and the TLS configuration of the driver. It is ignored when `Transporter` is set. Example:
+
+	config := Config{
+	    WrapDialContext: func(dial gosnowflake.DialFunc) gosnowflake.DialFunc {
+	        return func(ctx context.Context, network, addr string) (net.Conn, error) {
+	            conn, err := dial(ctx, network, addr)
+	            // your custom logic here
+	            return conn, err
+	        }
+	    },
+	}
+
 # Proxy
 
 The Go Snowflake Driver honors the environment variables HTTP_PROXY, HTTPS_PROXY and NO_PROXY for the forward proxy setting.

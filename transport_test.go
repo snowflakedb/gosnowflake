@@ -310,6 +310,7 @@ func TestWrapDialContext(t *testing.T) {
 		config *Config
 	}{
 		{"OCSP", &Config{DisableOCSPChecks: false, CertRevocationCheckMode: CertRevocationCheckDisabled}},
+		{"CRL", &Config{DisableOCSPChecks: true, CertRevocationCheckMode: CertRevocationCheckEnabled}},
 		{"NoRevocation", &Config{DisableOCSPChecks: true, CertRevocationCheckMode: CertRevocationCheckDisabled}},
 	} {
 		t.Run(test.name, func(t *testing.T) {

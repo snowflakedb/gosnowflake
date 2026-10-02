@@ -187,6 +187,9 @@ func (tf *transportFactory) createTransport(transportConfig *transportConfig) (h
 	// if user configured a custom Transporter, prioritize that
 	if tf.config.Transporter != nil {
 		logger.Debug("createTransport: using Transporter configured by the user")
+		if tf.config.WrapDialContext != nil {
+			logger.Warn("createTransport: WrapDialContext is ignored because Transporter is set")
+		}
 		// If it's an *http.Transport, try to apply MinTLSVersion to its TLS config
 		if httpTransport, ok := tf.config.Transporter.(*http.Transport); ok {
 			var err error
