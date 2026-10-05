@@ -1,5 +1,5 @@
-include ../../gosnowflake.mak
-CMD_TARGET=filestransfer
+include ../../../gosnowflake.mak
+CMD_TARGET=downloadstream
 
 ## Install
 install: cinstall

@@ -29,14 +29,14 @@ lint: clint
 
 ## Format source codes
 fmt: cfmt
-	@for c in $$(ls cmd); do \
-		(cd cmd/$$c; make fmt); \
+	@for c in cmd/*/; do \
+		$(MAKE) -C $$c fmt; \
 	done
 
 ## Install sample programs
 install:
-	for c in $$(ls cmd); do \
-		(cd cmd/$$c;  GOBIN=$$GOPATH/bin go install $$c.go); \
+	@for c in cmd/*/; do \
+		$(MAKE) -C $$c install; \
 	done
 
 ## Build fuzz tests
