@@ -108,6 +108,7 @@ type Config struct {
 
 	WorkloadIdentityProvider            string   // The workload identity provider to use for WIF authentication
 	WorkloadIdentityEntraResource       string   // The resource to use for WIF authentication on Azure environment
+	WorkloadIdentityAzureClientID       string   // For Azure WIF, the user-assigned managed identity client id. Overrides MANAGED_IDENTITY_CLIENT_ID when set.
 	WorkloadIdentityImpersonationPath   []string // The components to use for WIF impersonation.
 	WorkloadIdentityAwsUseOutboundToken Bool     // For AWS WIF, obtain the attestation as an STS GetWebIdentityToken JWT instead of a signed GetCallerIdentity request envelope
 	WorkloadIdentityHost                string   // For AWS WIF, the STS host to call instead of the regional default.
@@ -209,6 +210,11 @@ func (c *Config) Validate() error {
 	// itself is the WIF code's job, since its shape is dictated by AWS STS.
 	if c.WorkloadIdentityHost != "" && c.WorkloadIdentityProvider != "" && !strings.EqualFold(c.WorkloadIdentityProvider, "aws") {
 		return errors.New("WorkloadIdentityHost is supported only for AWS")
+	}
+	// An empty provider means the value is unused, so a client id left in a
+	// shared profile does not break non-Azure connections.
+	if c.WorkloadIdentityAzureClientID != "" && c.WorkloadIdentityProvider != "" && !strings.EqualFold(c.WorkloadIdentityProvider, "azure") {
+		return errors.New("WorkloadIdentityAzureClientID is supported only for Azure")
 	}
 	if c.Token != "" && c.TokenFilePath != "" {
 		return errTokenConfigConflict

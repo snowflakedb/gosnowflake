@@ -97,11 +97,11 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
-			dsn: "u:p@/db?account=ac&workloadIdentityEntraResource=https%3A%2F%2Fexample.com%2F.default&workloadIdentityProvider=azure&workloadIdentityImpersonationPath=%2Fdefault,%2Fdefault2",
+			dsn: "u:p@/db?account=ac&workloadIdentityAzureClientId=11111111-2222-3333-4444-555555555555&workloadIdentityEntraResource=https%3A%2F%2Fexample.com%2F.default&workloadIdentityProvider=azure&workloadIdentityImpersonationPath=%2Fdefault,%2Fdefault2",
 			config: &Config{
 				Account: "ac", User: "u", Password: "p", Database: "db",
 				Protocol: "https", Host: "ac.snowflakecomputing.com", Port: 443,
-				WorkloadIdentityProvider: "azure", WorkloadIdentityEntraResource: "https://example.com/.default", WorkloadIdentityImpersonationPath: []string{"/default", "/default2"},
+				WorkloadIdentityProvider: "azure", WorkloadIdentityEntraResource: "https://example.com/.default", WorkloadIdentityAzureClientID: "11111111-2222-3333-4444-555555555555", WorkloadIdentityImpersonationPath: []string{"/default", "/default2"},
 				ValidateDefaultParameters: BoolTrue,
 				ClientTimeout:             time.Duration(DefaultClientTimeout),
 				JWTClientTimeout:          time.Duration(DefaultJWTClientTimeout),
@@ -1387,6 +1387,7 @@ func TestParseDSN(t *testing.T) {
 				assertEqualE(t, cfg.OauthTokenRequestURL, test.config.OauthTokenRequestURL, fmt.Sprintf("Test %d: OauthTokenRequestURL mismatch", i))
 				assertEqualE(t, cfg.OauthRedirectURI, test.config.OauthRedirectURI, fmt.Sprintf("Test %d: OauthRedirectURI mismatch", i))
 				assertEqualE(t, cfg.OauthScope, test.config.OauthScope, fmt.Sprintf("Test %d: OauthScope mismatch", i))
+				assertEqualE(t, cfg.WorkloadIdentityAzureClientID, test.config.WorkloadIdentityAzureClientID, fmt.Sprintf("Test %d: WorkloadIdentityAzureClientID mismatch", i))
 				assertEqualE(t, cfg.EnableSingleUseRefreshTokens, test.config.EnableSingleUseRefreshTokens, fmt.Sprintf("Test %d: EnableSingleUseRefreshTokens mismatch", i))
 				assertEqualE(t, cfg.Token, test.config.Token, "token")
 				assertEqualE(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
@@ -1676,9 +1677,10 @@ func TestDSN(t *testing.T) {
 				Host:                              "ac.snowflakecomputing.com",
 				WorkloadIdentityProvider:          "azure",
 				WorkloadIdentityEntraResource:     "https://example.com/default",
+				WorkloadIdentityAzureClientID:     "11111111-2222-3333-4444-555555555555",
 				WorkloadIdentityImpersonationPath: []string{"/default", "/default2"},
 			},
-			dsn: "u:p@ac.snowflakecomputing.com:443?account=ac&authenticator=workload_identity&database=db&validateDefaultParameters=true&workloadIdentityEntraResource=https%3A%2F%2Fexample.com%2Fdefault&workloadIdentityImpersonationPath=%2Fdefault%2C%2Fdefault2&workloadIdentityProvider=azure",
+			dsn: "u:p@ac.snowflakecomputing.com:443?account=ac&authenticator=workload_identity&database=db&validateDefaultParameters=true&workloadIdentityAzureClientId=11111111-2222-3333-4444-555555555555&workloadIdentityEntraResource=https%3A%2F%2Fexample.com%2Fdefault&workloadIdentityImpersonationPath=%2Fdefault%2C%2Fdefault2&workloadIdentityProvider=azure",
 		},
 		{
 			cfg: &Config{

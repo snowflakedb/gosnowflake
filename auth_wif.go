@@ -760,8 +760,9 @@ func (a *azureIdentityAttestationCreator) createAttestation() (*wifAttestation, 
 	var request *http.Request
 	var err error
 
+	clientID := a.managedIdentityClientID()
 	if identityEndpoint == "" {
-		request, err = a.azureVMIdentityRequest()
+		request, err = a.azureVMIdentityRequest(clientID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Azure VM identity request: %v", err)
 		}
@@ -773,7 +774,7 @@ func (a *azureIdentityAttestationCreator) createAttestation() (*wifAttestation, 
 		request, err = a.azureFunctionsIdentityRequest(
 			identityEndpoint,
 			identityHeader,
-			a.azureAttestationMetadataProvider.clientID(),
+			clientID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Azure Functions identity request: %v", err)
@@ -827,6 +828,18 @@ func extractTokenFromJSON(tokenJSON string) (string, error) {
 	}
 
 	return response.AccessToken, nil
+}
+
+// managedIdentityClientID is the user-assigned managed identity to request.
+// An explicit config value takes precedence over MANAGED_IDENTITY_CLIENT_ID.
+func (a *azureIdentityAttestationCreator) managedIdentityClientID() string {
+	if a.cfg != nil && a.cfg.WorkloadIdentityAzureClientID != "" {
+		return a.cfg.WorkloadIdentityAzureClientID
+	}
+	if a.azureAttestationMetadataProvider != nil {
+		return a.azureAttestationMetadataProvider.clientID()
+	}
+	return ""
 }
 
 func (a *azureIdentityAttestationCreator) azureFunctionsIdentityRequest(identityEndpoint, identityHeader, managedIdentityClientID string) (*http.Request, error) {
@@ -891,13 +904,16 @@ func isLoopbackOrLinkLocalHost(host string) bool {
 	return ip.IsLoopback() || ip.IsLinkLocalUnicast()
 }
 
-func (a *azureIdentityAttestationCreator) azureVMIdentityRequest() (*http.Request, error) {
+func (a *azureIdentityAttestationCreator) azureVMIdentityRequest(managedIdentityClientID string) (*http.Request, error) {
 	// Percent-encode the query so the Entra resource cannot inject additional
 	// IMDS parameters (e.g. client_id/object_id/mi_res_id) that would select a
 	// different managed identity attached to the same VM.
 	values := url.Values{}
 	values.Set("api-version", "2018-02-01")
 	values.Set("resource", a.workloadIdentityEntraResource)
+	if managedIdentityClientID != "" {
+		values.Set("client_id", managedIdentityClientID)
+	}
 
 	requestURL := a.azureMetadataServiceBaseURL + "/metadata/identity/oauth2/token?" + values.Encode()
 	req, err := http.NewRequest("GET", requestURL, nil)

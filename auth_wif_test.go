@@ -1028,7 +1028,7 @@ func TestAzureEntraResourceQueryEncoding(t *testing.T) {
 			azureMetadataServiceBaseURL:   defaultAzureMetadataServiceBase,
 			workloadIdentityEntraResource: resourceWithSeparators,
 		}
-		req, err := creator.azureVMIdentityRequest()
+		req, err := creator.azureVMIdentityRequest("")
 		assertNilF(t, err)
 		q := req.URL.Query()
 		// The embedded client_id must NOT appear as its own query parameter.
@@ -1055,12 +1055,81 @@ func TestAzureEntraResourceQueryEncoding(t *testing.T) {
 			azureMetadataServiceBaseURL:   defaultAzureMetadataServiceBase,
 			workloadIdentityEntraResource: legitResource,
 		}
-		req, err := creator.azureVMIdentityRequest()
+		req, err := creator.azureVMIdentityRequest("")
 		assertNilF(t, err)
 		q := req.URL.Query()
 		assertEqualE(t, legitResource, q.Get("resource"))
 		assertEqualE(t, "2018-02-01", q.Get("api-version"))
 		assertEqualE(t, "", q.Get("client_id"))
+	})
+}
+
+// TestAzureVMIdentityRequestClientID checks that the VM IMDS and App Service
+// token requests include client_id when a user-assigned managed identity is
+// selected, and omit it when neither WorkloadIdentityAzureClientID nor
+// MANAGED_IDENTITY_CLIENT_ID is set. The config value wins when both are set.
+func TestAzureVMIdentityRequestClientID(t *testing.T) {
+	clientIDs := func(t *testing.T, cfg *Config) (vm, functions string) {
+		t.Helper()
+		creator := &azureIdentityAttestationCreator{
+			cfg:                              cfg,
+			azureMetadataServiceBaseURL:      defaultAzureMetadataServiceBase,
+			workloadIdentityEntraResource:    determineEntraResource(cfg),
+			azureAttestationMetadataProvider: &defaultAzureAttestationMetadataProvider{},
+		}
+		clientID := creator.managedIdentityClientID()
+		vmReq, err := creator.azureVMIdentityRequest(clientID)
+		assertNilF(t, err)
+		functionsReq, err := creator.azureFunctionsIdentityRequest("http://127.0.0.1:41812/msi/token", "identity-header", clientID)
+		assertNilF(t, err)
+		return vmReq.URL.Query().Get("client_id"), functionsReq.URL.Query().Get("client_id")
+	}
+
+	t.Run("omits client_id when unset", func(t *testing.T) {
+		t.Setenv("MANAGED_IDENTITY_CLIENT_ID", "")
+		vm, functions := clientIDs(t, nil)
+		assertEqualE(t, "", vm)
+		assertEqualE(t, "", functions)
+	})
+
+	t.Run("includes MANAGED_IDENTITY_CLIENT_ID", func(t *testing.T) {
+		t.Setenv("MANAGED_IDENTITY_CLIENT_ID", "uami-from-env")
+		vm, functions := clientIDs(t, nil)
+		assertEqualE(t, "uami-from-env", vm)
+		assertEqualE(t, "uami-from-env", functions)
+	})
+
+	t.Run("includes WorkloadIdentityAzureClientID", func(t *testing.T) {
+		t.Setenv("MANAGED_IDENTITY_CLIENT_ID", "")
+		cfg := &Config{WorkloadIdentityAzureClientID: "uami-from-config"}
+		vm, functions := clientIDs(t, cfg)
+		assertEqualE(t, "uami-from-config", vm)
+		assertEqualE(t, "uami-from-config", functions)
+	})
+
+	t.Run("config overrides the environment variable", func(t *testing.T) {
+		t.Setenv("MANAGED_IDENTITY_CLIENT_ID", "uami-from-env")
+		cfg := &Config{WorkloadIdentityAzureClientID: "uami-from-config"}
+		vm, functions := clientIDs(t, cfg)
+		assertEqualE(t, "uami-from-config", vm)
+		assertEqualE(t, "uami-from-config", functions)
+	})
+
+	t.Run("percent-encodes client_id", func(t *testing.T) {
+		const clientID = "uami&object_id=other"
+		creator := &azureIdentityAttestationCreator{
+			azureMetadataServiceBaseURL:   defaultAzureMetadataServiceBase,
+			workloadIdentityEntraResource: determineEntraResource(nil),
+		}
+		vmReq, err := creator.azureVMIdentityRequest(clientID)
+		assertNilF(t, err)
+		functionsReq, err := creator.azureFunctionsIdentityRequest("http://127.0.0.1:41812/msi/token", "identity-header", clientID)
+		assertNilF(t, err)
+		for _, req := range []*http.Request{vmReq, functionsReq} {
+			q := req.URL.Query()
+			assertEqualE(t, clientID, q.Get("client_id"))
+			assertEqualE(t, "", q.Get("object_id"))
+		}
 	})
 }
 

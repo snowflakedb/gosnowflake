@@ -134,6 +134,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.WorkloadIdentityEntraResource != "" {
 		params.Add("workloadIdentityEntraResource", cfg.WorkloadIdentityEntraResource)
 	}
+	if cfg.WorkloadIdentityAzureClientID != "" {
+		params.Add("workloadIdentityAzureClientId", cfg.WorkloadIdentityAzureClientID)
+	}
 	if len(cfg.WorkloadIdentityImpersonationPath) > 0 {
 		params.Add("workloadIdentityImpersonationPath", strings.Join(cfg.WorkloadIdentityImpersonationPath, ","))
 	}
@@ -1133,6 +1136,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.WorkloadIdentityProvider = value
 		case "workloadIdentityEntraResource":
 			cfg.WorkloadIdentityEntraResource = value
+		case "workloadIdentityAzureClientId":
+			cfg.WorkloadIdentityAzureClientID = value
 		case "workloadIdentityImpersonationPath":
 			cfg.WorkloadIdentityImpersonationPath = strings.Split(value, ",")
 		case "workloadIdentityAwsUseOutboundToken":

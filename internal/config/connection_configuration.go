@@ -230,6 +230,8 @@ func HandleSingleParam(cfg *Config, key string, value any) error {
 		cfg.WorkloadIdentityProvider, err = parseString(value)
 	case "workloadidentityentraresource":
 		cfg.WorkloadIdentityEntraResource, err = parseString(value)
+	case "workloadidentityazureclientid":
+		cfg.WorkloadIdentityAzureClientID, err = parseString(value)
 	case "workloadidentityimpersonatinpath":
 		cfg.WorkloadIdentityImpersonationPath, err = parseStrings(value)
 	case "workloadidentityawsuseoutboundtoken":
