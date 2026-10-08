@@ -591,3 +591,114 @@ func (provider *nonInteractiveSamlResponseProvider) run(url string) error {
 	}()
 	return nil
 }
+
+// Observe Accept so the real callback cannot accidentally win the race against
+// the idle connection in the regression test.
+type externalBrowserObservedListener struct {
+	net.Listener
+	accepted chan struct{}
+}
+
+func (l *externalBrowserObservedListener) Accept() (net.Conn, error) {
+	conn, err := l.Listener.Accept()
+	if err == nil {
+		l.accepted <- struct{}{}
+	}
+	return conn, err
+}
+
+func TestExternalBrowserCallbackIgnoresIdleConnection(t *testing.T) {
+	for _, initialRequest := range []string{
+		"",
+		"GET /?token=incomplete HTTP/1.1\r\nHost:",
+		"POST / HTTP/1.1\r\nHost: localhost\r\nOrigin: https://account.example.com\r\nContent-Length: 100\r\n\r\n{",
+	} {
+		t.Run(fmt.Sprintf("initialBytes=%d", len(initialRequest)), func(t *testing.T) {
+			accountURL, err := url.Parse("https://account.example.com:443")
+			assertNilF(t, err)
+			listener, err := createLocalTCPListener(0)
+			assertNilF(t, err)
+			defer listener.Close()
+			observed := &externalBrowserObservedListener{listener, make(chan struct{}, 4)}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			result := make(chan externalBrowserCallbackResult, 1)
+			go func() {
+				token, err := receiveExternalBrowserCallback(ctx, observed, accountURL, "Go")
+				result <- externalBrowserCallbackResult{token: token, err: err}
+			}()
+
+			idle, err := net.DialTimeout("tcp", listener.Addr().String(), time.Second)
+			assertNilF(t, err)
+			defer idle.Close()
+			_, err = io.WriteString(idle, initialRequest)
+			assertNilF(t, err)
+			select {
+			case <-observed.accepted:
+			case <-ctx.Done():
+				t.Fatal("idle connection was not accepted")
+			}
+
+			client := &http.Client{Timeout: time.Second}
+			baseURL := "http://" + listener.Addr().String()
+			// A browser must also be able to complete its CORS preflight while an
+			// earlier connection is idle or waiting for the rest of its body.
+			preflight, err := http.NewRequest(http.MethodOptions, baseURL, nil)
+			assertNilF(t, err)
+			preflight.Header.Set("Origin", "https://account.example.com")
+			preflight.Header.Set("Access-Control-Request-Method", "POST")
+			resp, err := client.Do(preflight)
+			assertNilF(t, err, "idle connection blocked the preflight")
+			resp.Body.Close()
+			assertEqualF(t, resp.StatusCode, http.StatusOK)
+			assertEqualF(t, resp.Header.Get("Access-Control-Allow-Origin"), "https://account.example.com")
+
+			expected := strings.Repeat("saml", 4096) + "+/=%2B"
+			resp, err = client.Get(baseURL + "/?token=" + url.QueryEscape(expected))
+			assertNilF(t, err, "idle connection blocked the authentication callback")
+			body, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			assertNilF(t, err)
+			assertEqualF(t, resp.StatusCode, http.StatusOK)
+			assertEqualF(t, string(body), fmt.Sprintf(samlSuccessHTML, "Go"))
+			callback := waitExternalBrowserCallback(t, result)
+			assertNilF(t, callback.err)
+			assertEqualF(t, callback.token, url.QueryEscape(expected))
+			assertExternalBrowserSocketClosed(t, idle)
+			conn, err := net.DialTimeout("tcp", listener.Addr().String(), time.Second)
+			if err == nil {
+				conn.Close()
+				t.Fatal("callback listener remained open after authentication")
+			}
+		})
+	}
+}
+
+func assertExternalBrowserSocketClosed(t *testing.T, conn net.Conn) {
+	t.Helper()
+	assertNilF(t, conn.SetReadDeadline(time.Now().Add(time.Second)))
+	_, err := io.Copy(io.Discard, conn)
+	if timeout, ok := err.(net.Error); ok && timeout.Timeout() {
+		t.Fatal("callback connection remained open")
+	}
+}
+
+func TestExternalBrowserCallbackCancellationClosesPostBody(t *testing.T) {
+	accountURL, err := url.Parse("https://account.example.com")
+	assertNilF(t, err)
+	listener, err := createLocalTCPListener(0)
+	assertNilF(t, err)
+	defer listener.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	result := startExternalBrowserCallback(ctx, listener, accountURL)
+	conn, err := net.DialTimeout("tcp", listener.Addr().String(), time.Second)
+	assertNilF(t, err)
+	defer conn.Close()
+	_, err = io.WriteString(conn, "POST / HTTP/1.1\r\nHost: localhost\r\nOrigin: https://account.example.com\r\nContent-Length: 100\r\n\r\n{")
+	assertNilF(t, err)
+	cancel()
+	callback := waitExternalBrowserCallback(t, result)
+	assertErrIsF(t, callback.err, context.Canceled)
+	assertExternalBrowserSocketClosed(t, conn)
+}
