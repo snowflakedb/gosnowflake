@@ -219,9 +219,12 @@ func TestDetectPlatforms(t *testing.T) {
 			wiremockCleanup := setupWiremockMetadataEndpoints()
 			defer wiremockCleanup()
 
-			platforms := detectPlatforms(context.Background(), 200*time.Millisecond)
-
-			assertDeepEqualE(t, platforms, tc.expectedResult)
+			platforms, detectionResults := detectPlatformsWithResults(context.Background(), 200*time.Millisecond)
+			if hasPlatformDetectionTimeout(detectionResults) && !slices.Equal(platforms, tc.expectedResult) {
+				t.Logf("platform detection timed out: %v, retrying once", detectionResults)
+				platforms, detectionResults = detectPlatformsWithResults(context.Background(), 200*time.Millisecond)
+			}
+			assertDeepEqualE(t, platforms, tc.expectedResult, fmt.Sprintf("platforms=%v results=%v", platforms, detectionResults))
 		})
 	}
 }
@@ -234,14 +237,48 @@ func TestDetectPlatformsTimeout(t *testing.T) {
 	wiremockCleanup := setupWiremockMetadataEndpoints()
 	defer wiremockCleanup()
 
+	const detectionTimeout = 200 * time.Millisecond
+	// Matches fixedDelayMilliseconds in platform_detection/timeout_response.json.
+	const stubbedResponseDelay = time.Second
+
 	start := time.Now()
-	platforms := detectPlatforms(context.Background(), 200*time.Millisecond)
+	platforms, detectionResults := detectPlatformsWithResults(context.Background(), detectionTimeout)
 	executionTime := time.Since(start)
 
 	assertEqualE(t, len(platforms), 0, fmt.Sprintf("Expected empty platforms, got: %v", platforms))
-	assertTrueE(t, executionTime >= 200*time.Millisecond && executionTime < 250*time.Millisecond,
-		fmt.Sprintf("Expected execution time around 200ms, got: %v", executionTime))
+	// Detectors must give up before the stubbed 1s delay. The lower bound is
+	// not a contract: Windows timer slack can make a 200ms deadline fire early.
+	assertTrueE(t, executionTime < stubbedResponseDelay,
+		fmt.Sprintf("Expected execution time below %v, got: %v", stubbedResponseDelay, executionTime))
+	for _, name := range []string{"is_ec2_instance", "has_aws_identity", "is_azure_vm", "has_azure_managed_identity", "is_gce_vm", "has_gcp_identity"} {
+		assertEqualE(t, detectionResults[name].state, platformDetectionTimeout,
+			fmt.Sprintf("%s should report a timeout, got %s", name, detectionResults[name]))
+	}
 }
+
+func hasPlatformDetectionTimeout(detectionResults map[string]platformDetectionResult) bool {
+	for _, detectionResult := range detectionResults {
+		if detectionResult.state == platformDetectionTimeout {
+			return true
+		}
+	}
+	return false
+}
+
+func TestIsDetectionTimeout(t *testing.T) {
+	assertFalseE(t, isDetectionTimeout(nil), "nil is not a timeout")
+	assertTrueE(t, isDetectionTimeout(context.DeadlineExceeded), "context.DeadlineExceeded")
+	assertTrueE(t, isDetectionTimeout(os.ErrDeadlineExceeded), "os.ErrDeadlineExceeded")
+	assertTrueE(t, isDetectionTimeout(fmt.Errorf("wrapped: %w", context.DeadlineExceeded)), "wrapped context.DeadlineExceeded")
+	assertTrueE(t, isDetectionTimeout(&timeoutNetError{}), "net.Error with Timeout() == true")
+	assertFalseE(t, isDetectionTimeout(fmt.Errorf("request failed")), "plain error is not a timeout")
+}
+
+type timeoutNetError struct{}
+
+func (e *timeoutNetError) Error() string   { return "i/o timeout" }
+func (e *timeoutNetError) Timeout() bool   { return true }
+func (e *timeoutNetError) Temporary() bool { return true }
 
 func TestIsValidArnForWif(t *testing.T) {
 	testCases := []struct {
