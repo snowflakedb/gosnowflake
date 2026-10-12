@@ -1,0 +1,17 @@
+name: Upload coverage artifact
+description: Stash coverage.txt for Jenkins Dedicated Codecov upload (GHA cannot reach snowflake.codecov.io).
+inputs:
+  name:
+    description: Unique suffix after coverage-
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Upload coverage.txt
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-${{ inputs.name }}
+        path: coverage.txt
+        if-no-files-found: ignore
+        retention-days: 5

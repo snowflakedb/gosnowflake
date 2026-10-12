@@ -1,5 +1,10 @@
 name: Build and Test
 
+# Coverage.txt from each test job is uploaded as a GHA artifact named
+# coverage-*. Jenkins gosnowflake-test-coverage downloads them and uploads
+# to https://snowflake.codecov.io (GHA cannot reach Dedicated — WAF 403).
+# Codecov merges reports for the same commit SHA; do not combine locally.
+
 permissions:
   contents: read
 
@@ -47,7 +52,10 @@ jobs:
           - name: golangci-lint
             uses: golangci/golangci-lint-action@v7
             with:
-              version: v2.13
+              # v2.13 release binaries are built with Go 1.26 and cannot
+              # typecheck the Go 1.27 stdlib (export data v5 vs max v4).
+              # v2.14.0 is built with Go 1.27.
+              version: v2.14
           - name: Format, Lint
             shell: bash
             run: ./ci/build.sh
@@ -89,10 +97,11 @@ jobs:
               uses: codecov/test-results-action@v1
               with:
                 token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
-            - name: Upload coverage to Codecov
-              uses: codecov/codecov-action@v5
+            - name: Upload coverage artifact
+              if: ${{ !cancelled() }}
+              uses: ./.github/actions/upload-coverage-artifact
               with:
-                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+                name: linux-${{ matrix.cloud }}-${{ matrix.go }}
     build-test-linux-no-home:
       runs-on: ubuntu-latest
       name: Ubuntu - no HOME
@@ -119,6 +128,11 @@ jobs:
             WIREMOCK_HTTPS_PORT: 13567
             HOME_EMPTY: "yes"
           run: ./ci/test.sh
+        - name: Upload coverage artifact
+          if: ${{ !cancelled() }}
+          uses: ./.github/actions/upload-coverage-artifact
+          with:
+            name: linux-no-home
     build-test-mac:
         runs-on: macos-latest
         strategy:
@@ -152,10 +166,11 @@ jobs:
               uses: codecov/test-results-action@v1
               with:
                 token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
-            - name: Upload coverage to Codecov
-              uses: codecov/codecov-action@v5
+            - name: Upload coverage artifact
+              if: ${{ !cancelled() }}
+              uses: ./.github/actions/upload-coverage-artifact
               with:
-                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+                name: mac-${{ matrix.cloud }}-${{ matrix.go }}
     build-test-mac-no-home:
       runs-on: macos-latest
       name: Mac - no HOME
@@ -180,6 +195,11 @@ jobs:
             WIREMOCK_HTTPS_PORT: 13567
             HOME_EMPTY: "yes"
           run: ./ci/test.sh
+        - name: Upload coverage artifact
+          if: ${{ !cancelled() }}
+          uses: ./.github/actions/upload-coverage-artifact
+          with:
+            name: mac-no-home
     build-test-windows:
         runs-on: windows-latest
         strategy:
@@ -218,10 +238,11 @@ jobs:
               uses: codecov/test-results-action@v1
               with:
                 token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
-            - name: Upload coverage to Codecov
-              uses: codecov/codecov-action@v5
+            - name: Upload coverage artifact
+              if: ${{ !cancelled() }}
+              uses: ./.github/actions/upload-coverage-artifact
               with:
-                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+                name: windows-${{ matrix.cloud }}-${{ matrix.go }}
     fipsOnly:
       runs-on: ubuntu-latest
       strategy:
@@ -255,10 +276,11 @@ jobs:
           uses: codecov/test-results-action@v1
           with:
             token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
-        - name: Upload coverage to Codecov
-          uses: codecov/codecov-action@v5
+        - name: Upload coverage artifact
+          if: ${{ !cancelled() }}
+          uses: ./.github/actions/upload-coverage-artifact
           with:
-            token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+            name: linux-fips
     build-test-linux-minicore-disabled:
       runs-on: ubuntu-latest
       name: Ubuntu - minicore disabled
@@ -283,6 +305,11 @@ jobs:
             WIREMOCK_PORT: 14335
             WIREMOCK_HTTPS_PORT: 13567
           run: ./ci/test.sh
+        - name: Upload coverage artifact
+          if: ${{ !cancelled() }}
+          uses: ./.github/actions/upload-coverage-artifact
+          with:
+            name: linux-minicore-disabled
     build-test-mac-minicore-disabled:
       runs-on: macos-latest
       name: Mac - minicore disabled
@@ -306,6 +333,11 @@ jobs:
             WIREMOCK_PORT: 14335
             WIREMOCK_HTTPS_PORT: 13567
           run: ./ci/test.sh
+        - name: Upload coverage artifact
+          if: ${{ !cancelled() }}
+          uses: ./.github/actions/upload-coverage-artifact
+          with:
+            name: mac-minicore-disabled
     build-test-windows-minicore-disabled:
       runs-on: windows-latest
       name: Windows - minicore disabled
@@ -333,6 +365,11 @@ jobs:
             WIREMOCK_PORT: 14335
             WIREMOCK_HTTPS_PORT: 13567
           run: ci\\test.bat
+        - name: Upload coverage artifact
+          if: ${{ !cancelled() }}
+          uses: ./.github/actions/upload-coverage-artifact
+          with:
+            name: windows-minicore-disabled
     ecc:
       runs-on: ubuntu-latest
       strategy:
@@ -360,6 +397,11 @@ jobs:
             WIREMOCK_HTTPS_PORT: 13567
             WIREMOCK_ENABLE_ECDSA: true
           run: ./ci/test.sh
+        - name: Upload coverage artifact
+          if: ${{ !cancelled() }}
+          uses: ./.github/actions/upload-coverage-artifact
+          with:
+            name: linux-ecc
     build-test-rockylinux9:
         runs-on: ubuntu-latest
         strategy:
@@ -387,6 +429,11 @@ jobs:
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
               run: ./ci/test_rockylinux9_docker.sh ${{ matrix.cloud_go.go }}
+            - name: Upload coverage artifact
+              if: ${{ !cancelled() }}
+              uses: ./.github/actions/upload-coverage-artifact
+              with:
+                name: rockylinux9-${{ matrix.cloud_go.cloud }}-${{ matrix.cloud_go.go }}
     build-test-ubuntu-arm:
       runs-on: ubuntu-24.04-arm
       strategy:
@@ -426,10 +473,11 @@ jobs:
           uses: codecov/test-results-action@v1
           with:
             token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
-        - name: Upload coverage to Codecov
-          uses: codecov/codecov-action@v5
+        - name: Upload coverage artifact
+          if: ${{ !cancelled() }}
+          uses: ./.github/actions/upload-coverage-artifact
           with:
-            token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+            name: ubuntu-arm-${{ matrix.cloud_go.cloud }}-${{ matrix.cloud_go.go }}
     build-test-windows-arm:
       runs-on: windows-11-arm
       strategy:
@@ -472,7 +520,8 @@ jobs:
           uses: codecov/test-results-action@v1
           with:
             token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
-        - name: Upload coverage to Codecov
-          uses: codecov/codecov-action@v5
+        - name: Upload coverage artifact
+          if: ${{ !cancelled() }}
+          uses: ./.github/actions/upload-coverage-artifact
           with:
-            token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+            name: windows-arm-${{ matrix.cloud_go.cloud }}-${{ matrix.cloud_go.go }}
