@@ -191,15 +191,6 @@ func (rsu *remoteStorageUtil) downloadOneFile(ctx context.Context, meta *fileMet
 		}
 		fullDstFileName = filepath.Join(cwd, fullDstFileName)
 	}
-	baseDir, err := getDirectory()
-	if err != nil {
-		return err
-	}
-	if _, err = os.Stat(baseDir); os.IsNotExist(err) {
-		if err = os.MkdirAll(baseDir, os.ModePerm); err != nil {
-			return err
-		}
-	}
 
 	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType, meta.sfa.sc.cfg)
 	header, err := utilClass.getFileHeader(ctx, meta, meta.srcFileName)

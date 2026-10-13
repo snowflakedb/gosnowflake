@@ -6,6 +6,7 @@ Internal changes:
 - Upload GHA coverage reports to Dedicated Codecov (`snowflake.codecov.io`) from Jenkins snowos instead of `codecov-action` on GitHub-hosted runners, and bump golangci-lint to v2.14 for Go 1.27 (snowflakedb/gosnowflake#34).
 
 Bug fixes:
+- Fixed `GET` failing with `264002: cannot find executable path` when `os.Executable()` is unavailable. Relative `PUT` source paths still resolve next to the executable and now fall back to the working directory when the executable path is unavailable.
 - Fixed Azure workload-identity authentication on a VM that has only a user-assigned managed identity by sending `client_id` on the IMDS token request when `WorkloadIdentityAzureClientID` or `MANAGED_IDENTITY_CLIENT_ID` is set (snowflakedb/gosnowflake#28).
 - Avoided a process-global logger lock and per-value argument formatting while converting result cells when debug logging is off (snowflakedb/gosnowflake#23).
 - Demoted per-timestamp `sec`/`nsec` logging in `extractTimestamp` from INFO to DEBUG (snowflakedb/gosnowflake#23).
