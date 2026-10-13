@@ -370,7 +370,7 @@ func (sfa *snowflakeFileTransferAgent) expandFilenames(locations []string) ([]st
 				return []string{}, err
 			}
 			if !filepath.IsAbs(fileName) {
-				cwd, err := getDirectory()
+				cwd, err := os.Getwd()
 				if err != nil {
 					return []string{}, err
 				}
