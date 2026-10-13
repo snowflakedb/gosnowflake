@@ -22,6 +22,23 @@ func TestBuildStageFileRef(t *testing.T) {
 	assertEqualF(t, buildStageFileRef("'@%\"ice cream (nice)\"'", "hello.txt"), `@%"ice cream (nice)"/hello.txt`)
 }
 
+func TestBuildStageFileRefEmbeddedStage(t *testing.T) {
+	const ws = `snow://workspace/"USER$"."PUBLIC"."DEFAULT$"/versions/live`
+	assertEqualF(t, buildStageFileRef(ws, "dir/file.csv"), ws+"/dir/file.csv")
+	assertEqualF(t, buildStageFileRef(ws, "/file.csv"), ws+"/file.csv")
+	assertEqualF(t, buildStageFileRef("'"+ws+"'", "file.csv"), ws+"/file.csv")
+	assertEqualF(t, buildStageFileRef("$$"+ws+"$$", "file.csv"), ws+"/file.csv")
+	assertEqualF(t, buildStageFileRef("SNOW://workspace/DB.SCH.WS/versions/live", "a.csv"), "SNOW://workspace/DB.SCH.WS/versions/live/a.csv")
+	assertEqualF(t, buildStageFileRef("snowflake_stage", "a.csv"), "@snowflake_stage/a.csv")
+}
+
+func TestBuildDownloadStreamGetSQLEmbeddedStage(t *testing.T) {
+	const ws = `snow://workspace/"USER$"."PUBLIC"."DEFAULT$"/versions/live`
+	assertEqualF(t, buildDownloadStreamGetSQL(ws, "data.csv"), "GET '"+ws+"/data.csv' "+downloadStreamDummyGetPath)
+	assertEqualF(t, buildDownloadStreamGetSQL("'"+ws+"'", "it's.csv"), "GET '"+ws+"/it''s.csv' "+downloadStreamDummyGetPath)
+	assertEqualF(t, buildDownloadStreamGetSQL("snow://workspace/DB.SCH.WS/versions/live", "a.csv"), "GET 'snow://workspace/DB.SCH.WS/versions/live/a.csv' "+downloadStreamDummyGetPath)
+}
+
 func TestQuoteStageRefIfNeeded(t *testing.T) {
 	assertEqualF(t, quoteStageRefIfNeeded("@stage"), "@stage")
 	assertEqualF(t, quoteStageRefIfNeeded("@stage/dir/file.csv"), "@stage/dir/file.csv")

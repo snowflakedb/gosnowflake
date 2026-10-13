@@ -1512,6 +1512,9 @@ To download a file as a stream, use `SnowflakeConnection.DownloadStream` via `da
 		return err
 	})
 
+The stage name can be an @-stage (for example `@~`, `@my_stage` or `@%my_table`; a missing "@" is added)
+or an embedded stage URL such as `snow://workspace/<db>.<schema>.<name>/versions/live`, which is passed through as-is.
+
 Use `DownloadStreamWithConfig` to configure the download.
 
 Optional download stream properties:
