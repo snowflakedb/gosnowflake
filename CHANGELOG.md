@@ -31,6 +31,7 @@ Bug fixes:
 - Fixed external-browser authentication hanging when an idle connection reaches the callback listener before the real browser redirect (snowflakedb/gosnowflake@5f174118ad08).
 - Fixed Azure Git repository downloads requesting a duplicate `blobs/` prefix (snowflakedb/gosnowflake@5d3ada21b10c).
 - Fixed a data race in `WithFileGetStream` that could panic or return corrupted bytes for S3 objects downloaded in multiple parts (snowflakedb/gosnowflake@f62f4f9d9a44).
+- Fixed `GET` failing with `264002: cannot find executable path` when `os.Executable()` is unavailable. Relative `PUT` source paths still resolve next to the executable and now fall back to the working directory when the executable path is unavailable.
 
 ## 2.3.0
 
