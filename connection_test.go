@@ -738,9 +738,9 @@ func TestGetQueryStatus(t *testing.T) {
 			t.Error("there was no query status returned")
 			return
 		}
-		if qStatus.ErrorCode != "" || qStatus.ScanBytes <= 0 || qStatus.ProducedRows != 10 {
-			t.Errorf("expected no error. got: %v, scan bytes: %v, produced rows: %v",
-				qStatus.ErrorCode, qStatus.ScanBytes, qStatus.ProducedRows)
+		if qStatus.ErrorCode != "" || qStatus.ScanBytes <= 0 || qStatus.ProducedRows != 10 || qStatus.TotalDuration <= 0 {
+			t.Errorf("expected no error. got: %v, scan bytes: %v, produced rows: %v, total duration: %v",
+				qStatus.ErrorCode, qStatus.ScanBytes, qStatus.ProducedRows, qStatus.TotalDuration)
 			return
 		}
 	})

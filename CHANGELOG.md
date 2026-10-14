@@ -2,6 +2,9 @@
 
 ## Upcoming release
 
+New features:
+- Added the monitoring endpoint's timing breakdown (`TotalDuration`, `GsCompileDuration`, `GsExecDuration`, `XpExecDuration`, `QueryRetryTime`, `FaultHandlingTime`) to `SnowflakeQueryStatus`, so `GetQueryStatus` callers can read them. These fields were already returned by `/monitoring/queries/{id}` but dropped while decoding the response.
+
 Internal changes:
 - Upload GHA coverage reports to Dedicated Codecov (`snowflake.codecov.io`) from Jenkins snowos instead of `codecov-action` on GitHub-hosted runners, and bump golangci-lint to v2.14 for Go 1.27 (snowflakedb/gosnowflake#34).
 
