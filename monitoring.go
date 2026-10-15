@@ -96,6 +96,13 @@ type retStatus struct {
 	ErrorCode    string   `json:"errorCode"`
 	ErrorMessage string   `json:"errorMessage"`
 	Stats        retStats `json:"stats"`
+
+	TotalDuration     int64 `json:"totalDuration"`
+	GsCompileDuration int64 `json:"gsCompileDuration"`
+	GsExecDuration    int64 `json:"gsExecDuration"`
+	XpExecDuration    int64 `json:"xpExecDuration"`
+	QueryRetryTime    int64 `json:"queryRetryTime"`
+	FaultHandlingTime int64 `json:"faultHandlingTime"`
 }
 
 type retStats struct {
@@ -125,6 +132,13 @@ type SnowflakeQueryStatus struct {
 	ErrorMessage string
 	ScanBytes    int64
 	ProducedRows int64
+
+	TotalDuration     int64
+	GsCompileDuration int64
+	GsExecDuration    int64
+	XpExecDuration    int64
+	QueryRetryTime    int64
+	FaultHandlingTime int64
 }
 
 // SnowflakeConnection is a wrapper to snowflakeConn that exposes API functions

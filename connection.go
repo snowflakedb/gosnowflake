@@ -534,13 +534,20 @@ func (sc *snowflakeConn) GetQueryStatus(
 		return nil, err
 	}
 	return &SnowflakeQueryStatus{
-		queryRet.SQLText,
-		queryRet.StartTime,
-		queryRet.EndTime,
-		queryRet.ErrorCode,
-		queryRet.ErrorMessage,
-		queryRet.Stats.ScanBytes,
-		queryRet.Stats.ProducedRows,
+		SQLText:      queryRet.SQLText,
+		StartTime:    queryRet.StartTime,
+		EndTime:      queryRet.EndTime,
+		ErrorCode:    queryRet.ErrorCode,
+		ErrorMessage: queryRet.ErrorMessage,
+		ScanBytes:    queryRet.Stats.ScanBytes,
+		ProducedRows: queryRet.Stats.ProducedRows,
+
+		TotalDuration:     queryRet.TotalDuration,
+		GsCompileDuration: queryRet.GsCompileDuration,
+		GsExecDuration:    queryRet.GsExecDuration,
+		XpExecDuration:    queryRet.XpExecDuration,
+		QueryRetryTime:    queryRet.QueryRetryTime,
+		FaultHandlingTime: queryRet.FaultHandlingTime,
 	}, nil
 }
 
