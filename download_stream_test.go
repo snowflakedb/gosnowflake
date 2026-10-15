@@ -22,6 +22,23 @@ func TestBuildStageFileRef(t *testing.T) {
 	assertEqualF(t, buildStageFileRef("'@%\"ice cream (nice)\"'", "hello.txt"), `@%"ice cream (nice)"/hello.txt`)
 }
 
+func TestBuildStageFileRefEmbeddedStage(t *testing.T) {
+	const ws = `snow://workspace/"USER$"."PUBLIC"."DEFAULT$"/versions/live`
+	assertEqualF(t, buildStageFileRef(ws, "dir/file.csv"), ws+"/dir/file.csv")
+	assertEqualF(t, buildStageFileRef(ws, "/file.csv"), ws+"/file.csv")
+	assertEqualF(t, buildStageFileRef("'"+ws+"'", "file.csv"), ws+"/file.csv")
+	assertEqualF(t, buildStageFileRef("$$"+ws+"$$", "file.csv"), ws+"/file.csv")
+	assertEqualF(t, buildStageFileRef("SNOW://workspace/DB.SCH.WS/versions/live", "a.csv"), "SNOW://workspace/DB.SCH.WS/versions/live/a.csv")
+	assertEqualF(t, buildStageFileRef("snowflake_stage", "a.csv"), "@snowflake_stage/a.csv")
+}
+
+func TestBuildDownloadStreamGetSQLEmbeddedStage(t *testing.T) {
+	const ws = `snow://workspace/"USER$"."PUBLIC"."DEFAULT$"/versions/live`
+	assertEqualF(t, buildDownloadStreamGetSQL(ws, "data.csv"), "GET '"+ws+"/data.csv' "+downloadStreamDummyGetPath)
+	assertEqualF(t, buildDownloadStreamGetSQL("'"+ws+"'", "it's.csv"), "GET '"+ws+"/it''s.csv' "+downloadStreamDummyGetPath)
+	assertEqualF(t, buildDownloadStreamGetSQL("snow://workspace/DB.SCH.WS/versions/live", "a.csv"), "GET 'snow://workspace/DB.SCH.WS/versions/live/a.csv' "+downloadStreamDummyGetPath)
+}
+
 func TestQuoteStageRefIfNeeded(t *testing.T) {
 	assertEqualF(t, quoteStageRefIfNeeded("@stage"), "@stage")
 	assertEqualF(t, quoteStageRefIfNeeded("@stage/dir/file.csv"), "@stage/dir/file.csv")
@@ -378,6 +395,38 @@ func TestDownloadStreamViaRaw(t *testing.T) {
 			return nil
 		})
 		assertNilF(t, err, "Conn.Raw DownloadStream")
+	})
+}
+
+func TestDownloadStreamEmbeddedWorkspaceStage(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		rows := sct.mustQuery("SELECT CURRENT_DATABASE(), CURRENT_SCHEMA()", nil)
+		dest := make([]driver.Value, 2)
+		assertNilF(t, rows.Next(dest))
+		assertNilF(t, rows.Close())
+		workspace := fmt.Sprintf(`"%v"."%v"."TEST_DOWNLOAD_STREAM_WS_%v"`, dest[0], dest[1], strings.ToUpper(randomString(10)))
+		sct.mustExec("CREATE WORKSPACE "+workspace, nil)
+		defer sct.mustExec("DROP WORKSPACE "+workspace, nil)
+		sct.mustExec("ALTER WORKSPACE "+workspace+" ADD LIVE VERSION FROM LAST", nil)
+		stage := "snow://workspace/" + workspace + "/versions/live"
+
+		files := map[string]string{"data.csv": "id,name\n1,alpha\n", "my file.csv": "with space,ok\n"}
+		tmpDir := t.TempDir()
+		for name, contents := range files {
+			fname := filepath.Join(tmpDir, name)
+			assertNilF(t, os.WriteFile(fname, []byte(contents), readWriteFileMode))
+			sct.mustExec(fmt.Sprintf("put 'file://%s' '%s/sub/' auto_compress=false overwrite=true",
+				strings.ReplaceAll(fname, "\\", "\\\\"), stage), nil)
+		}
+
+		for name, contents := range files {
+			r, err := sct.sc.DownloadStream(context.Background(), stage, "sub/"+name)
+			assertNilF(t, err, "DownloadStream "+name)
+			got, err := io.ReadAll(r)
+			assertNilF(t, err, "ReadAll "+name)
+			assertNilF(t, r.Close())
+			assertEqualF(t, string(got), contents)
+		}
 	})
 }
 

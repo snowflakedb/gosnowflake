@@ -185,12 +185,24 @@ func buildDownloadStreamGetSQL(stageName, sourceFileName string) string {
 	return "GET " + ref + " " + downloadStreamDummyGetPath
 }
 
+// embeddedStageURLPrefix marks embedded (versioned) stages, such as Workspaces,
+// which are addressed by URL rather than by @-name, so they must not get an "@" prefix.
+const embeddedStageURLPrefix = "snow://"
+
+func isEmbeddedStageRef(stageRef string) bool {
+	return len(stageRef) >= len(embeddedStageURLPrefix) &&
+		strings.EqualFold(stageRef[:len(embeddedStageURLPrefix)], embeddedStageURLPrefix)
+}
+
 func normalizeStageNameForRef(stageName string) string {
 	normalized := stageName
 	if isDollarQuotedStageRef(normalized) {
 		normalized = normalized[2 : len(normalized)-2]
 	} else if isSingleQuotedStageRef(normalized) {
 		normalized = strings.ReplaceAll(normalized[1:len(normalized)-1], "''", "'")
+	}
+	if isEmbeddedStageRef(normalized) {
+		return normalized
 	}
 	if !strings.HasPrefix(normalized, "@") {
 		normalized = "@" + normalized
@@ -230,6 +242,11 @@ func needsStageQuoting(stageRef string) bool {
 	}
 	if isSingleQuotedStageRef(stageRef) || isDollarQuotedStageRef(stageRef) {
 		return false
+	}
+	// Embedded stage URLs carry quoted identifiers and "//"; always pass them as a
+	// string literal, as existing GET callers of these stages do.
+	if isEmbeddedStageRef(stageRef) {
+		return true
 	}
 	for _, r := range stageRef {
 		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {

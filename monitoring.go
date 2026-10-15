@@ -146,6 +146,8 @@ type SnowflakeConnection interface {
 	GetQueryStatus(ctx context.Context, queryID string) (*SnowflakeQueryStatus, error)
 	AddTelemetryData(ctx context.Context, eventDate time.Time, data map[string]string) error
 	// DownloadStream downloads one stage object as a readable stream.
+	// stageName is an @-stage name or a snow:// embedded-stage URL; see the
+	// package documentation.
 	// ctx is used for the metadata GET and the cloud body: canceling it aborts a
 	// blocked Read. The returned reader must be closed. Concurrent Read and Close
 	// are not supported. When used via database/sql Conn.Raw, consume and close
