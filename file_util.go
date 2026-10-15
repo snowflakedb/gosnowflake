@@ -230,10 +230,3 @@ func expandUser(path string) (string, error) {
 }
 
 // getDirectory retrieves the current working directory
-func getDirectory() (string, error) {
-	ex, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Dir(ex), nil
-}
