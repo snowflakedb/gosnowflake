@@ -5,6 +5,7 @@
 Bug fixes:
 - Avoided a process-global logger lock and per-value argument formatting while converting result cells when debug logging is off (snowflakedb/gosnowflake#23).
 - Demoted per-timestamp `sec`/`nsec` logging in `extractTimestamp` from INFO to DEBUG (snowflakedb/gosnowflake#23).
+- Fixed an external-browser authentication hang by handling callback connections concurrently, so an idle or partially sent connection, such as a browser TCP preconnect, no longer blocks the connection carrying the token (snowflakedb/gosnowflake#1830).
 
 ## 2.3.0
 

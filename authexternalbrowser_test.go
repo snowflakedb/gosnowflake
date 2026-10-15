@@ -602,7 +602,10 @@ type externalBrowserObservedListener struct {
 func (l *externalBrowserObservedListener) Accept() (net.Conn, error) {
 	conn, err := l.Listener.Accept()
 	if err == nil {
-		l.accepted <- struct{}{}
+		select {
+		case l.accepted <- struct{}{}:
+		default:
+		}
 	}
 	return conn, err
 }
@@ -636,7 +639,7 @@ func TestExternalBrowserCallbackIgnoresIdleConnection(t *testing.T) {
 			select {
 			case <-observed.accepted:
 			case <-ctx.Done():
-				t.Fatal("idle connection was not accepted")
+				assertFalseF(t, true, "idle connection was not accepted")
 			}
 
 			client := &http.Client{Timeout: time.Second}
@@ -668,8 +671,8 @@ func TestExternalBrowserCallbackIgnoresIdleConnection(t *testing.T) {
 			conn, err := net.DialTimeout("tcp", listener.Addr().String(), time.Second)
 			if err == nil {
 				conn.Close()
-				t.Fatal("callback listener remained open after authentication")
 			}
+			assertNotNilF(t, err, "callback listener remained open after authentication")
 		})
 	}
 }
@@ -678,9 +681,8 @@ func assertExternalBrowserSocketClosed(t *testing.T, conn net.Conn) {
 	t.Helper()
 	assertNilF(t, conn.SetReadDeadline(time.Now().Add(time.Second)))
 	_, err := io.Copy(io.Discard, conn)
-	if timeout, ok := err.(net.Error); ok && timeout.Timeout() {
-		t.Fatal("callback connection remained open")
-	}
+	netErr, ok := err.(net.Error)
+	assertFalseF(t, ok && netErr.Timeout(), "callback connection remained open")
 }
 
 func TestExternalBrowserCallbackCancellationClosesPostBody(t *testing.T) {
