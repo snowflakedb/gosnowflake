@@ -1513,7 +1513,10 @@ To download a file as a stream, use `SnowflakeConnection.DownloadStream` via `da
 	})
 
 The stage name can be an @-stage (for example `@~`, `@my_stage` or `@%my_table`; a missing "@" is added)
-or an embedded stage URL such as `snow://workspace/<db>.<schema>.<name>/versions/live`, which is passed through as-is.
+or the `snow://` URL of an object's embedded stage, such as
+`snow://workspace/<db>.<schema>.<workspace>/versions/head`. A `snow://` URL is not prefixed with "@"
+and is sent as a single-quoted literal, so quoted identifiers inside it are preserved. For the URL
+format, see https://docs.snowflake.com/en/user-guide/ui-snowsight/workspaces-sql.
 
 Use `DownloadStreamWithConfig` to configure the download.
 
