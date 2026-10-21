@@ -12,6 +12,7 @@ Bug fixes:
 - Exposed `QueryStatus` from `SnowflakeResult` and `SnowflakeRows` in `GetStatus()` function (snowflakedb/gosnowflake#1556)
 - Split timeout settings into separate groups based on target service types (snowflakedb/gosnowflake#1531)
 - Fixed nil pointer dereference while calling long running queries (snowflakedb/gosnowflake#1592)
+- Fixed external-browser authentication hanging when an idle connection reaches the callback listener before the real browser redirect (snowflakedb/gosnowflake#1830).
 
 ## 1.17.0
 

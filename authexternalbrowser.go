@@ -277,7 +277,7 @@ func doAuthenticateByExternalBrowser(
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 	defer func() {
-		if err = l.Close(); err != nil {
+		if err = l.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 			logger.Errorf("error while closing TCP listener for external browser (%v). %v", l.Addr().String(), err)
 		}
 	}()
@@ -332,76 +332,108 @@ func doAuthenticateByExternalBrowser(
 }
 
 func waitForSamlResponse(ctx context.Context, lease *Lease, l net.Listener, application string) (string, error) {
-	encodedChan := make(chan string, 1)
-	errChan := make(chan error, 1)
-	ttl := leaseTTL()
-	ticker := time.NewTicker(ttl / 2)
-
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	result := make(chan externalBrowserCallbackResult, 1)
 	go func() {
-		conn, err := l.Accept()
-		if err != nil {
-			errChan <- err
-			return
-		}
-		defer conn.Close()
-
-		var buf bytes.Buffer
-		total := 0
-		var encoded string
-		var acceptErr error
-
-		for {
-			b := make([]byte, bufSize)
-			n, err := conn.Read(b)
-			if err != nil {
-				if err != io.EOF {
-					acceptErr = &SnowflakeError{
-						Number:      ErrFailedToGetExternalBrowserResponse,
-						SQLState:    SQLStateConnectionRejected,
-						Message:     errMsgFailedToGetExternalBrowserResponse,
-						MessageArgs: []interface{}{err},
-					}
-				}
-				break
-			}
-			total += n
-			buf.Write(b)
-			if n < bufSize {
-				encoded, acceptErr = getTokenFromResponse(string(buf.Bytes()[:total]))
-				break
-			}
-			buf.Grow(bufSize)
-		}
-
-		if encoded != "" {
-			body := fmt.Sprintf(samlSuccessHTML, application)
-			httpResp, err := buildResponse(body)
-			if err != nil && acceptErr == nil {
-				acceptErr = err
-			}
-			if _, err = conn.Write(httpResp.Bytes()); err != nil && acceptErr == nil {
-				acceptErr = err
-			}
-		}
-
-		if acceptErr != nil {
-			errChan <- acceptErr
-			return
-		}
-		encodedChan <- encoded
+		token, err := receiveExternalBrowserCallback(ctx, l, application)
+		result <- externalBrowserCallbackResult{token: token, err: err}
 	}()
 
+	ttl := leaseTTL()
+	ticker := time.NewTicker(ttl / 2)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			lease.Renew(ttl)
-		case s := <-encodedChan:
-			ticker.Stop()
-			return s, nil
-		case e := <-errChan:
-			ticker.Stop()
-			return "", e
+		case r := <-result:
+			return r.token, r.err
 		}
+	}
+}
+
+type externalBrowserCallbackResult struct {
+	token string
+	err   error
+}
+
+func writeExternalBrowserResponse(w http.ResponseWriter, statusCode int, body string) error {
+	w.Header().Set("Connection", "close")
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	if body != "" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	}
+	w.WriteHeader(statusCode)
+	if _, err := io.WriteString(w, body); err != nil {
+		return err
+	}
+	// The receiver closes the server as soon as a token is published. Flush a
+	// complete response first so the browser still receives the success page.
+	return http.NewResponseController(w).Flush()
+}
+
+func receiveExternalBrowserCallback(ctx context.Context, listener net.Listener, application string) (string, error) {
+	tokens := make(chan string, 1)
+	server := &http.Server{
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+			// GET callbacks do not use the body. Do not wait for a client to send
+			// an unused body before writing its response.
+			if err := http.NewResponseController(w).EnableFullDuplex(); err != nil {
+				logger.Debugf("unable to enable external browser callback response: %v", err)
+				return
+			}
+			respond := func(statusCode int, body string) {
+				if err := writeExternalBrowserResponse(w, statusCode, body); err != nil {
+					logger.Debugf("unable to write external browser callback response: %v", err)
+				}
+			}
+			if request.Method != http.MethodGet {
+				respond(http.StatusMethodNotAllowed, "")
+				return
+			}
+			if request.URL.Path != "/" || !strings.HasPrefix(request.URL.RawQuery, "token=") {
+				respond(http.StatusBadRequest, "")
+				return
+			}
+			encodedSamlResponse, err := getTokenFromResponse(
+				request.Method + " " + request.RequestURI + " HTTP/1.1\r\n",
+			)
+			if err != nil || encodedSamlResponse == "" {
+				respond(http.StatusBadRequest, "")
+				return
+			}
+			respond(http.StatusOK, fmt.Sprintf(samlSuccessHTML, application))
+			select {
+			case tokens <- encodedSamlResponse:
+			default:
+			}
+		}),
+	}
+	serveErrors := make(chan error, 1)
+	// Each connection is handled concurrently, so idle preconnects and partial
+	// requests cannot block a later authentication callback.
+	go func() {
+		serveErrors <- server.Serve(listener)
+	}()
+	defer func() {
+		if err := server.Close(); err != nil {
+			logger.Warnf("error while closing external browser callback server: %v", err)
+		}
+	}()
+
+	select {
+	case token := <-tokens:
+		return token, nil
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case err := <-serveErrors:
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+		return "", err
 	}
 }
 
