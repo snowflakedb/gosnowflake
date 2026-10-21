@@ -9,11 +9,11 @@ Internal changes:
 - Upload GHA coverage reports to Dedicated Codecov (`snowflake.codecov.io`) from Jenkins snowos instead of `codecov-action` on GitHub-hosted runners, and bump golangci-lint to v2.14 for Go 1.27 (snowflakedb/gosnowflake#34).
 
 Bug fixes:
-- Fixed `DownloadStream` / `DownloadStreamWithConfig` prefixing embedded stage URLs such as `snow://workspace/...` with `@`, which made those stages impossible to stream; `snow://` stage names are now passed through as a quoted literal (snowflakedb/gosnowflake#1853).
 - Fixed Azure workload-identity authentication on a VM that has only a user-assigned managed identity by sending `client_id` on the IMDS token request when `WorkloadIdentityAzureClientID` or `MANAGED_IDENTITY_CLIENT_ID` is set (snowflakedb/gosnowflake#28).
 - Avoided a process-global logger lock and per-value argument formatting while converting result cells when debug logging is off (snowflakedb/gosnowflake#23).
 - Demoted per-timestamp `sec`/`nsec` logging in `extractTimestamp` from INFO to DEBUG (snowflakedb/gosnowflake#23).
 - Fixed a panic when an ARRAY or OBJECT arrives as native Arrow. With structured types disabled, the query returns the existing structured-types error. With no field metadata, it returns an error that names the Arrow type. Previously both cases terminated the process (snowflakedb/gosnowflake#22).
+- Fixed external-browser authentication hanging when an idle connection reaches the callback listener before the real browser redirect (snowflakedb/gosnowflake#36).
 
 ## 2.3.0
 
