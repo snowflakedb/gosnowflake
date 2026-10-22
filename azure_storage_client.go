@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -22,6 +23,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 )
+
+var azureGitRepositoryPathPattern = regexp.MustCompile(`^git-repositoryzz[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/blobs/$`)
 
 type snowflakeAzureClient struct {
 	cfg       *Config
@@ -43,7 +46,13 @@ type azureAPI interface {
 
 func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bool, telemetry *snowflakeTelemetry) (cloudClient, error) {
 	sasToken := info.Creds.AzureSasToken
-	u, err := url.Parse(fmt.Sprintf("https://%s.%s/%s%s", info.StorageAccount, info.EndPoint, info.Path, sasToken))
+	clientPath := info.Path
+	// Git metadata includes the blob prefix in both Path and Location. Location
+	// supplies the blob key, so the client base must omit the duplicate prefix.
+	if info.Path == info.Location && azureGitRepositoryPathPattern.MatchString(clientPath) {
+		clientPath = strings.TrimSuffix(clientPath, "blobs/")
+	}
+	u, err := url.Parse(fmt.Sprintf("https://%s.%s/%s%s", info.StorageAccount, info.EndPoint, clientPath, sasToken))
 	if err != nil {
 		return nil, err
 	}

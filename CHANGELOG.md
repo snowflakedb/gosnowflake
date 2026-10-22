@@ -14,6 +14,7 @@ Bug fixes:
 - Demoted per-timestamp `sec`/`nsec` logging in `extractTimestamp` from INFO to DEBUG (snowflakedb/gosnowflake#23).
 - Fixed a panic when an ARRAY or OBJECT arrives as native Arrow. With structured types disabled, the query returns the existing structured-types error. With no field metadata, it returns an error that names the Arrow type. Previously both cases terminated the process (snowflakedb/gosnowflake#22).
 - Fixed external-browser authentication hanging when an idle connection reaches the callback listener before the real browser redirect (snowflakedb/gosnowflake#36).
+- Fixed Azure Git repository downloads requesting a duplicate `blobs/` prefix (snowflakedb/gosnowflake#39).
 
 ## 2.3.0
 
