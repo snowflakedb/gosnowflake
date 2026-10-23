@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -894,4 +895,145 @@ func TestGetS3Endpoint(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWriteAtBufferConcurrentWriteAt(t *testing.T) {
+	const (
+		numChunks = 256
+		chunkSize = 4096
+	)
+	expected := make([]byte, numChunks*chunkSize)
+	for i := range expected {
+		expected[i] = byte(i % 253)
+	}
+	buf := newWriteAtBuffer([]byte{})
+	var wg sync.WaitGroup
+	// Launch in reverse so the buffer first grows at its far end.
+	for chunk := numChunks - 1; chunk >= 0; chunk-- {
+		wg.Go(func() {
+			off := chunk * chunkSize
+			n, err := buf.WriteAt(expected[off:off+chunkSize], int64(off))
+			assertNilE(t, err, "WriteAt at offset", strconv.Itoa(off))
+			assertEqualE(t, n, chunkSize, "WriteAt at offset", strconv.Itoa(off))
+		})
+	}
+	wg.Wait()
+	assertEqualF(t, len(buf.Bytes()), len(expected), "buffer length after concurrent WriteAt")
+	assertTrueF(t, bytes.Equal(buf.Bytes(), expected), "concurrent WriteAt produced corrupted buffer")
+}
+
+func TestWriteAtBufferGrowsAmortized(t *testing.T) {
+	const (
+		numWrites = 1024
+		writeSize = 1024
+	)
+	buf := newWriteAtBuffer([]byte{})
+	chunk := make([]byte, writeSize)
+	reallocs := 0
+	for i := range numWrites {
+		prevCap := cap(buf.Bytes())
+		_, err := buf.WriteAt(chunk, int64(i*writeSize))
+		assertNilF(t, err, "WriteAt")
+		if cap(buf.Bytes()) != prevCap {
+			reallocs++
+		}
+	}
+	assertEqualF(t, len(buf.Bytes()), numWrites*writeSize, "buffer length after sequential WriteAt")
+	// Geometric growth reallocates O(log n) times; exact-size growth reallocates once per write.
+	assertTrueF(t, reallocs <= 16, "expected amortized growth, got", strconv.Itoa(reallocs), "reallocations for", strconv.Itoa(numWrites), "writes")
+}
+
+func TestNativeDownloadFileStreamConcurrentParts(t *testing.T) {
+	const (
+		numParts  = 8
+		partSize  = 256 * 1024
+		pieceSize = 16 * 1024
+	)
+	expected := make([]byte, numParts*partSize)
+	for i := range expected {
+		expected[i] = byte(i*7 + i/partSize)
+	}
+	info := execResponseStageInfo{
+		Location:     "sfc-teststage/rwyitestacco/users/1234/",
+		LocationType: "S3",
+	}
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
+	assertNilF(t, err, "createClient")
+	// Mimic transfermanager: each part is written by its own goroutine, in pieces.
+	mockDownloader := mockDownloadObjectAPI(func(ctx context.Context, params *transfermanager.DownloadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.DownloadObjectOutput, error) {
+		var wg sync.WaitGroup
+		errs := make(chan error, numParts)
+		for part := range numParts {
+			wg.Go(func() {
+				for off := part * partSize; off < (part+1)*partSize; off += pieceSize {
+					if _, err := params.WriterAt.WriteAt(expected[off:off+pieceSize], int64(off)); err != nil {
+						errs <- err
+						return
+					}
+				}
+			})
+		}
+		wg.Wait()
+		close(errs)
+		if err := <-errs; err != nil {
+			return nil, err
+		}
+		return &transfermanager.DownloadObjectOutput{}, nil
+	})
+	meta := &fileMetadata{
+		name:              "stream.bin",
+		stageLocationType: "S3",
+		client:            s3Cli,
+		stageInfo:         &info,
+		srcFileName:       "stream.bin",
+		mockDownloader:    mockDownloader,
+	}
+	util := &snowflakeS3Client{cfg: &Config{}}
+	ctx := WithFileGetStream(context.Background(), &bytes.Buffer{})
+	err = util.nativeDownloadFile(ctx, meta, "", 10, multiPartThreshold)
+	assertNilF(t, err, "nativeDownloadFile")
+	assertEqualF(t, meta.resStatus, downloaded, "result status")
+	assertEqualF(t, meta.dstStream.Len(), len(expected), "streamed length")
+	assertTrueF(t, bytes.Equal(meta.dstStream.Bytes(), expected), "streamed bytes mismatch")
+}
+
+func TestNativeDownloadFileStreamPresizedFromSrcFileSize(t *testing.T) {
+	const (
+		numParts  = 3
+		partSize  = 256 * 1024
+		pieceSize = 16 * 1024
+	)
+	expected := make([]byte, numParts*partSize)
+	for i := range expected {
+		expected[i] = byte(i * 13)
+	}
+	info := execResponseStageInfo{
+		Location:     "sfc-teststage/rwyitestacco/users/1234/",
+		LocationType: "S3",
+	}
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
+	assertNilF(t, err, "createClient")
+	mockDownloader := mockDownloadObjectAPI(func(ctx context.Context, params *transfermanager.DownloadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.DownloadObjectOutput, error) {
+		for off := 0; off < len(expected); off += pieceSize {
+			if _, err := params.WriterAt.WriteAt(expected[off:off+pieceSize], int64(off)); err != nil {
+				return nil, err
+			}
+		}
+		return &transfermanager.DownloadObjectOutput{}, nil
+	})
+	meta := &fileMetadata{
+		name:              "stream.bin",
+		stageLocationType: "S3",
+		client:            s3Cli,
+		stageInfo:         &info,
+		srcFileName:       "stream.bin",
+		srcFileSize:       int64(len(expected)),
+		mockDownloader:    mockDownloader,
+	}
+	util := &snowflakeS3Client{cfg: &Config{}}
+	ctx := WithFileGetStream(context.Background(), &bytes.Buffer{})
+	err = util.nativeDownloadFile(ctx, meta, "", 10, multiPartThreshold)
+	assertNilF(t, err, "nativeDownloadFile")
+	assertTrueF(t, bytes.Equal(meta.dstStream.Bytes(), expected), "streamed bytes mismatch")
+	assertEqualF(t, cap(meta.dstStream.Bytes()), len(expected), "stream capacity should match source size")
 }

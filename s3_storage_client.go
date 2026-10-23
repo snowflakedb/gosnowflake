@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -276,8 +277,9 @@ type s3DownloadAPI interface {
 	DownloadObject(ctx context.Context, params *transfermanager.DownloadObjectInput, optFns ...func(*transfermanager.Options)) (*transfermanager.DownloadObjectOutput, error)
 }
 
-// writeAtBuffer wraps a bytes.Buffer to implement io.WriterAt for parallel downloads
+// writeAtBuffer implements io.WriterAt; WriteAt is called concurrently, so buf is guarded by mu.
 type writeAtBuffer struct {
+	mu  sync.Mutex
 	buf []byte
 }
 
@@ -288,16 +290,25 @@ func newWriteAtBuffer(buf []byte) *writeAtBuffer {
 func (b *writeAtBuffer) WriteAt(p []byte, pos int64) (n int, err error) {
 	pLen := len(p)
 	expLen := pos + int64(pLen)
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if int64(len(b.buf)) < expLen {
-		newBuf := make([]byte, expLen)
-		copy(newBuf, b.buf)
-		b.buf = newBuf
+		if int64(cap(b.buf)) < expLen {
+			newBuf := make([]byte, expLen, max(expLen, 2*int64(cap(b.buf))))
+			copy(newBuf, b.buf)
+			b.buf = newBuf
+		} else {
+			clear(b.buf[len(b.buf):expLen])
+			b.buf = b.buf[:expLen]
+		}
 	}
 	copy(b.buf[pos:], p)
 	return pLen, nil
 }
 
 func (b *writeAtBuffer) Bytes() []byte {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.buf
 }
 
@@ -332,7 +343,11 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 
 	_, err := withCloudStorageTimeout(ctx, util.cfg, func(ctx context.Context) (any, error) {
 		if isFileGetStream(ctx) {
-			buf := newWriteAtBuffer([]byte{})
+			initial := []byte{}
+			if meta.srcFileSize > 0 {
+				initial = make([]byte, 0, meta.srcFileSize)
+			}
+			buf := newWriteAtBuffer(initial)
 			if _, err := downloader.DownloadObject(ctx, &transfermanager.DownloadObjectInput{
 				Bucket:   s3Obj.Bucket,
 				Key:      s3Obj.Key,
