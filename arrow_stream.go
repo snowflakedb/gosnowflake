@@ -3,7 +3,6 @@ package gosnowflake
 import (
 	"bufio"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow/ipc"
+	"github.com/klauspost/compress/gzip"
 	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 )
 
@@ -244,6 +244,9 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 		headers[headerSseCAlgorithm] = headerSseCAes
 		headers[headerSseCKey] = asb.scd.Qrmk
 	}
+	// Setting Accept-Encoding stops net/http from transparently decompressing
+	// with compress/gzip, so the gzip check below decodes the body instead.
+	headers["Accept-Encoding"] = "gzip"
 
 	resp, err := asb.scd.FuncGet(ctx, asb.scd.sc, asb.scd.ChunkMetas[asb.idx].URL, headers, asb.scd.sc.rest.RequestTimeout)
 	if err != nil {

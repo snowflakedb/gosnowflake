@@ -2,7 +2,6 @@ package gosnowflake
 
 import (
 	"bufio"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,6 +20,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	"github.com/klauspost/compress/gzip"
 )
 
 var (
@@ -420,6 +420,9 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 		headers[headerSseCAlgorithm] = headerSseCAes
 		headers[headerSseCKey] = scd.Qrmk
 	}
+	// Setting Accept-Encoding stops net/http from transparently decompressing
+	// with compress/gzip, so decodeChunk decodes the body instead.
+	headers["Accept-Encoding"] = "gzip"
 
 	resp, err := scd.FuncGet(ctx, scd.sc, scd.ChunkMetas[idx].URL, headers, scd.sc.rest.RequestTimeout)
 	if err != nil {

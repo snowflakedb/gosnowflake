@@ -339,3 +339,33 @@ func TestArrowStreamBatchGetStreamPreservesCompletedEOF(t *testing.T) {
 		})
 	}
 }
+
+func TestArrowStreamBatchGetStreamRequestsGzip(t *testing.T) {
+	var gotHeaders map[string]string
+	batch := ArrowStreamBatch{
+		idx: 0,
+		scd: &snowflakeArrowStreamChunkDownloader{
+			sc: &snowflakeConn{
+				rest: &snowflakeRestful{RequestTimeout: time.Second},
+			},
+			ChunkMetas: []query.ExecResponseChunk{{
+				URL:      "https://example.com/chunk",
+				RowCount: 1,
+			}},
+			FuncGet: func(_ context.Context, _ *snowflakeConn, _ string, headers map[string]string, _ time.Duration) (*http.Response, error) {
+				gotHeaders = headers
+				return &http.Response{StatusCode: http.StatusOK, Body: gzipBody([]byte("chunk"))}, nil
+			},
+		},
+	}
+
+	stream, err := batch.GetStream(context.Background())
+	assertNilF(t, err)
+	defer func() {
+		assertNilF(t, stream.Close())
+	}()
+	data, err := io.ReadAll(stream)
+	assertNilF(t, err)
+	assertEqualE(t, gotHeaders["Accept-Encoding"], "gzip")
+	assertEqualE(t, string(data), "chunk")
+}
