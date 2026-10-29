@@ -1,5 +1,5 @@
 include ../../../gosnowflake.mak
-CMD_TARGET=downloadstream
+CMD_TARGET=streaming
 
 ## Install
 install: cinstall
