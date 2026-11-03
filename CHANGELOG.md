@@ -10,6 +10,7 @@ Internal changes:
 - Upload GHA coverage reports to Dedicated Codecov (`snowflake.codecov.io`) from Jenkins snowos instead of `codecov-action` on GitHub-hosted runners, and bump golangci-lint to v2.14 for Go 1.27 (snowflakedb/gosnowflake#34).
 
 Bug fixes:
+- Fixed `loadCore()` leaking the `gosnowflake-cgo*` temp directory on early returns (unsupported platform, statically-linked binary, or a failed `writeLibraryToFile()`) that occur before the library-write success path registers cleanup (snowflakedb/gosnowflake#1856).
 - Fixed Azure workload-identity authentication on a VM that has only a user-assigned managed identity by sending `client_id` on the IMDS token request when `WorkloadIdentityAzureClientID` or `MANAGED_IDENTITY_CLIENT_ID` is set (snowflakedb/gosnowflake#28).
 - Avoided a process-global logger lock and per-value argument formatting while converting result cells when debug logging is off (snowflakedb/gosnowflake#23).
 - Demoted per-timestamp `sec`/`nsec` logging in `extractTimestamp` from INFO to DEBUG (snowflakedb/gosnowflake#23).

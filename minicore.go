@@ -231,6 +231,20 @@ func getMiniCoreCacheDirInHome() string {
 
 // loadCore loads and initializes the minicore native library.
 func (l *miniCoreLoaderType) loadCore() miniCore {
+	// The temp search dir is created in buildMiniCoreSearchDirs() before any
+	// of the checks below run, so it must be cleaned up unconditionally here
+	// rather than only after writeLibraryToFile() succeeds.
+	for _, dir := range l.searchDirs {
+		if dir.dirType == "temp" {
+			defer func(path string) {
+				if err := os.Remove(path); err != nil {
+					minicoreDebugf("cannot remove temp directory. %v", err)
+				}
+			}(dir.path)
+			break
+		}
+	}
+
 	if !corePlatformConfig.initialized {
 		return newErroredMiniCore(newMiniCoreError(miniCoreErrorTypeInit, runtime.GOOS, "",
 			fmt.Errorf("minicore is not supported on %v/%v platform", runtime.GOOS, runtime.GOARCH)))

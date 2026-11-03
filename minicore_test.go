@@ -111,6 +111,24 @@ func TestMiniCoreNotInitialized(t *testing.T) {
 	assertStringContainsE(t, err.Error(), "minicore is not supported on")
 }
 
+func TestMiniCoreLoadCoreCleansTempDirOnEarlyReturn(t *testing.T) {
+	defer func() {
+		corePlatformConfig.initialized = true
+	}()
+	mcl := newMiniCoreLoader()
+	var tempDir string
+	for _, dir := range mcl.searchDirs {
+		if dir.dirType == "temp" {
+			tempDir = dir.path
+		}
+	}
+	assertNotEqualE(t, tempDir, "")
+	corePlatformConfig.initialized = false
+	mcl.loadCore()
+	_, err := os.Stat(tempDir)
+	assertTrueE(t, os.IsNotExist(err))
+}
+
 func TestMiniCoreLoadLogsVersion(t *testing.T) {
 	minicoreLoadLogs.mu.Lock()
 	minicoreLoadLogs.logs = nil
