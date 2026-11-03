@@ -9,6 +9,8 @@ import (
 	"github.com/99designs/keyring"
 )
 
+const keyringServiceName = "snowflake_credential_cache"
+
 func defaultOsSpecificSecureStorageManager() secureStorageManager {
 	switch runtime.GOOS {
 	case "darwin", "windows":
@@ -21,81 +23,68 @@ func defaultOsSpecificSecureStorageManager() secureStorageManager {
 }
 
 type keyringSecureStorageManager struct {
+	openKeyring func() (keyring.Keyring, error)
 }
 
 func newKeyringBasedSecureStorageManager() *keyringSecureStorageManager {
-	return &keyringSecureStorageManager{}
+	return &keyringSecureStorageManager{openKeyring: openTokenKeyring}
+}
+
+func tokenKeyringConfig() keyring.Config {
+	return keyring.Config{
+		ServiceName:   keyringServiceName,
+		WinCredPrefix: keyringServiceName,
+	}
+}
+
+func openTokenKeyring() (keyring.Keyring, error) {
+	return keyring.Open(tokenKeyringConfig())
 }
 
 func (ssm *keyringSecureStorageManager) setCredential(tokenSpec secureTokenSpec, value string) {
 	if value == "" {
 		logger.Debug("no token provided")
-	} else {
-		credentialsKey, err := tokenSpec.buildKey()
-		if err != nil {
-			logger.Warnf("cannot build token spec: %v", err)
-			return
-		}
-		switch runtime.GOOS {
-		case "windows":
-			ring, _ := keyring.Open(keyring.Config{
-				WinCredPrefix: credentialsKey,
-				ServiceName:   credentialsKey,
-			})
-			item := keyring.Item{
-				Key:  credentialsKey,
-				Data: []byte(value),
-			}
-			if err := ring.Set(item); err != nil {
-				logger.Debugf("Failed to write to Windows credential manager. Err: %v", err)
-			}
-		case "darwin":
-			ring, _ := keyring.Open(keyring.Config{
-				ServiceName: credentialsKey,
-			})
-			item := keyring.Item{
-				Key:  credentialsKey,
-				Data: []byte(value),
-			}
-			if err := ring.Set(item); err != nil {
-				logger.Debugf("Failed to write to keychain. Err: %v", err)
-			}
-		}
+		return
+	}
+	credentialsKey, err := tokenSpec.buildKey()
+	if err != nil {
+		logger.Warnf("cannot build token spec: %v", err)
+		return
+	}
+	ring, err := ssm.openKeyring()
+	if err != nil {
+		logger.Debugf("Failed to open credential store. Err: %v", err)
+		return
+	}
+	item := keyring.Item{
+		Key:  credentialsKey,
+		Data: []byte(value),
+	}
+	if err := ring.Set(item); err != nil {
+		logger.Debugf("Failed to write to credential store. Err: %v", err)
 	}
 }
 
 func (ssm *keyringSecureStorageManager) getCredential(tokenSpec secureTokenSpec) string {
-	cred := ""
 	credentialsKey, err := tokenSpec.buildKey()
 	if err != nil {
 		logger.Warnf("cannot build token spec: %v", err)
 		return ""
 	}
-	switch runtime.GOOS {
-	case "windows":
-		ring, _ := keyring.Open(keyring.Config{
-			WinCredPrefix: credentialsKey,
-			ServiceName:   credentialsKey,
-		})
-		i, err := ring.Get(credentialsKey)
-		if err != nil {
-			logger.Debugf("Failed to read credentialsKey or could not find it in Windows Credential Manager. Error: %v", err)
-		}
-		cred = string(i.Data)
-	case "darwin":
-		ring, _ := keyring.Open(keyring.Config{
-			ServiceName: credentialsKey,
-		})
-		i, err := ring.Get(credentialsKey)
-		if err != nil {
-			logger.Debugf("Failed to find the item in keychain or item does not exist. Error: %v", err)
-		}
-		cred = string(i.Data)
-		if cred == "" {
-			logger.Debug("Returned credential is empty")
-		} else {
-			logger.Debug("Successfully read token. Returning as string")
-		}
+	ring, err := ssm.openKeyring()
+	if err != nil {
+		logger.Debugf("Failed to open credential store. Error: %v", err)
+		return ""
+	}
+	i, err := ring.Get(credentialsKey)
+	if err != nil {
+		logger.Debugf("Failed to find the item in credential store or item does not exist. Error: %v", err)
+	}
+	cred := string(i.Data)
+	if cred == "" {
+		logger.Debug("Returned credential is empty")
+	} else {
+		logger.Debug("Successfully read token. Returning as string")
 	}
 	return cred
 }
@@ -106,23 +95,13 @@ func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec secureTokenSp
 		logger.Warnf("cannot build token spec: %v", err)
 		return
 	}
-	switch runtime.GOOS {
-	case "windows":
-		ring, _ := keyring.Open(keyring.Config{
-			WinCredPrefix: credentialsKey,
-			ServiceName:   credentialsKey,
-		})
-		err := ring.Remove(credentialsKey)
-		if err != nil {
-			logger.Debugf("Failed to delete credentialsKey in Windows Credential Manager. Error: %v", err)
-		}
-	case "darwin":
-		ring, _ := keyring.Open(keyring.Config{
-			ServiceName: credentialsKey,
-		})
-		err := ring.Remove(credentialsKey)
-		if err != nil {
-			logger.Debugf("Failed to delete credentialsKey in keychain. Error: %v", err)
-		}
+	ring, err := ssm.openKeyring()
+	if err != nil {
+		logger.Debugf("Failed to open credential store. Error: %v", err)
+		return
+	}
+	err = ring.Remove(credentialsKey)
+	if err != nil {
+		logger.Debugf("Failed to delete credentialsKey in credential store. Error: %v", err)
 	}
 }

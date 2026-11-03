@@ -618,10 +618,16 @@ func prepareJWTToken(config *Config) (string, error) {
 }
 
 func (s *hostUserTokenSpec) lockID() string {
+	if key, err := s.buildKey(); err == nil {
+		return key
+	}
 	return s.snowflake + "|" + s.username + "|" + string(s.tokenType)
 }
 
 func (s *oauthTokenSpec) lockID() string {
+	if key, err := s.buildKey(); err == nil {
+		return key
+	}
 	return s.idp + "|" + s.snowflake + "|" + s.username + "|" + s.role + "|" + string(s.tokenType)
 }
 

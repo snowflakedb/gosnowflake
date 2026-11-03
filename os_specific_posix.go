@@ -3,11 +3,13 @@
 package gosnowflake
 
 import (
+	"errors"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"io"
 	"os"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 var osVersion = getOSVersion()
@@ -79,4 +81,28 @@ func validateFilePermissionBits(f *os.File, expectedPerm os.FileMode) error {
 		return fmt.Errorf("incorrect permissions of %s", f.Name())
 	}
 	return nil
+}
+
+func openExistingNoFollow(path string) (*os.File, error) {
+	return os.OpenFile(path, os.O_RDWR|unix.O_NOFOLLOW, 0)
+}
+
+func createExclusiveNoFollow(path string, perm os.FileMode) (*os.File, error) {
+	return os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL|unix.O_NOFOLLOW, perm)
+}
+
+func openLockFile(path string) (*os.File, error) {
+	return os.OpenFile(path, os.O_RDWR|os.O_CREATE|unix.O_NOFOLLOW, 0600)
+}
+
+func tryFlockExclusive(f *os.File) error {
+	return unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB)
+}
+
+func unlockFlock(f *os.File) error {
+	return unix.Flock(int(f.Fd()), unix.LOCK_UN)
+}
+
+func isLockContention(err error) bool {
+	return errors.Is(err, unix.EWOULDBLOCK) || errors.Is(err, unix.EAGAIN)
 }

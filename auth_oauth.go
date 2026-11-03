@@ -258,14 +258,14 @@ func (oauthClient *oauthClient) authorizationURL() string {
 }
 
 func (oauthClient *oauthClient) defaultAuthorizationURL() string {
-	return fmt.Sprintf("%v://%v:%v/oauth/authorize", oauthClient.cfg.Protocol, oauthClient.cfg.Host, oauthClient.cfg.Port)
+	return fmt.Sprintf("%v://%v/oauth/authorize", cmp.Or(oauthClient.cfg.Protocol, "https"), hostWithOptionalPort(oauthClient.cfg))
 }
 
 // oauthTokenRequestURL returns the full token endpoint URL for OAuth.
 // oauthClient.tokenURL() delegates to this function so that all cache key
 // construction and eviction paths use one canonical URL formula.
 func oauthTokenRequestURL(cfg *Config) string {
-	return cmp.Or(cfg.OauthTokenRequestURL, fmt.Sprintf("%v://%v:%v/oauth/token-request", cfg.Protocol, cfg.Host, cfg.Port))
+	return cmp.Or(cfg.OauthTokenRequestURL, fmt.Sprintf("%v://%v/oauth/token-request", cmp.Or(cfg.Protocol, "https"), hostWithOptionalPort(cfg)))
 }
 
 func (oauthClient *oauthClient) tokenURL() string {

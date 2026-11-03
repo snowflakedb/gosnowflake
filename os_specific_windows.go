@@ -60,3 +60,28 @@ func getFileContents(filePath string, expectedPerm os.FileMode) ([]byte, error) 
 	}
 	return fileContents, nil
 }
+
+// The file-based token cache is Linux-only; Windows uses Credential Manager.
+func openExistingNoFollow(string) (*os.File, error) {
+	return nil, errors.ErrUnsupported
+}
+
+func createExclusiveNoFollow(string, os.FileMode) (*os.File, error) {
+	return nil, errors.ErrUnsupported
+}
+
+func openLockFile(string) (*os.File, error) {
+	return nil, errors.ErrUnsupported
+}
+
+func tryFlockExclusive(*os.File) error {
+	return errors.ErrUnsupported
+}
+
+func unlockFlock(*os.File) error {
+	return errors.ErrUnsupported
+}
+
+func isLockContention(error) bool {
+	return false
+}

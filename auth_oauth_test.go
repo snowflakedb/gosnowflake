@@ -637,6 +637,34 @@ func TestClientCredentialsFlow(t *testing.T) {
 	})
 }
 
+func TestDefaultOAuthURLsOmitDefaultPort(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		cfg          *Config
+		authorizeURL string
+		tokenRequest string
+	}{
+		{
+			name:         "default https port",
+			cfg:          &Config{Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443},
+			authorizeURL: "https://account.snowflakecomputing.com/oauth/authorize",
+			tokenRequest: "https://account.snowflakecomputing.com/oauth/token-request",
+		},
+		{
+			name:         "explicit port",
+			cfg:          &Config{Protocol: "https", Host: "account.snowflakecomputing.com", Port: 8443},
+			authorizeURL: "https://account.snowflakecomputing.com:8443/oauth/authorize",
+			tokenRequest: "https://account.snowflakecomputing.com:8443/oauth/token-request",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := &oauthClient{cfg: tc.cfg}
+			assertEqualE(t, client.authorizationURL(), tc.authorizeURL)
+			assertEqualE(t, client.tokenURL(), tc.tokenRequest)
+		})
+	}
+}
+
 func TestEligibleForDefaultClientCredentials(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -718,6 +746,23 @@ func TestEligibleForDefaultClientCredentials(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOauthTokenRequestURLOmitsDefaultPort(t *testing.T) {
+	assertEqualE(t, oauthTokenRequestURL(&Config{Protocol: "https", Host: "host.example.com", Port: 443}),
+		"https://host.example.com/oauth/token-request")
+	assertEqualE(t, oauthTokenRequestURL(&Config{Protocol: "https", Host: "host.example.com", Port: 0}),
+		"https://host.example.com/oauth/token-request")
+	assertEqualE(t, oauthTokenRequestURL(&Config{Protocol: "https", Host: "host.example.com", Port: 8443}),
+		"https://host.example.com:8443/oauth/token-request")
+	assertEqualE(t, oauthTokenRequestURL(&Config{Protocol: "http", Host: "host.example.com", Port: 80}),
+		"http://host.example.com/oauth/token-request")
+	assertEqualE(t, oauthTokenRequestURL(&Config{
+		OauthTokenRequestURL: "https://idp.example.com/token",
+		Protocol:             "https",
+		Host:                 "host.example.com",
+		Port:                 443,
+	}), "https://idp.example.com/token")
 }
 
 type nonInteractiveAuthorizationCodeProvider struct {

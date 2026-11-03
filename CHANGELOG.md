@@ -5,11 +5,16 @@
 New features:
 - Added the monitoring endpoint's timing breakdown (`TotalDuration`, `GsCompileDuration`, `GsExecDuration`, `XpExecDuration`, `QueryRetryTime`, `FaultHandlingTime`) to `SnowflakeQueryStatus`, so `GetQueryStatus` callers can read them. These fields were already returned by `/monitoring/queries/{id}` but dropped while decoding the response (snowflakedb/gosnowflake#37).
 - Added `UploadStream` / `UploadStreamWithConfig` on `SnowflakeConnection`: upload one stage object from an `io.Reader`. Gzip is the default, the destination name is a basename, and an optional prefix selects the stage directory. The payload stays in memory until 128 MiB, then spills to disk. Prefer this over `WithFilePutStream`, which still buffers the whole file (snowflakedb/gosnowflake#31).
+- Added the `SF_TEMPORARY_CREDENTIAL_CACHE_FILE_NAME` environment variable to override the Linux token cache file name (default `credential_cache_v2.json`) (snowflakedb/gosnowflake#32).
 
 Internal changes:
 - Upload GHA coverage reports to Dedicated Codecov (`snowflake.codecov.io`) from Jenkins snowos instead of `codecov-action` on GitHub-hosted runners, and bump golangci-lint to v2.14 for Go 1.27 (snowflakedb/gosnowflake#34).
 
 Bug fixes:
+- Fixed token cache key v2 normalization to lowercase URLs and identifiers and PascalCase token types (`IdToken`, `MfaToken`, `OauthAccessToken`, `OauthRefreshToken`) so keys match the cross-driver contract. Users of MFA, external-browser SSO, and OAuth token caching re-authenticate once after upgrading (snowflakedb/gosnowflake#32).
+- Changed where cached tokens are stored so they can be shared with the universal driver: macOS Keychain and Windows Credential Manager entries use service `snowflake_credential_cache`, and the Linux cache file is `credential_cache_v2.json`. Tokens in the old locations are not read (snowflakedb/gosnowflake#32).
+- Fixed the Linux token cache directory lookup to read `XDG_CACHE_HOME` instead of `XDG_CACHE_DIR`, and to disable caching with a warning instead of falling back to another directory when `SF_TEMPORARY_CREDENTIAL_CACHE_DIR` is set but unusable (snowflakedb/gosnowflake#32).
+- Fixed the Linux token cache lock to use `flock` on `<cache file>.lck` instead of a lock directory that was deleted after one second, and to replace a corrupt cache file on the next write instead of disabling caching (snowflakedb/gosnowflake#32).
 - Fixed `loadCore()` leaking the `gosnowflake-cgo*` temp directory on early returns (unsupported platform, statically-linked binary, or a failed `writeLibraryToFile()`) that occur before the library-write success path registers cleanup (snowflakedb/gosnowflake#1856).
 - Fixed Azure workload-identity authentication on a VM that has only a user-assigned managed identity by sending `client_id` on the IMDS token request when `WorkloadIdentityAzureClientID` or `MANAGED_IDENTITY_CLIENT_ID` is set (snowflakedb/gosnowflake#28).
 - Avoided a process-global logger lock and per-value argument formatting while converting result cells when debug logging is off (snowflakedb/gosnowflake#23).

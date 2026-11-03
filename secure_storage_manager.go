@@ -1,12 +1,14 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -14,7 +16,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	sfconfig "github.com/snowflakedb/gosnowflake/v2/internal/config"
 )
@@ -22,15 +23,18 @@ import (
 type tokenType string
 
 const (
-	idToken           tokenType = "ID_TOKEN"
-	mfaToken          tokenType = "MFA_TOKEN"
-	oauthAccessToken  tokenType = "OAUTH_ACCESS_TOKEN"
-	oauthRefreshToken tokenType = "OAUTH_REFRESH_TOKEN"
+	idToken           tokenType = "IdToken"
+	mfaToken          tokenType = "MfaToken"
+	oauthAccessToken  tokenType = "OauthAccessToken"
+	oauthRefreshToken tokenType = "OauthRefreshToken"
 )
 
 const (
-	credCacheDirEnv   = "SF_TEMPORARY_CREDENTIAL_CACHE_DIR"
-	credCacheFileName = "credential_cache_v1.json"
+	credCacheDirEnv          = "SF_TEMPORARY_CREDENTIAL_CACHE_DIR"
+	credCacheFileNameEnv     = "SF_TEMPORARY_CREDENTIAL_CACHE_FILE_NAME"
+	defaultCredCacheFileName = "credential_cache_v2.json"
+	credCacheLockRetries     = 20
+	credCacheLockRetryBase   = 100 * time.Millisecond
 )
 
 type cacheDirConf struct {
@@ -40,8 +44,15 @@ type cacheDirConf struct {
 
 var defaultLinuxCacheDirConf = []cacheDirConf{
 	{envVar: credCacheDirEnv, pathSegments: []string{}},
-	{envVar: "XDG_CACHE_DIR", pathSegments: []string{"snowflake"}},
+	{envVar: "XDG_CACHE_HOME", pathSegments: []string{"snowflake"}},
 	{envVar: "HOME", pathSegments: []string{".cache", "snowflake"}},
+}
+
+func credCacheFileName() string {
+	if name := os.Getenv(credCacheFileNameEnv); name != "" {
+		return name
+	}
+	return defaultCredCacheFileName
 }
 
 type secureTokenSpec interface {
@@ -69,15 +80,17 @@ type hostUserTokenSpec struct {
 }
 
 func (s *hostUserTokenSpec) buildKey() (string, error) {
-	if s.snowflake == "" {
+	snowflake := normalizeURL(s.snowflake)
+	username := normalizeIdentifier(s.username)
+	if snowflake == "" {
 		return "", errors.New("snowflake URL is required for token cache key")
 	}
-	if s.username == "" {
+	if username == "" {
 		return "", errors.New("username is required for token cache key")
 	}
 	return marshalAndFinalize(s.tokenType, mfaIDKeyData{
-		Snowflake: normalizeURL(s.snowflake),
-		Username:  normalizeIdentifier(s.username),
+		Snowflake: snowflake,
+		Username:  username,
 	})
 }
 
@@ -90,30 +103,27 @@ type oauthTokenSpec struct {
 }
 
 func (s *oauthTokenSpec) buildKey() (string, error) {
-	if s.snowflake == "" {
+	idp := normalizeURL(s.idp)
+	snowflake := normalizeURL(s.snowflake)
+	username := normalizeIdentifier(s.username)
+	if snowflake == "" {
 		return "", errors.New("snowflake URL is required for token cache key")
 	}
-	if s.username == "" {
+	if username == "" {
 		return "", errors.New("username is required for token cache key")
 	}
-	if s.idp == "" {
+	if idp == "" {
 		return "", errors.New("idp URL is required for OAuth token cache key")
 	}
 	return marshalAndFinalize(s.tokenType, oauthKeyData{
-		Idp:       normalizeURL(s.idp),
+		Idp:       idp,
 		Role:      normalizeIdentifier(s.role),
-		Snowflake: normalizeURL(s.snowflake),
-		Username:  normalizeIdentifier(s.username),
+		Snowflake: snowflake,
+		Username:  username,
 	})
 }
 
-// finalizeCacheKey produces the versioned, SHA-256-hashed cache key
-//
-//	SnowflakeTokenCache.v2.<TOKEN_TYPE>.<lowercase_sha256(canonical_json(keyData))>
-//
-// The token type lives in the readable key prefix and is never part of keyData.
-// The canonical JSON (compact, keys sorted lexicographically) is identical across
-// all Snowflake drivers, enabling cross-driver token reuse.
+// The token type appears only in the key prefix, never in keyData.
 func finalizeCacheKey(tt tokenType, jsonBytes []byte) string {
 	sum := sha256.Sum256(jsonBytes)
 	hexHash := hex.EncodeToString(sum[:])
@@ -121,17 +131,37 @@ func finalizeCacheKey(tt tokenType, jsonBytes []byte) string {
 }
 
 func marshalAndFinalize(tt tokenType, keyData any) (string, error) {
-	jsonBytes, err := json.Marshal(keyData)
-	if err != nil {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	// The other drivers' serializers write <, > and & literally today; escaping them would change the hash.
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(keyData); err != nil {
 		return "", fmt.Errorf("failed to serialize cache key: %w", err)
 	}
-	return finalizeCacheKey(tt, jsonBytes), nil
+	return finalizeCacheKey(tt, bytes.TrimSuffix(buf.Bytes(), []byte("\n"))), nil
+}
+
+func includeExplicitPort(cfg *Config) bool {
+	if cfg.Port == 0 {
+		return false
+	}
+	if strings.EqualFold(cfg.Protocol, "http") {
+		return cfg.Port != 80
+	}
+	return cfg.Port != 443
+}
+
+func hostWithOptionalPort(cfg *Config) string {
+	if includeExplicitPort(cfg) {
+		return net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
+	}
+	return cfg.Host
 }
 
 func newMfaTokenSpec(cfg *Config) *hostUserTokenSpec {
 	return &hostUserTokenSpec{
 		tokenType: mfaToken,
-		snowflake: cfg.Host,
+		snowflake: hostWithOptionalPort(cfg),
 		username:  cfg.User,
 	}
 }
@@ -139,7 +169,7 @@ func newMfaTokenSpec(cfg *Config) *hostUserTokenSpec {
 func newIDTokenSpec(cfg *Config) *hostUserTokenSpec {
 	return &hostUserTokenSpec{
 		tokenType: idToken,
-		snowflake: cfg.Host,
+		snowflake: hostWithOptionalPort(cfg),
 		username:  cfg.User,
 	}
 }
@@ -148,7 +178,7 @@ func newOAuthAccessTokenSpec(cfg *Config) *oauthTokenSpec {
 	return &oauthTokenSpec{
 		tokenType: oauthAccessToken,
 		idp:       oauthTokenRequestURL(cfg),
-		snowflake: cfg.Host,
+		snowflake: hostWithOptionalPort(cfg),
 		username:  cfg.User,
 		role:      cfg.Role,
 	}
@@ -158,7 +188,7 @@ func newOAuthRefreshTokenSpec(cfg *Config) *oauthTokenSpec {
 	return &oauthTokenSpec{
 		tokenType: oauthRefreshToken,
 		idp:       oauthTokenRequestURL(cfg),
-		snowflake: cfg.Host,
+		snowflake: hostWithOptionalPort(cfg),
 		username:  cfg.User,
 		role:      cfg.Role,
 	}
@@ -177,7 +207,9 @@ func newSecureStorageManager() secureStorageManager {
 }
 
 type fileBasedSecureStorageManager struct {
-	credDirPath string
+	credDirPath  string
+	credFilePath string
+	lockPath     string
 }
 
 func newFileBasedSecureStorageManager() (*fileBasedSecureStorageManager, error) {
@@ -185,8 +217,11 @@ func newFileBasedSecureStorageManager() (*fileBasedSecureStorageManager, error) 
 	if err != nil {
 		return nil, err
 	}
+	credFilePath := filepath.Join(credDirPath, credCacheFileName())
 	ssm := &fileBasedSecureStorageManager{
-		credDirPath: credDirPath,
+		credDirPath:  credDirPath,
+		credFilePath: credFilePath,
+		lockPath:     credFilePath + ".lck",
 	}
 	return ssm, nil
 }
@@ -207,7 +242,7 @@ func lookupCacheDir(envVar string, pathSegments ...string) (string, error) {
 	}
 
 	cacheDir := filepath.Join(envVal, filepath.Join(pathSegments...))
-	parentOfCacheDir := cacheDir[:strings.LastIndex(cacheDir, "/")]
+	parentOfCacheDir := filepath.Dir(cacheDir)
 
 	if err = os.MkdirAll(parentOfCacheDir, os.FileMode(0755)); err != nil {
 		return "", err
@@ -225,11 +260,15 @@ func buildCredCacheDirPath(confs []cacheDirConf) (string, error) {
 	for _, conf := range confs {
 		path, err := lookupCacheDir(conf.envVar, conf.pathSegments...)
 		if err != nil {
+			if conf.envVar == credCacheDirEnv && os.Getenv(credCacheDirEnv) != "" {
+				logger.Warnf("%s is set but unusable; token caching is disabled. %v", credCacheDirEnv, err)
+				return "", err
+			}
 			logger.Debugf("Skipping %s in cache directory lookup due to %v", conf.envVar, err)
-		} else {
-			logger.Debugf("Using %s as cache directory", path)
-			return path, nil
+			continue
 		}
+		logger.Debugf("Using %s as cache directory", path)
+		return path, nil
 	}
 
 	return "", errors.New("no credentials cache directory found")
@@ -250,59 +289,64 @@ func (ssm *fileBasedSecureStorageManager) getTokens(data map[string]any) map[str
 }
 
 func (ssm *fileBasedSecureStorageManager) withLock(action func(cacheFile *os.File)) {
-	err := ssm.lockFile()
+	cacheDir, err := os.Open(ssm.credDirPath)
+	if err != nil {
+		logger.Warnf("cannot access %v. %v", ssm.credDirPath, err)
+		return
+	}
+	defer func() {
+		if err := cacheDir.Close(); err != nil {
+			logger.Warnf("cannot release file descriptor for %v. %v", ssm.credDirPath, err)
+		}
+	}()
+
+	verifyPermissions := !sfconfig.ShouldSkipTokenFilePermissionsVerification()
+	if verifyPermissions {
+		// Checked before the lock file is opened: another user who can write to the
+		// directory could otherwise create and hold the lock file.
+		if err := ensureFileOwner(cacheDir); err != nil {
+			logger.Warnf("failed to ensure owner for temporary cache dir. %v", err)
+			return
+		}
+		if err := ensureFilePermissions(cacheDir, 0700|os.ModeDir); err != nil {
+			logger.Warnf("failed to ensure permission for temporary cache dir. %v", err)
+			return
+		}
+	} else {
+		logger.Debugf("Skipping credential cache permission verification because SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true")
+	}
+
+	lockFile, err := ssm.lockFile(verifyPermissions)
 	if err != nil {
 		logger.Warnf("Unable to lock cache. %v", err)
 		return
 	}
-	defer ssm.unlockFile()
+	defer ssm.unlockFile(lockFile)
 
-	ssm.withCacheFile(action)
+	ssm.withCacheFile(verifyPermissions, action)
 }
 
-func (ssm *fileBasedSecureStorageManager) withCacheFile(action func(*os.File)) {
-	cacheFile, err := os.OpenFile(ssm.credFilePath(), os.O_CREATE|os.O_RDWR, 0600)
+func (ssm *fileBasedSecureStorageManager) withCacheFile(verifyPermissions bool, action func(*os.File)) {
+	cacheFile, err := ssm.openCacheFile()
 	if err != nil {
-		logger.Warnf("cannot access %v. %v", ssm.credFilePath(), err)
+		logger.Warnf("cannot access %v. %v", ssm.credFilePath, err)
 		return
 	}
-	defer func(file *os.File) {
-		if err := file.Close(); err != nil {
-			logger.Warnf("cannot release file descriptor for %v. %v", ssm.credFilePath(), err)
+	defer func() {
+		if err := cacheFile.Close(); err != nil {
+			logger.Warnf("cannot release file descriptor for %v. %v", ssm.credFilePath, err)
 		}
-	}(cacheFile)
+	}()
 
-	cacheDir, err := os.Open(ssm.credDirPath)
-	if err != nil {
-		logger.Warnf("cannot access %v. %v", ssm.credDirPath, err)
-	}
-	defer func(file *os.File) {
-		if err := file.Close(); err != nil {
-			logger.Warnf("cannot release file descriptor for %v. %v", cacheDir, err)
+	if verifyPermissions {
+		if err := ensureFileOwner(cacheFile); err != nil {
+			logger.Warnf("failed to ensure owner for temporary cache file. %v", err)
+			return
 		}
-	}(cacheDir)
-
-	if sfconfig.ShouldSkipTokenFilePermissionsVerification() {
-		logger.Debugf("Skipping credential cache permission verification because SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true")
-		action(cacheFile)
-		return
-	}
-
-	if err := ensureFileOwner(cacheFile); err != nil {
-		logger.Warnf("failed to ensure owner for temporary cache file. %v", err)
-		return
-	}
-	if err := ensureFilePermissions(cacheFile, 0600); err != nil {
-		logger.Warnf("failed to ensure permission for temporary cache file. %v", err)
-		return
-	}
-	if err := ensureFileOwner(cacheDir); err != nil {
-		logger.Warnf("failed to ensure owner for temporary cache dir. %v", err)
-		return
-	}
-	if err := ensureFilePermissions(cacheDir, 0700|os.ModeDir); err != nil {
-		logger.Warnf("failed to ensure permission for temporary cache dir. %v", err)
-		return
+		if err := ensureFilePermissions(cacheFile, 0600); err != nil {
+			logger.Warnf("failed to ensure permission for temporary cache file. %v", err)
+			return
+		}
 	}
 
 	action(cacheFile)
@@ -323,7 +367,7 @@ func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec secureTokenSpe
 		credCache, err := ssm.readTemporaryCacheFile(cacheFile)
 		if err != nil {
 			logger.Warnf("Error while reading cache file. %v", err)
-			return
+			credCache = map[string]any{}
 		}
 		tokens := ssm.getTokens(credCache)
 		tokens[credentialsKey] = value
@@ -332,88 +376,54 @@ func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec secureTokenSpe
 		if err != nil {
 			logger.Warnf("Set credential failed. Unable to write cache. %v", err)
 		} else {
-			logger.Debugf("Set credential succeeded. Key: %v, file location: %v", credentialsKey, ssm.credFilePath())
+			logger.Debugf("Set credential succeeded. Key: %v, file location: %v", credentialsKey, ssm.credFilePath)
 		}
 	})
 }
 
-func (ssm *fileBasedSecureStorageManager) lockPath() string {
-	return filepath.Join(ssm.credDirPath, credCacheFileName+".lck")
-}
-
-func (ssm *fileBasedSecureStorageManager) lockFile() error {
-	const numRetries = 10
-	const retryInterval = 100 * time.Millisecond
-	lockPath := ssm.lockPath()
-
-	lockFile, err := os.Open(lockPath)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to open %v. err: %v", lockPath, err)
-	}
-	defer func() {
-		if lockFile != nil {
-			err = lockFile.Close()
-			if err != nil {
-				logger.Debugf("error while closing lock file. %v", err)
-			}
-		}
-	}()
-
-	if err == nil { // file exists
-		fileInfo, err := lockFile.Stat()
-		if err != nil {
-			return fmt.Errorf("failed to stat %v and determine if lock is stale. err: %v", lockPath, err)
-		}
-
-		if !sfconfig.ShouldSkipTokenFilePermissionsVerification() {
-			ownerUID, err := provideFileOwner(lockFile)
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
-				return err
-			}
-			currentUser, err := user.Current()
-			if err != nil {
-				return err
-			}
-			if strconv.Itoa(int(ownerUID)) != currentUser.Uid {
-				return errors.New("incorrect owner of " + lockFile.Name())
-			}
-		}
-
-		// removing stale lock
-		now := time.Now()
-		if fileInfo.ModTime().Add(time.Second).UnixNano() < now.UnixNano() {
-			logger.Debugf("removing credentials cache lock file, stale for %vms", (now.UnixNano()-fileInfo.ModTime().UnixNano())/1000/1000)
-			err = os.Remove(lockPath)
-			if err != nil {
-				return fmt.Errorf("failed to remove %v while trying to remove stale lock. err: %v", lockPath, err)
-			}
-		}
-	}
-
-	locked := false
-	for range numRetries {
-		err := os.Mkdir(lockPath, 0700)
-		if err != nil {
-			if errors.Is(err, os.ErrExist) {
-				time.Sleep(retryInterval)
-				continue
-			}
-			return fmt.Errorf("failed to create cache lock: %v, err: %v", lockPath, err)
-		}
-		locked = true
-		break
-	}
-	if !locked {
-		return fmt.Errorf("failed to lock cache. lockPath: %v", lockPath)
-	}
-	return nil
-}
-
-func (ssm *fileBasedSecureStorageManager) unlockFile() {
-	lockPath := ssm.lockPath()
-	err := os.Remove(lockPath)
+func (ssm *fileBasedSecureStorageManager) lockFile(verifyOwner bool) (*os.File, error) {
+	lockPath := ssm.lockPath
+	lockFile, err := openLockFile(lockPath)
 	if err != nil {
-		logger.Warnf("Failed to unlock cache lock: %v. %v", lockPath, err)
+		return nil, fmt.Errorf("failed to open %v. err: %v", lockPath, err)
+	}
+	if err := ensureRegularFile(lockFile); err != nil {
+		_ = lockFile.Close()
+		return nil, err
+	}
+	if verifyOwner {
+		if err := ensureFileOwner(lockFile); err != nil {
+			_ = lockFile.Close()
+			return nil, err
+		}
+	}
+
+	sleep := credCacheLockRetryBase
+	for attempt := range credCacheLockRetries {
+		err := tryFlockExclusive(lockFile)
+		if err == nil {
+			return lockFile, nil
+		}
+		if !isLockContention(err) {
+			_ = lockFile.Close()
+			return nil, fmt.Errorf("failed to lock cache. lockPath: %v, err: %v", lockPath, err)
+		}
+		if attempt < credCacheLockRetries-1 {
+			upper := min(sleep*3, credCacheLockRetryBase*16)
+			sleep = time.Duration(chooseRandomFromRange(float64(credCacheLockRetryBase), float64(upper)))
+			time.Sleep(sleep)
+		}
+	}
+	_ = lockFile.Close()
+	return nil, fmt.Errorf("failed to lock cache. lockPath: %v", lockPath)
+}
+
+func (ssm *fileBasedSecureStorageManager) unlockFile(lockFile *os.File) {
+	if err := unlockFlock(lockFile); err != nil {
+		logger.Warnf("Failed to unlock cache lock: %v. %v", ssm.lockPath, err)
+	}
+	if err := lockFile.Close(); err != nil {
+		logger.Warnf("cannot release file descriptor for %v. %v", ssm.lockPath, err)
 	}
 }
 
@@ -446,8 +456,46 @@ func (ssm *fileBasedSecureStorageManager) getCredential(tokenSpec secureTokenSpe
 	return ret
 }
 
-func (ssm *fileBasedSecureStorageManager) credFilePath() string {
-	return filepath.Join(ssm.credDirPath, credCacheFileName)
+func (ssm *fileBasedSecureStorageManager) openCacheFile() (*os.File, error) {
+	path := ssm.credFilePath
+	f, err := openExistingNoFollow(path)
+	if err == nil {
+		if err := ensureRegularFile(f); err != nil {
+			_ = f.Close()
+			return nil, err
+		}
+		return f, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	f, err = createExclusiveNoFollow(path, 0600)
+	if err == nil {
+		return f, nil
+	}
+	if !errors.Is(err, os.ErrExist) {
+		return nil, err
+	}
+	f, err = openExistingNoFollow(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureRegularFile(f); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	return f, nil
+}
+
+func ensureRegularFile(f *os.File) error {
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("%v is not a regular file", f.Name())
+	}
+	return nil
 }
 
 func ensureFileOwner(f *os.File) error {
@@ -523,7 +571,7 @@ func (ssm *fileBasedSecureStorageManager) deleteCredential(tokenSpec secureToken
 		if err != nil {
 			logger.Warnf("Set credential failed. Unable to write cache. %v", err)
 		} else {
-			logger.Debugf("Deleted credential succeeded. Key: %v, file location: %v", credentialsKey, ssm.credFilePath())
+			logger.Debugf("Deleted credential succeeded. Key: %v, file location: %v", credentialsKey, ssm.credFilePath)
 		}
 	})
 }
@@ -534,6 +582,9 @@ func (ssm *fileBasedSecureStorageManager) writeTemporaryCacheFile(cache map[stri
 		return fmt.Errorf("failed to marshal credential cache map. %w", err)
 	}
 
+	if _, err = cacheFile.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("cannot seek to the beginning of a cache file. %v", err)
+	}
 	if err = cacheFile.Truncate(0); err != nil {
 		return fmt.Errorf("error while truncating credentials cache. %v", err)
 	}
@@ -544,39 +595,29 @@ func (ssm *fileBasedSecureStorageManager) writeTemporaryCacheFile(cache map[stri
 	return nil
 }
 
-// normalizeURL strips the scheme and userinfo, drops query/fragment,
-// trims a root-only trailing slash, and uppercases the remainder.
+// Inputs may be a bare host[:port] with no scheme, which net/url does not parse as a host.
 func normalizeURL(rawURL string) string {
 	s := rawURL
-	if idx := strings.Index(s, "://"); idx >= 0 {
-		s = s[idx+3:]
+	if _, after, ok := strings.Cut(s, "://"); ok {
+		s = after
 	}
-	if idx := strings.Index(s, "@"); idx >= 0 {
-		s = s[idx+1:]
+	s, _, _ = strings.Cut(s, "?")
+	s, _, _ = strings.Cut(s, "#")
+	authority, path := s, ""
+	if i := strings.IndexByte(s, '/'); i >= 0 {
+		authority, path = s[:i], s[i:]
 	}
-	s = strings.SplitN(s, "?", 2)[0]
-	s = strings.SplitN(s, "#", 2)[0]
-	s = strings.TrimRight(s, "/")
-	return strings.ToUpper(s)
+	if _, host, ok := strings.Cut(authority, "@"); ok {
+		authority = host
+	}
+	return strings.ToLower(strings.TrimRight(authority+path, "/"))
 }
 
-// normalizeIdentifier uppercases characters outside double-quoted segments
-// and preserves the contents of "..." segments verbatim.
 func normalizeIdentifier(id string) string {
-	var b strings.Builder
-	inQuotes := false
-	for _, ch := range id {
-		switch {
-		case ch == '"':
-			inQuotes = !inQuotes
-			b.WriteRune(ch)
-		case inQuotes:
-			b.WriteRune(ch)
-		default:
-			b.WriteRune(unicode.ToUpper(ch))
-		}
+	if strings.Contains(id, `"`) {
+		return id
 	}
-	return b.String()
+	return strings.ToLower(id)
 }
 
 type noopSecureStorageManager struct {
