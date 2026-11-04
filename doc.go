@@ -1148,6 +1148,22 @@ or using a Config structure specifying:
 The <your_private_key> should be a base64 URL encoded PKCS8 rsa private key string. One way to encode a byte slice to URL
 base 64 URL format is through the base64.URLEncoding.EncodeToString() function.
 
+Elliptic curve keys on P-256, P-384 and P-521 are supported too, and are signed with ES256, ES384 and ES512
+respectively. A base64 URL encoded PKCS8 EC private key can be passed in the privateKey DSN field (or the
+private_key / private_key_file connections.toml options), or set directly in the Config:
+
+	config := &Config{
+		...
+		Authenticator:    AuthTypeJwt,
+		PrivateKeySigner: ecdsaPrivateKey, // *ecdsa.PrivateKey
+	}
+
+PrivateKeySigner accepts any crypto.Signer with an RSA or ECDSA public key, so a key kept in a KMS or HSM can
+sign the JWT without the private key ever being loaded into the process. Set either PrivateKey or
+PrivateKeySigner, not both. To generate a PKCS8 encoded P-256 private key:
+
+	openssl ecparam -genkey -name prime256v1 | openssl pkcs8 -topk8 -nocrypt -out ec-p256-private-key.p8
+
 On the server side, you can alter the public key with the SQL command:
 
 	ALTER USER <your_user_name> SET RSA_PUBLIC_KEY='<your_public_key>';

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto"
 	"encoding/base64"
 	"errors"
 	"os"
@@ -182,14 +183,20 @@ func HandleSingleParam(cfg *Config, key string, value any) error {
 				Message: "Base64 decode failed",
 			}
 		}
-		cfg.PrivateKey, err = ParsePKCS8PrivateKey(block)
+		var signer crypto.Signer
+		if signer, err = ParsePKCS8Signer(block); err == nil {
+			setPrivateKey(cfg, signer)
+		}
 	case "privatekeypath", "privatekeyfile":
 		var keyPath string
 		keyPath, err = parseString(value)
 		if err = checkParsingError(err, key, value); err != nil {
 			return err
 		}
-		cfg.PrivateKey, err = parsePrivateKeyFromFile(keyPath)
+		var signer crypto.Signer
+		if signer, err = parsePrivateKeyFromFile(keyPath); err == nil {
+			setPrivateKey(cfg, signer)
+		}
 	case "validatedefaultparameters":
 		cfg.ValidateDefaultParameters, err = parseConfigBool(value)
 	case "clientrequestmfatoken":

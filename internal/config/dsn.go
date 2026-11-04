@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto"
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
@@ -228,8 +230,25 @@ func DSN(cfg *Config) (dsn string, err error) {
 			params.Add(k, *v)
 		}
 	}
+	if cfg.PrivateKey != nil && cfg.PrivateKeySigner != nil {
+		return "", errors.New("only one of PrivateKey and PrivateKeySigner can be set")
+	}
 	if cfg.PrivateKey != nil {
 		privateKeyInBytes, err := MarshalPKCS8PrivateKey(cfg.PrivateKey)
+		if err != nil {
+			return "", err
+		}
+		keyBase64 := base64.URLEncoding.EncodeToString(privateKeyInBytes)
+		params.Add("privateKey", keyBase64)
+	}
+	if cfg.PrivateKeySigner != nil {
+		// only in-memory RSA/ECDSA keys can be encoded; e.g. a KMS-backed signer has no exportable key
+		switch cfg.PrivateKeySigner.(type) {
+		case *rsa.PrivateKey, *ecdsa.PrivateKey:
+		default:
+			return "", fmt.Errorf("PrivateKeySigner of type %T cannot be encoded in a DSN", cfg.PrivateKeySigner)
+		}
+		privateKeyInBytes, err := MarshalPKCS8PrivateKey(cfg.PrivateKeySigner)
 		if err != nil {
 			return "", err
 		}
@@ -1163,10 +1182,12 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				}
 				return
 			}
-			cfg.PrivateKey, err = ParsePKCS8PrivateKey(block)
+			var signer crypto.Signer
+			signer, err = ParsePKCS8Signer(block)
 			if err != nil {
 				return err
 			}
+			setPrivateKey(cfg, signer)
 		case "validateDefaultParameters":
 			var vv bool
 			vv, err = strconv.ParseBool(value)
@@ -1355,7 +1376,7 @@ func parseTimeout(value string) (time.Duration, error) {
 func GetConfigFromEnv(properties []*Param) (*Config, error) {
 	var account, user, password, token, tokenFilePath, role, host, portStr, protocol, warehouse, database, schema, region, passcode, application string
 	var oauthClientID, oauthClientSecret, oauthAuthorizationURL, oauthTokenRequestURL, oauthRedirectURI, oauthScope string
-	var privateKey *rsa.PrivateKey
+	var privateKey crypto.Signer
 	var err error
 	if len(properties) == 0 || properties == nil {
 		return nil, errors.New("missing configuration parameters for the connection")
@@ -1439,7 +1460,6 @@ func GetConfigFromEnv(properties []*Param) (*Config, error) {
 		Warehouse:             warehouse,
 		Database:              database,
 		Schema:                schema,
-		PrivateKey:            privateKey,
 		Region:                region,
 		Passcode:              passcode,
 		Application:           application,
@@ -1451,10 +1471,14 @@ func GetConfigFromEnv(properties []*Param) (*Config, error) {
 		OauthScope:            oauthScope,
 		Params:                map[string]*string{},
 	}
+	if privateKey != nil {
+		setPrivateKey(cfg, privateKey)
+	}
 	return cfg, nil
 }
 
-func parsePrivateKeyFromFile(path string) (*rsa.PrivateKey, error) {
+// parsePrivateKeyFromFile reads a PEM file containing a PKCS8 RSA or ECDSA private key.
+func parsePrivateKeyFromFile(path string) (crypto.Signer, error) {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -1467,11 +1491,7 @@ func parsePrivateKeyFromFile(path string) (*rsa.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	pk, ok := privateKey.(*rsa.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("interface convertion. expected type *rsa.PrivateKey, but got %T", privateKey)
-	}
-	return pk, nil
+	return keyPairSigner(privateKey)
 }
 
 // ExtractAccountName extract an account name from a raw account.
