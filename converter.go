@@ -2570,17 +2570,10 @@ func arrowDateToValue(srcValue *array.Date32, rowID int) snowflakeValue {
 }
 
 func arrowTimeToValue(srcValue arrow.Array, rowIdx int, scale int) snowflakeValue {
-	t0 := time.Time{}
-	if srcValue.DataType().ID() == arrow.INT64 {
-		if !srcValue.IsNull(rowIdx) {
-			return t0.Add(time.Duration(srcValue.(*array.Int64).Value(rowIdx) * int64(math.Pow10(9-scale))))
-		}
-	} else {
-		if !srcValue.IsNull(rowIdx) {
-			return t0.Add(time.Duration(int64(srcValue.(*array.Int32).Value(rowIdx)) * int64(math.Pow10(9-scale))))
-		}
+	if srcValue.IsNull(rowIdx) {
+		return nil
 	}
-	return nil
+	return time.Time{}.Add(time.Duration(ia.TimeNanos(srcValue, rowIdx, scale)))
 }
 
 type (

@@ -494,6 +494,60 @@ func TestArrowToRecord(t *testing.T) {
 			},
 		},
 		{
+			logical:  "time",
+			physical: "int64 with scale 9",
+			rowType:  query.ExecResponseRowType{Scale: 9},
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
+			values:   []int64{49_530_123_456_789, 0}, // nanoseconds since midnight: 13:45:30.123456789 and midnight
+			nrows:    2,
+			builder:  array.NewInt64Builder(pool),
+			append:   func(b array.Builder, vs any) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
+			compare: func(src any, expected any, convertedRec arrow.Record) int {
+				for i, v := range src.([]int64) {
+					if v != int64(convertedRec.Column(0).(*array.Time64).Value(i)) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical:  "time",
+			physical: "int64 with scale 3",
+			rowType:  query.ExecResponseRowType{Scale: 3},
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
+			values:   []int64{49_530_123, 0}, // milliseconds since midnight: 13:45:30.123 and midnight
+			nrows:    2,
+			builder:  array.NewInt64Builder(pool),
+			append:   func(b array.Builder, vs any) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
+			compare: func(src any, expected any, convertedRec arrow.Record) int {
+				for i, v := range src.([]int64) {
+					if v*int64(time.Millisecond) != int64(convertedRec.Column(0).(*array.Time64).Value(i)) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical:  "time",
+			physical: "int32 with scale 0",
+			rowType:  query.ExecResponseRowType{Scale: 0},
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int32Type{}}}, nil),
+			values:   []int32{49_530, 0}, // seconds since midnight: 13:45:30 and midnight
+			nrows:    2,
+			builder:  array.NewInt32Builder(pool),
+			append:   func(b array.Builder, vs any) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
+			compare: func(src any, expected any, convertedRec arrow.Record) int {
+				for i, v := range src.([]int32) {
+					if int64(v)*int64(time.Second) != int64(convertedRec.Column(0).(*array.Time64).Value(i)) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
 			logical:  "timestamp_ntz",
 			physical: "int64",
 			values:   []time.Time{time.Now().Truncate(time.Millisecond), localTime.Truncate(time.Millisecond)},
