@@ -268,7 +268,7 @@ func postRestfulQueryHelper(
 
 	if resp.StatusCode == http.StatusOK {
 		respd := &execResponse{}
-		if err = json.NewDecoder(resp.Body).Decode(respd); err != nil {
+		if err = decodeJSONBody(resp.Body, respd); err != nil {
 			if errors.Is(err, io.ErrUnexpectedEOF) && ctx.Value(truncatedResponseRetry) == nil {
 				logger.WithContext(ctx).Warnf("incomplete response body, retrying query %v: %v", requestID, err)
 				if closeErr := resp.Body.Close(); closeErr != nil {
@@ -580,7 +580,7 @@ func getExecResponse(
 
 	// decode response and fill into an empty execResponse
 	respd := &execResponse{}
-	err = json.NewDecoder(resp.Body).Decode(respd)
+	err = decodeJSONBody(resp.Body, respd)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 		return nil, err
