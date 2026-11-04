@@ -2224,7 +2224,7 @@ func TestParsePrivateKeyFromFileNotRSAPrivateKey(t *testing.T) {
 	// Attempt to parse the private key
 	_, err = parsePrivateKeyFromFile(pemFile)
 	if err == nil {
-		t.Error("expected an error when trying to parse an ECDSA private key as RSA")
+		t.Error("expected an error for a SEC1 (non-PKCS8) ECDSA private key")
 	}
 }
 
@@ -2243,7 +2243,7 @@ func TestParsePrivateKeyFromFile(t *testing.T) {
 	parsedKey, err := parsePrivateKeyFromFile(keyFile)
 	if err != nil {
 		t.Errorf("unable to parse pam file from path: %v, err: %v", keyFile, err)
-	} else if !parsedKey.Equal(generatedKey) {
+	} else if !parsedKey.(*rsa.PrivateKey).Equal(generatedKey) {
 		t.Errorf("generated key does not equal to parsed key from file\ngeneratedKey=%v\nparsedKey=%v",
 			generatedKey, parsedKey)
 	}

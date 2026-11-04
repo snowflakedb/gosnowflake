@@ -2,6 +2,12 @@
 
 ## Upcoming release
 
+New features:
+- Added support for elliptic curve keys in keypair (`SNOWFLAKE_JWT`) authentication, matching the Python connector. A new `Config.PrivateKeySigner` field accepts any `crypto.Signer` with an RSA or ECDSA (P-256, P-384, P-521) key, including KMS- or HSM-backed signers, and the JWT is signed with RS256, ES256, ES384 or ES512 accordingly. EC PKCS8 keys are also accepted in the `privateKey` DSN parameter, in `connections.toml` and in environment-based configuration (snowflakedb/gosnowflake#1567).
+
+Bug fixes:
+- Fixed a panic when a non-RSA PKCS8 private key was passed in the `privateKey` DSN parameter or `connections.toml`; an unsupported key now returns `ErrCodePrivateKeyParseError` (snowflakedb/gosnowflake#1567).
+
 ## 2.4.0
 
 New features:

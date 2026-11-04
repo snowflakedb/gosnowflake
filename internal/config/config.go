@@ -2,6 +2,7 @@
 package config
 
 import (
+	"crypto"
 	"crypto/rsa"
 	"errors"
 	"net/http"
@@ -81,6 +82,12 @@ type Config struct {
 	ServerSessionKeepAlive bool          // ServerSessionKeepAlive enables the session to persist even after the driver connection is closed
 
 	PrivateKey *rsa.PrivateKey // Private key used to sign JWT
+
+	// PrivateKeySigner is an alternative to PrivateKey for keypair (SNOWFLAKE_JWT) authentication.
+	// It accepts any crypto.Signer whose public key is RSA or ECDSA on P-256, P-384 or P-521,
+	// for example an *ecdsa.PrivateKey or a signer backed by a KMS or HSM. The JWT is signed with
+	// RS256, ES256, ES384 or ES512 depending on the key. Set either PrivateKey or PrivateKeySigner, not both.
+	PrivateKeySigner crypto.Signer
 
 	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
 

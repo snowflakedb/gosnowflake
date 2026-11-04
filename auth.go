@@ -2,13 +2,20 @@ package gosnowflake
 
 import (
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	cryptorand "crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/url"
 	"os"
@@ -584,11 +591,23 @@ func authenticateByAuthorizationCode(sc *snowflakeConn) (string, error) {
 
 // Generate a JWT token in string given the configuration
 func prepareJWTToken(config *Config) (string, error) {
-	if config.PrivateKey == nil {
+	var signer crypto.Signer
+	switch {
+	case config.PrivateKey != nil && config.PrivateKeySigner != nil:
+		return "", errors.New("trying to use keypair authentication, but both PrivateKey and PrivateKeySigner were provided in the driver config; set only one")
+	case config.PrivateKey != nil:
+		signer = config.PrivateKey
+	case config.PrivateKeySigner != nil:
+		signer = config.PrivateKeySigner
+	default:
 		return "", errors.New("trying to use keypair authentication, but PrivateKey was not provided in the driver config")
 	}
-	logger.Debug("preparing JWT for keypair authentication")
-	pubBytes, err := x509.MarshalPKIXPublicKey(config.PrivateKey.Public())
+	signingMethod, err := jwtSigningMethod(signer)
+	if err != nil {
+		return "", err
+	}
+	logger.Debugf("preparing JWT for keypair authentication, algorithm: %v", signingMethod.Alg())
+	pubBytes, err := x509.MarshalPKIXPublicKey(signer.Public())
 	if err != nil {
 		return "", err
 	}
@@ -605,9 +624,9 @@ func prepareJWTToken(config *Config) (string, error) {
 		"nbf": time.Date(2015, 10, 10, 12, 0, 0, 0, time.UTC).Unix(),
 		"exp": issueAtTime.Add(config.JWTExpireTimeout).Unix(),
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwtClaims)
+	token := jwt.NewWithClaims(signingMethod, jwtClaims)
 
-	tokenString, err := token.SignedString(config.PrivateKey)
+	tokenString, err := token.SignedString(signer)
 
 	if err != nil {
 		return "", err
@@ -615,6 +634,97 @@ func prepareJWTToken(config *Config) (string, error) {
 
 	logger.Debugf("successfully generated JWT with following claims: %v", jwtClaims)
 	return tokenString, err
+}
+
+// jwtSigningMethod picks the JWT algorithm for a keypair authentication key, the same way as the
+// Python connector: RS256 for RSA keys and ES256, ES384 or ES512 for ECDSA keys on P-256, P-384 or P-521.
+// In-memory *rsa.PrivateKey and *ecdsa.PrivateKey keys use the standard golang-jwt methods; other
+// crypto.Signer implementations (e.g. backed by a KMS or HSM) are signed through crypto.Signer.Sign.
+func jwtSigningMethod(signer crypto.Signer) (jwt.SigningMethod, error) {
+	_, inMemory := signer.(*rsa.PrivateKey)
+	if _, ok := signer.(*ecdsa.PrivateKey); ok {
+		inMemory = true
+	}
+	switch pub := signer.Public().(type) {
+	case *rsa.PublicKey:
+		if inMemory {
+			return jwt.SigningMethodRS256, nil
+		}
+		return &cryptoSignerSigningMethod{alg: "RS256", hash: crypto.SHA256}, nil
+	case *ecdsa.PublicKey:
+		var method *jwt.SigningMethodECDSA
+		switch pub.Curve {
+		case elliptic.P256():
+			method = jwt.SigningMethodES256
+		case elliptic.P384():
+			method = jwt.SigningMethodES384
+		case elliptic.P521():
+			method = jwt.SigningMethodES512
+		default:
+			return nil, fmt.Errorf("unsupported elliptic curve %v for keypair authentication; supported curves: P-256, P-384, P-521", pub.Curve.Params().Name)
+		}
+		if inMemory {
+			return method, nil
+		}
+		return &cryptoSignerSigningMethod{alg: method.Name, hash: method.Hash, ecdsaKeySize: method.KeySize}, nil
+	default:
+		return nil, fmt.Errorf("unsupported public key type %T for keypair authentication; use an RSA or ECDSA key", pub)
+	}
+}
+
+// cryptoSignerSigningMethod is a sign-only jwt.SigningMethod for keys that are only available as a
+// crypto.Signer. ECDSA signers return ASN.1 DER signatures, which are converted to the fixed-size
+// r || s form that JWS requires (RFC 7518, section 3.4).
+type cryptoSignerSigningMethod struct {
+	alg          string
+	hash         crypto.Hash
+	ecdsaKeySize int // size of r and s in bytes; 0 for RSA
+}
+
+func (m *cryptoSignerSigningMethod) Alg() string {
+	return m.alg
+}
+
+func (m *cryptoSignerSigningMethod) Verify(string, []byte, any) error {
+	return errors.New("verification is not supported for crypto.Signer keys")
+}
+
+func (m *cryptoSignerSigningMethod) Sign(signingString string, key any) ([]byte, error) {
+	signer, ok := key.(crypto.Signer)
+	if !ok {
+		return nil, jwt.ErrInvalidKeyType
+	}
+	hasher := m.hash.New()
+	hasher.Write([]byte(signingString))
+	sig, err := signer.Sign(cryptorand.Reader, hasher.Sum(nil), m.hash)
+	if err != nil {
+		return nil, err
+	}
+	if m.ecdsaKeySize == 0 {
+		return sig, nil
+	}
+	return ecdsaASN1ToJWS(sig, m.ecdsaKeySize)
+}
+
+// ecdsaASN1ToJWS converts an ASN.1 DER encoded ECDSA signature to the JWS r || s format.
+func ecdsaASN1ToJWS(der []byte, keySize int) ([]byte, error) {
+	var parsed struct {
+		R, S *big.Int
+	}
+	rest, err := asn1.Unmarshal(der, &parsed)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ECDSA signature: %w", err)
+	}
+	if len(rest) != 0 || parsed.R == nil || parsed.S == nil || parsed.R.Sign() <= 0 || parsed.S.Sign() <= 0 {
+		return nil, errors.New("invalid ECDSA signature")
+	}
+	if len(parsed.R.Bytes()) > keySize || len(parsed.S.Bytes()) > keySize {
+		return nil, errors.New("ECDSA signature does not match the key size")
+	}
+	out := make([]byte, 2*keySize)
+	parsed.R.FillBytes(out[:keySize])
+	parsed.S.FillBytes(out[keySize:])
+	return out, nil
 }
 
 func (s *hostUserTokenSpec) lockID() string {
