@@ -300,7 +300,11 @@ func newDefaultTransportConfigs() *defaultTransportConfigsType {
 			KeepAlive:       -1,
 		},
 		snowflakeTransportConfig: &transportConfig{
-			MaxIdleConns:    3,
+			// Result chunks are downloaded through this transport, up to
+			// defaultMaxChunkDownloadWorkers at once from the same host. Keeping
+			// fewer idle connections than that makes each wave of downloads
+			// open new TLS connections.
+			MaxIdleConns:    defaultMaxChunkDownloadWorkers + 1,
 			IdleConnTimeout: 30 * time.Minute,
 			DialTimeout:     30 * time.Second,
 		},

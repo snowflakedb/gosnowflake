@@ -2,6 +2,9 @@
 
 ## Upcoming release
 
+Internal changes:
+- Increased the number of idle connections to satisfy parallel chunk download (snowflakedb/gosnowflake#50).
+
 ## 2.4.0
 
 New features:

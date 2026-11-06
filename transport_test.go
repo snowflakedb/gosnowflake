@@ -75,6 +75,15 @@ func TestCreateStandardTransportSuccess(t *testing.T) {
 	assertNotNilF(t, transport, "Expected non-nil transport for valid configuration")
 }
 
+func TestSnowflakeTransportKeepsIdleConnsForChunkDownloads(t *testing.T) {
+	rt, err := newTransportFactory(&Config{}, nil).createTransport(transportConfigFor(transportTypeSnowflake))
+	assertNilF(t, err)
+	transport := castToTransport(rt)
+	assertNotNilF(t, transport, "Expected http.Transport")
+	assertTrueE(t, transport.MaxIdleConnsPerHost >= defaultMaxChunkDownloadWorkers,
+		fmt.Sprintf("MaxIdleConnsPerHost %d is below the %d chunk download workers", transport.MaxIdleConnsPerHost, defaultMaxChunkDownloadWorkers))
+}
+
 func TestDirectTLSConfigUsage(t *testing.T) {
 	// Test the new direct TLS config approach
 	customTLS := &tls.Config{
