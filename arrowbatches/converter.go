@@ -3,13 +3,14 @@ package arrowbatches
 import (
 	"context"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/v2/internal/query"
-	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 	"math"
 	"math/big"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/snowflakedb/gosnowflake/v2/internal/query"
+	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 
 	sf "github.com/snowflakedb/gosnowflake/v2"
 	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
@@ -89,7 +90,7 @@ func arrowToRecordSingleColumn(ctx context.Context, opts ConversionOptions, fiel
 			col.Retain()
 		}
 	case types.TimeType:
-		newCol, err = compute.CastArray(ctx, col, compute.SafeCastOptions(arrow.FixedWidthTypes.Time64ns))
+		newCol, err = arrowTimeToTime64ns(ctx, col, fieldMetadata.Scale, pool)
 		if err != nil {
 			return nil, err
 		}
@@ -312,4 +313,22 @@ func extractEpoch(value int64, scale int) int64 {
 
 func extractFraction(value int64, scale int) int64 {
 	return (value % int64(math.Pow10(scale))) * int64(math.Pow10(9-scale))
+}
+
+func arrowTimeToTime64ns(ctx context.Context, col arrow.Array, scale int, pool memory.Allocator) (arrow.Array, error) {
+	// only encoding below nanosecond scale needs rescaling
+	if id := col.DataType().ID(); id != arrow.INT32 && (id != arrow.INT64 || scale == 9) {
+		return compute.CastArray(ctx, col, compute.SafeCastOptions(arrow.FixedWidthTypes.Time64ns))
+	}
+	b := array.NewTime64Builder(pool, arrow.FixedWidthTypes.Time64ns.(*arrow.Time64Type))
+	defer b.Release()
+	b.Reserve(col.Len())
+	for i := 0; i < col.Len(); i++ {
+		if col.IsNull(i) {
+			b.AppendNull()
+			continue
+		}
+		b.Append(arrow.Time64(ia.TimeNanos(col, i, scale)))
+	}
+	return b.NewArray(), nil
 }

@@ -2,6 +2,9 @@
 
 ## Upcoming release
 
+Bug fixes:
+- Fixed Arrow batch conversion of TIME columns so the column scale is applied. Values at TIME(0)–TIME(8) were treated as nanoseconds since midnight, so TIME(3) came out 10^6 too small (snowflakedb/gosnowflake#55).
+
 Internal changes:
 - Increased the number of idle connections to satisfy parallel chunk download (snowflakedb/gosnowflake#50).
 
