@@ -789,6 +789,30 @@ func TestConfigureTelemetry(t *testing.T) {
 	}
 }
 
+func TestConfigureTelemetryHonorsDisableTelemetry(t *testing.T) {
+	for _, serverEnabled := range []bool{true, false} {
+		t.Run(strconv.FormatBool(serverEnabled), func(t *testing.T) {
+			wiremock.registerMappings(t,
+				wiremockMapping{
+					filePath: "auth/password/successful_flow_with_telemetry.json",
+					params:   map[string]string{"%CLIENT_TELEMETRY_ENABLED%": strconv.FormatBool(serverEnabled)},
+				},
+			)
+			cfg := wiremock.connectionConfig()
+			cfg.DisableTelemetry = true
+			db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
+			defer db.Close()
+			conn, err := db.Conn(context.Background())
+			assertNilF(t, err)
+			err = conn.Raw(func(x any) error {
+				assertFalseE(t, x.(*snowflakeConn).telemetry.enabled, "DisableTelemetry must win over the server parameter")
+				return nil
+			})
+			assertNilF(t, err)
+		})
+	}
+}
+
 func TestGetInvalidQueryStatus(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		sct.sc.rest.RequestTimeout = 1 * time.Second

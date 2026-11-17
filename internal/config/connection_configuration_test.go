@@ -493,7 +493,8 @@ func TestParseToml(t *testing.T) {
 		{
 			testParams: []string{"ocspFailOpen", "ocsp_fail_open", "PasscodeInPassword", "passcode_in_password", "validateDEFAULTParameters", "validate_default_parameters",
 				"clientRequestMFAtoken", "client_request_mfa_token", "clientStoreTemporaryCredential", "client_store_temporary_credential", "disableQueryContextCache", "disable_query_context_cache", "disable_ocsp_checks",
-				"includeRetryReason", "include_retry_reason", "disableConsoleLogin", "disable_console_login", "disableSamlUrlCheck", "disable_saml_url_check"},
+				"includeRetryReason", "include_retry_reason", "disableConsoleLogin", "disable_console_login", "disableSamlUrlCheck", "disable_saml_url_check",
+				"disableTelemetry", "disable_telemetry"},
 			values: []any{true, "true", false, "false"},
 		},
 		{
@@ -661,6 +662,14 @@ func TestParseTomlDisableOCSPChecksBeatsFailOpen(t *testing.T) {
 	assertEqualF(t, cfg.OCSPFailOpen, OCSPFailOpenTrue, "OCSPFailOpen")
 	assertEqualF(t, OCSPEnabled(cfg), false, "disable_ocsp_checks=true plus ocsp_fail_open=true must leave OCSP off")
 	assertEqualF(t, OcspMode(cfg), ocspModeInsecure, "OcspMode")
+}
+
+func TestParseTomlDisableTelemetry(t *testing.T) {
+	for _, key := range []string{"disable_telemetry", "disableTelemetry"} {
+		cfg := &Config{}
+		assertNilF(t, ParseToml(cfg, map[string]any{key: true}), key)
+		assertTrueE(t, cfg.DisableTelemetry, key)
+	}
 }
 
 func TestGetTomlFilePath(t *testing.T) {
