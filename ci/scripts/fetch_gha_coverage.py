@@ -119,7 +119,7 @@ def paginate(url):
 
 
 def resolve_head_sha():
-    change_id = os.environ.get("CHANGE_ID", "").strip()
+    change_id = os.environ.get("CHANGE_ID", "").strip() or os.environ.get("pull_request_number", "").strip()
     if change_id:
         pr = api_json("{0}/pulls/{1}".format(API, change_id))
         sha = pr.get("head", {}).get("sha")
@@ -239,6 +239,32 @@ def download_zip(url):
         resp.close()
 
 
+def _safe_artifact_dirname(name, art_id):
+    """Keep dest as a single directory under OUT_DIR (no path components)."""
+    name = str(name or "")
+    if name != os.path.basename(name) or "/" in name or "\\" in name:
+        sys.exit("refusing artifact name with path components: {0!r}".format(name))
+    art_id = str(art_id or "")
+    if not art_id.isdigit():
+        sys.exit("refusing non-numeric artifact id: {0!r}".format(art_id))
+    return "{0}-{1}".format(name, art_id)
+
+
+def _extract_zip(zf, dest):
+    """Extract zip members only if they resolve inside dest (zip-slip guard)."""
+    dest_resolved = dest.resolve()
+    dest_s = str(dest_resolved)
+    prefix = dest_s + os.sep
+    for info in zf.infolist():
+        target = (dest / info.filename).resolve()
+        target_s = str(target)
+        if target_s != dest_s and not target_s.startswith(prefix):
+            sys.exit(
+                "zip entry escapes {0}: {1!r}".format(dest_resolved, info.filename)
+            )
+        zf.extract(info, str(dest))
+
+
 def download_artifacts(run):
     run_id = run["id"]
     artifacts = paginate("{0}/actions/runs/{1}/artifacts?per_page=100".format(API, run_id))
@@ -258,13 +284,13 @@ def download_artifacts(run):
     count = 0
     for art in wanted:
         name = art["name"]
-        dest = OUT_DIR / name
+        dest = OUT_DIR / _safe_artifact_dirname(name, art.get("id"))
         dest.mkdir(parents=True, exist_ok=True)
         print("downloading {0} ({1} bytes)".format(name, art.get("size_in_bytes")), flush=True)
         blob = download_zip(art["archive_download_url"])
         zf = zipfile.ZipFile(BytesIO(blob))
         try:
-            zf.extractall(str(dest))
+            _extract_zip(zf, dest)
         finally:
             zf.close()
         count += 1
