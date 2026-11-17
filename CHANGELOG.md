@@ -7,6 +7,7 @@ Bug fixes:
 
 Internal changes:
 - Increased the number of idle connections to satisfy parallel chunk download (snowflakedb/gosnowflake#50).
+- Reduced result chunk decompression CPU by requesting gzip explicitly and decoding it with `klauspost/compress` (snowflakedb/gosnowflake#56).
 
 ## 2.4.0
 

@@ -2,7 +2,6 @@ package gosnowflake
 
 import (
 	"bufio"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +21,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	"github.com/klauspost/compress/gzip"
 )
 
 var (
@@ -407,6 +408,19 @@ func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) 
 	logger.Debugf("“Processed %v chunk %v out of %v. It took %v ms. Chunk size: %v, rows: %v”.", scd.getQueryResultFormat(), idx+1, len(scd.ChunkMetas), elapsedTime, scd.ChunkMetas[idx].UncompressedSize, scd.ChunkMetas[idx].RowCount)
 }
 
+// ensureGzipAcceptEncoding asks for gzip unless the headers already set
+// Accept-Encoding under any casing. Setting it stops net/http from
+// transparently decompressing the body, so the gzip magic-byte check in the
+// chunk download paths decodes it instead.
+func ensureGzipAcceptEncoding(headers map[string]string) {
+	for k := range headers {
+		if strings.EqualFold(k, "Accept-Encoding") {
+			return
+		}
+	}
+	headers["Accept-Encoding"] = "gzip"
+}
+
 func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx int) error {
 	headers := make(map[string]string)
 	if len(scd.ChunkHeader) > 0 {
@@ -420,6 +434,7 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 		headers[headerSseCAlgorithm] = headerSseCAes
 		headers[headerSseCKey] = scd.Qrmk
 	}
+	ensureGzipAcceptEncoding(headers)
 
 	resp, err := scd.FuncGet(ctx, scd.sc, scd.ChunkMetas[idx].URL, headers, scd.sc.rest.RequestTimeout)
 	if err != nil {

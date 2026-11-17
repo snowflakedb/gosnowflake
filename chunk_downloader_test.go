@@ -7,6 +7,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -158,6 +160,87 @@ func TestDownloadChunkHelperArrowCancellationUnblocksStalledRead(t *testing.T) {
 	assertErrIsF(t, err, context.Canceled, "interrupted Arrow chunk downloads should surface context cancellation")
 	assertFalseF(t, errors.Is(err, terminalErr), "interrupted Arrow chunk downloads should not leak transport close errors")
 	assertTrueF(t, body.closed.Load(), "cancellation should close the underlying response body")
+}
+
+// recordingRoundTripper records what net/http did with a chunk request:
+// the Accept-Encoding the driver set, and whether net/http decompressed the body.
+type recordingRoundTripper struct {
+	inner          http.RoundTripper
+	acceptEncoding string
+	uncompressed   bool
+}
+
+func (rt *recordingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := rt.inner.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	rt.acceptEncoding = req.Header.Get("Accept-Encoding")
+	rt.uncompressed = resp.Uncompressed
+	return resp, nil
+}
+
+func TestDownloadChunkHelperRequestsGzipAndDecodesChunk(t *testing.T) {
+	payload := []byte(`["value"]`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Encoding", "gzip")
+		_, _ = w.Write(gzipBytes(payload))
+	}))
+	defer server.Close()
+
+	rt := &recordingRoundTripper{inner: http.DefaultTransport}
+	scd := newCancelableTestChunkDownloader(context.Background(), nil)
+	scd.ChunkMetas[0].URL = server.URL + "/chunk"
+	scd.FuncGet = getChunk
+	scd.sc.rest.Client = &http.Client{Transport: rt}
+	scd.sc.rest.MaxRetryCount = 1
+	scd.sc.currentTimeProvider = constTimeProvider(0)
+	scd.Chunks = make(map[int][]chunkRowType)
+	scd.ChunksMutex = &sync.Mutex{}
+
+	err := downloadChunkHelper(context.Background(), scd, 0)
+	assertNilF(t, err, "chunk download should succeed")
+	assertEqualE(t, rt.acceptEncoding, "gzip", "chunk request should ask for gzip explicitly")
+	assertFalseE(t, rt.uncompressed, "net/http should not decompress the chunk, so the driver's gzip check should decode it")
+	assertEqualF(t, len(scd.Chunks[0]), 1, "chunk should contain one row")
+	assertEqualF(t, len(scd.Chunks[0][0].RowSet), 1, "row should contain one value")
+	assertNotNilF(t, scd.Chunks[0][0].RowSet[0], "value should not be NULL")
+	assertEqualE(t, *scd.Chunks[0][0].RowSet[0], "value", "decoded chunk value should match the payload")
+}
+
+func TestEnsureGzipAcceptEncoding(t *testing.T) {
+	tcs := []struct {
+		name     string
+		headers  map[string]string
+		expected map[string]string
+	}{
+		{
+			name:     "no Accept-Encoding sets gzip",
+			headers:  map[string]string{},
+			expected: map[string]string{"Accept-Encoding": "gzip"},
+		},
+		{
+			name:     "server Accept-Encoding is kept",
+			headers:  map[string]string{"Accept-Encoding": "identity"},
+			expected: map[string]string{"Accept-Encoding": "identity"},
+		},
+		{
+			name:     "server lowercase accept-encoding is kept without a duplicate key",
+			headers:  map[string]string{"accept-encoding": "identity"},
+			expected: map[string]string{"accept-encoding": "identity"},
+		},
+		{
+			name:     "other headers are left alone",
+			headers:  map[string]string{"x-amz-server-side-encryption": "AES256"},
+			expected: map[string]string{"x-amz-server-side-encryption": "AES256", "Accept-Encoding": "gzip"},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ensureGzipAcceptEncoding(tc.headers)
+			assertDeepEqualE(t, tc.headers, tc.expected, "headers should match after ensuring gzip")
+		})
+	}
 }
 
 func TestChunkDownloaderNextCancellationUnblocksWaitingRows(t *testing.T) {
