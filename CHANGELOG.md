@@ -9,6 +9,9 @@ Internal changes:
 - Increased the number of idle connections to satisfy parallel chunk download (snowflakedb/gosnowflake#50).
 - Reduced result chunk decompression CPU by requesting gzip explicitly and decoding it with `klauspost/compress` (snowflakedb/gosnowflake#56).
 
+Bug fixes:
+- Fixed a panic during Okta native SSO authentication when the identity provider's response contains a form whose `action` is not an absolute URL. The driver now returns the SSO URL mismatch error instead (snowflakedb/gosnowflake#58).
+
 ## 2.4.0
 
 New features:

@@ -19,6 +19,15 @@ func TestUnitPostBackURL(t *testing.T) {
 	if pbURL.String() != "https://abc.com/" {
 		t.Errorf("failed to get URL. got: %v, %v", pbURL, c)
 	}
+	// A relative action used to panic (nil pointer dereference) because the named result shadowed the url package.
+	c = `<html><form id="1" action="&#x2f;login&#x2f;callback"></form></html>`
+	pbURL, err = postBackURL([]byte(c))
+	if err != nil {
+		t.Fatalf("failed to get URL. err: %v, %v", err, c)
+	}
+	if pbURL.Host != "" || pbURL.Path != "/login/callback" {
+		t.Errorf("failed to get URL. got: %v, %v", pbURL, c)
+	}
 	c = `<html></html>`
 	_, err = postBackURL([]byte(c))
 	if err == nil {

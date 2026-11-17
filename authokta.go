@@ -179,7 +179,7 @@ func authenticateBySAML(
 	return bd, nil
 }
 
-func postBackURL(htmlData []byte) (url *url.URL, err error) {
+func postBackURL(htmlData []byte) (*url.URL, error) {
 	idx0 := bytes.Index(htmlData, []byte("<form"))
 	if idx0 < 0 {
 		return nil, fmt.Errorf("failed to find a form tag in HTML response: %v", htmlData)
