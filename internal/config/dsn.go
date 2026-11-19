@@ -883,7 +883,28 @@ func authRequiresToken(cfg *Config) bool {
 }
 
 func authRequiresClientIDAndSecret(cfg *Config) bool {
-	return cfg.Authenticator == AuthTypeOAuthAuthorizationCode
+	if cfg.Authenticator != AuthTypeOAuthAuthorizationCode {
+		return false
+	}
+	// The authorization-code flow falls back to the built-in LOCAL_APPLICATION
+	// client when no client ID or secret is configured and Snowflake is the
+	// identity provider (see eligibleForDefaultClientCredentials in
+	// auth_oauth.go). In that case empty credentials are valid, so validation
+	// must not reject them here.
+	return !oauthAuthorizationCodeUsesDefaultClient(cfg)
+}
+
+// oauthAuthorizationCodeUsesDefaultClient mirrors
+// eligibleForDefaultClientCredentials in auth_oauth.go: it reports whether
+// the authorization-code flow will use the built-in LOCAL_APPLICATION client
+// because no client ID/secret is configured and Snowflake is the IdP. The
+// Host != "" guards keep the check conservative while the host has not been
+// derived yet: strings.Contains(url, "") is always true, so without them a
+// custom IdP URL would wrongly look like a Snowflake one.
+func oauthAuthorizationCodeUsesDefaultClient(cfg *Config) bool {
+	return cfg.OauthClientID == "" && cfg.OauthClientSecret == "" &&
+		(cfg.OauthAuthorizationURL == "" || (cfg.Host != "" && strings.Contains(cfg.OauthAuthorizationURL, cfg.Host))) &&
+		(cfg.OauthTokenRequestURL == "" || (cfg.Host != "" && strings.Contains(cfg.OauthTokenRequestURL, cfg.Host)))
 }
 
 // transformAccountToHost transforms account to host
