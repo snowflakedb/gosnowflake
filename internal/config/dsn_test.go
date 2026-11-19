@@ -707,6 +707,23 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
+			dsn: "u:p@a?database=d&schema=s&role=r&application=aa&authenticator=snowflake&disableOCSPChecks=true&disableTelemetry=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
+				Database: "d", Schema: "s", Role: "r", Authenticator: AuthTypeSnowflake, Application: "aa",
+				DisableOCSPChecks: true, DisableTelemetry: true,
+				ValidateDefaultParameters: BoolTrue,
+				ClientTimeout:             time.Duration(DefaultClientTimeout),
+				JWTClientTimeout:          time.Duration(DefaultJWTClientTimeout),
+				ExternalBrowserTimeout:    time.Duration(DefaultExternalBrowserTimeout),
+				CloudStorageTimeout:       defaultCloudStorageTimeout,
+				IncludeRetryReason:        BoolTrue,
+			},
+			ocspMode: ocspModeInsecure,
+			err:      nil,
+		},
+		{
 			dsn: "u:p@a?database=d&schema=s&role=r&application=aa&authenticator=snowflake&disableOCSPChecks=true&passcode=pp&passcodeInPassword=true",
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
@@ -1860,6 +1877,15 @@ func TestDSN(t *testing.T) {
 				DisableOCSPChecks: true,
 			},
 			dsn: "u:p@a.snowflakecomputing.com:443?disableOCSPChecks=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:             "u",
+				Password:         "p",
+				Account:          "a",
+				DisableTelemetry: true,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?disableTelemetry=true&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
