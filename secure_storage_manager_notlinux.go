@@ -32,8 +32,9 @@ func newKeyringBasedSecureStorageManager() *keyringSecureStorageManager {
 
 func tokenKeyringConfig() keyring.Config {
 	return keyring.Config{
-		ServiceName:   keyringServiceName,
-		WinCredPrefix: keyringServiceName,
+		ServiceName:              keyringServiceName,
+		WinCredPrefix:            keyringServiceName,
+		KeychainTrustApplication: true,
 	}
 }
 

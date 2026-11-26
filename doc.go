@@ -1200,6 +1200,21 @@ or using a Config structure with following ExternalBrowserTimeout specified:
 		ExternalBrowserTimeout: 240 * time.Second, // Requires time.Duration
 	}
 
+# Token cache
+
+When MFA token caching, external browser ID token caching, or OAuth token caching is enabled, the driver stores tokens
+in the macOS Keychain or the Windows Credential Manager under the service "snowflake_credential_cache",
+and in the credential_cache_v2.json file on Linux.
+
+On macOS, a Keychain entry trusts the application that created it, so that application reads it without a prompt.
+macOS identifies an application that is not Developer ID signed by its exact build. After such an application is rebuilt
+or upgraded, macOS asks again before it can read the entries, and the new build cannot delete entries created by the old one.
+Developer ID signed applications keep the same identity across builds.
+
+Entries created by earlier driver versions trust no application, so every read prompts, even after "Always Allow".
+A Keychain entry keeps the access list it was created with, so remove the "snowflake_credential_cache" entries
+in Keychain Access once after upgrading; the driver creates new entries on the next login.
+
 # Executing Multiple Statements in One Call
 
 This feature is available in version 1.3.8 or later of the driver.

@@ -6,6 +6,7 @@ Bug fixes:
 - Fixed Arrow batch conversion of TIME columns so the column scale is applied. Values at TIME(0)–TIME(8) were treated as nanoseconds since midnight, so TIME(3) came out 10^6 too small (snowflakedb/gosnowflake#55).
 - Fixed a panic during Okta native SSO authentication when the identity provider's response contains a form whose `action` is not an absolute URL. The driver now returns the SSO URL mismatch error instead (snowflakedb/gosnowflake#58).
 - Fixed `GET` failing with `264002: cannot find executable path` when `os.Executable()` is unavailable. Relative `PUT` source paths still resolve next to the executable and now fall back to the working directory when the executable path is unavailable (snowflakedb/gosnowflake#59).
+- Fixed repeated macOS Keychain prompts for cached tokens: new entries now trust the application that created them instead of trusting no application. Existing entries keep their old access list until deleted, so remove the `snowflake_credential_cache` entries in Keychain Access once after upgrading. Applications that are not Developer ID signed are still prompted after each rebuild or upgrade, because macOS identifies them by their exact build (snowflakedb/gosnowflake#63).
 
 Internal changes:
 - Increased the number of idle connections to satisfy parallel chunk download (snowflakedb/gosnowflake#50).

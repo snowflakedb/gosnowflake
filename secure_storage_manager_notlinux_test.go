@@ -14,6 +14,10 @@ func TestTokenKeyringConfigUsesSharedServiceName(t *testing.T) {
 	assertEqualE(t, cfg.WinCredPrefix, "snowflake_credential_cache")
 }
 
+func TestTokenKeyringConfigTrustsCreatingApplication(t *testing.T) {
+	assertTrueE(t, tokenKeyringConfig().KeychainTrustApplication, "macOS Keychain entries must trust the application that created them, otherwise every read prompts")
+}
+
 func TestKeyringStoresTokenUnderCacheKey(t *testing.T) {
 	for _, tc := range []struct {
 		name string
