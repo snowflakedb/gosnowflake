@@ -2,6 +2,9 @@
 
 ## Upcoming release
 
+New features:
+- Added `Config.DisableTelemetry`, the `disableTelemetry` DSN parameter and the `disable_telemetry` connection file key to turn off in-band telemetry on the client, as the Python and JDBC drivers allow. Telemetry stays on by default and still needs the server's `CLIENT_TELEMETRY_ENABLED`. v2.0.0 pointed users to that session parameter instead, but customer accounts cannot set it: the login request drops it, and `ALTER SESSION` rejects it with `001006 invalid parameter` (snowflakedb/gosnowflake#1865).
+
 Bug fixes:
 - Fixed Arrow batch conversion of TIME columns so the column scale is applied. Values at TIME(0)–TIME(8) were treated as nanoseconds since midnight, so TIME(3) came out 10^6 too small (snowflakedb/gosnowflake#55).
 - Fixed a panic during Okta native SSO authentication when the identity provider's response contains a form whose `action` is not an absolute URL. The driver now returns the SSO URL mismatch error instead (snowflakedb/gosnowflake#58).

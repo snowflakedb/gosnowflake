@@ -77,14 +77,15 @@ config := &gosnowflake.Config{
 config := &gosnowflake.Config{
     ServerSessionKeepAlive: true,  // Renamed for consistency with other drivers
     DisableOCSPChecks: true,        // Replaces InsecureMode
-    // DisableTelemetry removed - use CLIENT_TELEMETRY_ENABLED session parameter
+    DisableTelemetry: true,         // Removed in v2.0.0, available again; see below
 }
 ```
 
 **Removed fields:**
 - `ClientIP` - No longer used
 - `MfaToken` and `IdToken` - Now unexported
-- `DisableTelemetry` - Use `CLIENT_TELEMETRY_ENABLED` session parameter instead
+
+**Telemetry:** in-band telemetry is sent only when the server enables it through `CLIENT_TELEMETRY_ENABLED`, a parameter customer accounts cannot set. To turn it off on the client, set `DisableTelemetry` (DSN parameter `disableTelemetry`, connection file key `disable_telemetry`).
 
 #### 4. Logger Changes
 

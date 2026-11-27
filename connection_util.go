@@ -266,6 +266,9 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 }
 
 func (sc *snowflakeConn) configureTelemetry() {
+	if sc.cfg != nil && sc.cfg.DisableTelemetry {
+		return
+	}
 	telemetryEnabled, ok := sc.syncParams.get("client_telemetry_enabled")
 	// In-band telemetry is enabled by default on the backend side.
 	if ok && telemetryEnabled != nil && *telemetryEnabled == "true" {
