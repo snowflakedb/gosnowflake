@@ -317,7 +317,7 @@ func TestParseDSN(t *testing.T) {
 			err:      sferrors.ErrEmptyUsername(),
 		},
 		{
-			dsn: "@host:123/db/schema?account=ac&protocol=http&authenticator=oauth_authorization_code",
+			dsn: "@host:123/db/schema?account=ac&protocol=http&authenticator=oauth_authorization_code&oauthAuthorizationUrl=https%3A%2F%2Fidp.example.com%2Foauth%2Fauthorize",
 			config: &Config{
 				Account: "ac", User: "user", Password: "pass",
 				Protocol: "http", Host: "host", Port: 123,
@@ -1425,6 +1425,70 @@ type tcDSN struct {
 	err error
 }
 
+// TestParseDSN_OAuthAuthorizationCodeDefaultClient covers #1867: with
+// AuthTypeOAuthAuthorizationCode and no client ID/secret, validation must
+// pass when the built-in LOCAL_APPLICATION fallback applies (Snowflake as
+// IdP), and must still fail with 260017 otherwise.
+func TestParseDSN_OAuthAuthorizationCodeDefaultClient(t *testing.T) {
+	// No credentials, Snowflake as IdP (default URLs): the
+	// LOCAL_APPLICATION fallback applies, so parsing succeeds.
+	cfg, err := ParseDSN("user@myacct?authenticator=oauth_authorization_code")
+	assertNilF(t, err, "ParseDSN should accept empty client ID/secret when the LOCAL_APPLICATION fallback applies")
+	assertEqualE(t, cfg.Authenticator, AuthTypeOAuthAuthorizationCode, "authenticator mismatch")
+	assertEqualE(t, cfg.OauthClientID, "", "client ID should stay empty (filled in by the fallback at auth time)")
+
+	// Same, but through a Config struct (the Connector.Connect path).
+	structCfg := &Config{
+		Account:       "myacct",
+		Host:          "myacct.snowflakecomputing.com",
+		User:          "user",
+		Role:          "SOME_ROLE",
+		Authenticator: AuthTypeOAuthAuthorizationCode,
+	}
+	assertNilF(t, FillMissingConfigParameters(structCfg), "FillMissingConfigParameters should accept empty client ID/secret when the LOCAL_APPLICATION fallback applies")
+
+	// Explicit LOCAL_APPLICATION credentials still parse (control case).
+	_, err = ParseDSN("user@myacct?authenticator=oauth_authorization_code&oauthClientId=LOCAL_APPLICATION&oauthClientSecret=LOCAL_APPLICATION")
+	assertNilF(t, err, "ParseDSN should accept explicit LOCAL_APPLICATION credentials")
+
+	// Region case: the authorization URL names the region-qualified host,
+	// which only exists after FillMissingConfigParameters patches Host up
+	// from the region parameter. Validation must accept it.
+	_, err = ParseDSN("user@myacct?authenticator=oauth_authorization_code&region=eu-central-1&oauthAuthorizationUrl=https%3A%2F%2Fmyacct.eu-central-1.snowflakecomputing.com%2Foauth%2Fauthorize")
+	assertNilF(t, err, "ParseDSN should accept the region-qualified Snowflake authorization URL")
+
+	// Same, through a Config struct with Account set but no Host.
+	regionCfg := &Config{
+		Account:               "myacct",
+		Region:                "eu-central-1",
+		User:                  "user",
+		Authenticator:         AuthTypeOAuthAuthorizationCode,
+		OauthAuthorizationURL: "https://myacct.eu-central-1.snowflakecomputing.com/oauth/authorize",
+	}
+	assertNilF(t, FillMissingConfigParameters(regionCfg), "FillMissingConfigParameters should accept the region-qualified Snowflake authorization URL")
+
+	// No credentials, custom IdP: the fallback does not apply, so the
+	// 260017 error is still returned.
+	_, err = ParseDSN("user@myacct?authenticator=oauth_authorization_code&oauthAuthorizationUrl=https%3A%2F%2Fidp.example.com%2Foauth%2Fauthorize")
+	assertOAuthParametersError(t, err)
+
+	// Only a client ID, no secret: the fallback needs both empty, so the
+	// 260017 error is still returned.
+	_, err = ParseDSN("user@myacct?authenticator=oauth_authorization_code&oauthClientId=some-id")
+	assertOAuthParametersError(t, err)
+}
+
+func assertOAuthParametersError(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected ErrEmptyOAuthParameters (260017), got nil")
+	}
+	driverErr, ok := err.(*sferrors.SnowflakeError)
+	if !ok || driverErr.Number != sferrors.ErrEmptyOAuthParameters().Number {
+		t.Fatalf("expected ErrEmptyOAuthParameters (260017), got: %v", err)
+	}
+}
+
 func TestDSN(t *testing.T) {
 	tmfmt := "MM-DD-YYYY"
 	testcases := []tcDSN{
@@ -1616,10 +1680,11 @@ func TestDSN(t *testing.T) {
 		},
 		{
 			cfg: &Config{
-				User:          "u",
-				Password:      "p",
-				Account:       "ac",
-				Authenticator: AuthTypeOAuthAuthorizationCode,
+				User:                  "u",
+				Password:              "p",
+				Account:               "ac",
+				Authenticator:         AuthTypeOAuthAuthorizationCode,
+				OauthAuthorizationURL: "https://idp.example.com/oauth/authorize",
 			},
 			err: sferrors.ErrEmptyOAuthParameters(),
 		},

@@ -245,12 +245,7 @@ func (oauthClient *oauthClient) buildAuthorizationCodeConfig(callbackPort int) *
 	}
 }
 func (oauthClient *oauthClient) eligibleForDefaultClientCredentials() bool {
-	return oauthClient.cfg.OauthClientID == "" && oauthClient.cfg.OauthClientSecret == "" && oauthClient.isSnowflakeAsIDP()
-}
-
-func (oauthClient *oauthClient) isSnowflakeAsIDP() bool {
-	return (oauthClient.cfg.OauthAuthorizationURL == "" || strings.Contains(oauthClient.cfg.OauthAuthorizationURL, oauthClient.cfg.Host)) &&
-		(oauthClient.cfg.OauthTokenRequestURL == "" || strings.Contains(oauthClient.cfg.OauthTokenRequestURL, oauthClient.cfg.Host))
+	return oauthClient.cfg.EligibleForDefaultOAuthClientCredentials()
 }
 
 func (oauthClient *oauthClient) authorizationURL() string {
