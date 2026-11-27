@@ -1451,6 +1451,22 @@ func TestParseDSN_OAuthAuthorizationCodeDefaultClient(t *testing.T) {
 	_, err = ParseDSN("user@myacct?authenticator=oauth_authorization_code&oauthClientId=LOCAL_APPLICATION&oauthClientSecret=LOCAL_APPLICATION")
 	assertNilF(t, err, "ParseDSN should accept explicit LOCAL_APPLICATION credentials")
 
+	// Region case: the authorization URL names the region-qualified host,
+	// which only exists after FillMissingConfigParameters patches Host up
+	// from the region parameter. Validation must accept it.
+	_, err = ParseDSN("user@myacct?authenticator=oauth_authorization_code&region=eu-central-1&oauthAuthorizationUrl=https%3A%2F%2Fmyacct.eu-central-1.snowflakecomputing.com%2Foauth%2Fauthorize")
+	assertNilF(t, err, "ParseDSN should accept the region-qualified Snowflake authorization URL")
+
+	// Same, through a Config struct with Account set but no Host.
+	regionCfg := &Config{
+		Account:               "myacct",
+		Region:                "eu-central-1",
+		User:                  "user",
+		Authenticator:         AuthTypeOAuthAuthorizationCode,
+		OauthAuthorizationURL: "https://myacct.eu-central-1.snowflakecomputing.com/oauth/authorize",
+	}
+	assertNilF(t, FillMissingConfigParameters(regionCfg), "FillMissingConfigParameters should accept the region-qualified Snowflake authorization URL")
+
 	// No credentials, custom IdP: the fallback does not apply, so the
 	// 260017 error is still returned.
 	_, err = ParseDSN("user@myacct?authenticator=oauth_authorization_code&oauthAuthorizationUrl=https%3A%2F%2Fidp.example.com%2Foauth%2Fauthorize")
