@@ -11,6 +11,12 @@ Bug fixes:
 Internal changes:
 - Increased the number of idle connections to satisfy parallel chunk download (snowflakedb/gosnowflake#50).
 - Reduced result chunk decompression CPU by requesting gzip explicitly and decoding it with `klauspost/compress` (snowflakedb/gosnowflake#56).
+- Bumped a few libraries to fix vulnerabilities (snowflakedb/gosnowflake#64):
+  - `github.com/klauspost/compress`: v1.18.0 → v1.20.2
+  - `go.opentelemetry.io/otel`: v1.40.0 → v1.46.0
+  - `golang.org/x/crypto`: v0.46.0 → v0.51.0
+  - `golang.org/x/net`: v0.48.0 → v0.54.0
+  - `golang.org/x/sys`: v0.40.0 → v0.44.0
 
 ## 2.4.0
 
