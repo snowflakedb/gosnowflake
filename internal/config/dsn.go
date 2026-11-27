@@ -582,10 +582,6 @@ func FillMissingConfigParameters(cfg *Config) error {
 	if authRequiresToken(cfg) && strings.TrimSpace(cfg.Token) == "" && strings.TrimSpace(cfg.TokenFilePath) == "" {
 		return sferrors.ErrEmptyToken()
 	}
-
-	if authRequiresClientIDAndSecret(cfg) && (strings.TrimSpace(cfg.OauthClientID) == "" || strings.TrimSpace(cfg.OauthClientSecret) == "") {
-		return sferrors.ErrEmptyOAuthParameters()
-	}
 	if strings.Trim(cfg.Protocol, " ") == "" {
 		cfg.Protocol = "https"
 	}
@@ -626,6 +622,12 @@ func FillMissingConfigParameters(cfg *Config) error {
 	// which has different, looser correctness requirements.
 	if cfg.Authenticator == AuthTypeWorkloadIdentityFederation && !isSnowflakeHostForWorkloadIdentity(cfg.Host) {
 		return sferrors.ErrWifNonSnowflakeHost(cfg.Host)
+	}
+	// This check runs after the host derivation above (like the WIF host
+	// check) so EligibleForDefaultOAuthClientCredentials sees the final
+	// Host, including any region patch-up or account-based default.
+	if authRequiresClientIDAndSecret(cfg) && (strings.TrimSpace(cfg.OauthClientID) == "" || strings.TrimSpace(cfg.OauthClientSecret) == "") {
+		return sferrors.ErrEmptyOAuthParameters()
 	}
 	if cfg.LoginTimeout == 0 {
 		cfg.LoginTimeout = DefaultLoginTimeout
@@ -888,23 +890,25 @@ func authRequiresClientIDAndSecret(cfg *Config) bool {
 	}
 	// The authorization-code flow falls back to the built-in LOCAL_APPLICATION
 	// client when no client ID or secret is configured and Snowflake is the
-	// identity provider (see eligibleForDefaultClientCredentials in
-	// auth_oauth.go). In that case empty credentials are valid, so validation
-	// must not reject them here.
-	return !oauthAuthorizationCodeUsesDefaultClient(cfg)
+	// identity provider. In that case empty credentials are valid, so
+	// validation must not reject them here.
+	return !cfg.EligibleForDefaultOAuthClientCredentials()
 }
 
-// oauthAuthorizationCodeUsesDefaultClient mirrors
-// eligibleForDefaultClientCredentials in auth_oauth.go: it reports whether
-// the authorization-code flow will use the built-in LOCAL_APPLICATION client
-// because no client ID/secret is configured and Snowflake is the IdP. The
-// Host != "" guards keep the check conservative while the host has not been
-// derived yet: strings.Contains(url, "") is always true, so without them a
-// custom IdP URL would wrongly look like a Snowflake one.
-func oauthAuthorizationCodeUsesDefaultClient(cfg *Config) bool {
-	return cfg.OauthClientID == "" && cfg.OauthClientSecret == "" &&
-		(cfg.OauthAuthorizationURL == "" || (cfg.Host != "" && strings.Contains(cfg.OauthAuthorizationURL, cfg.Host))) &&
-		(cfg.OauthTokenRequestURL == "" || (cfg.Host != "" && strings.Contains(cfg.OauthTokenRequestURL, cfg.Host)))
+// EligibleForDefaultOAuthClientCredentials reports whether the
+// authorization-code flow will use the built-in LOCAL_APPLICATION client
+// because no client ID/secret is configured and Snowflake is the identity
+// provider. This is the single predicate shared by validation
+// (authRequiresClientIDAndSecret) and authentication
+// (oauthClient.eligibleForDefaultClientCredentials in auth_oauth.go), so the
+// two can never drift apart. Callers must invoke it after Host has been
+// derived (see FillMissingConfigParameters): with Host still empty,
+// strings.Contains(url, "") is always true and a custom IdP URL would
+// wrongly look like a Snowflake one.
+func (c *Config) EligibleForDefaultOAuthClientCredentials() bool {
+	return c.OauthClientID == "" && c.OauthClientSecret == "" &&
+		(c.OauthAuthorizationURL == "" || strings.Contains(c.OauthAuthorizationURL, c.Host)) &&
+		(c.OauthTokenRequestURL == "" || strings.Contains(c.OauthTokenRequestURL, c.Host))
 }
 
 // transformAccountToHost transforms account to host
